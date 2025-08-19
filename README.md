@@ -150,13 +150,87 @@ Run the following script to automate the installation process:
 # Install all dependencies including gunicorn for production
 ./install.sh
 ```
-### **5️⃣ Configure & Setup**
+
+The installation script will:
+- ✅ Install all Python dependencies
+- ✅ Create necessary directories and files
+- ✅ Set up environment configuration
+- ✅ Update database schema automatically
+- ✅ Configure and start systemd service
+- ✅ Validate the installation
+- ✅ Open browser to verify the service
+
+### **5️⃣ Verify Installation**
+After installation, verify everything is working:
+```bash
+# Check installation status
+python scripts/validate_installation.py
+
+# Check service status
+sudo systemctl status aicamera_v1.3.service
+
+# View service logs
+sudo journalctl -u aicamera_v1.3.service -f
+```
+### **6️⃣ Configure & Setup**
 - ตั้งค่า **Camera Module 3**
 - **Camera Module 3**: ตั้งค่าแสง โฟกัส และความคมชัด
 - ตรวจสอบ **Hailo 8 AI Accelerator**
 - **Hailo 8 AI Accelerator**: โหลดโมเดล YOLOv8  
 - ตั้งค่า **Systemd สำหรับการรันอัตโนมัติ**
-- **Systemd**: ตั้งค่าให้ระบบทำงานอัตโนมัติ  
+- **Systemd**: ตั้งค่าให้ระบบทำงานอัตโนมัติ
+
+## 🛠️ Troubleshooting
+
+### **Common Issues**
+
+#### **WebSocket Logging Errors**
+If you see "Error logging WebSocket action" in the logs:
+```bash
+# Update database schema
+python v1_3/scripts/update_database_schema.py
+
+# Restart service
+sudo systemctl restart aicamera_v1.3.service
+```
+
+#### **Service Won't Start**
+```bash
+# Check service status
+sudo systemctl status aicamera_v1.3.service
+
+# View detailed logs
+sudo journalctl -u aicamera_v1.3.service -f
+
+# Validate installation
+python scripts/validate_installation.py
+```
+
+#### **Configuration Issues**
+```bash
+# Validate configuration
+python scripts/validate_config.py
+
+# Check environment file
+cat .env.production
+```
+
+### **Useful Commands**
+```bash
+# Service management
+sudo systemctl start aicamera_v1.3.service
+sudo systemctl stop aicamera_v1.3.service
+sudo systemctl restart aicamera_v1.3.service
+sudo systemctl status aicamera_v1.3.service
+
+# Log viewing
+sudo journalctl -u aicamera_v1.3.service -f
+sudo journalctl -u aicamera_v1.3.service --since "1 hour ago"
+
+# Validation
+python scripts/validate_installation.py
+python scripts/validate_config.py
+```  
 
 ---
 

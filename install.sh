@@ -131,6 +131,22 @@ else
     echo "✅ .env.production file already exists"
 fi
 
+# Update database schema
+echo "🔧 Updating database schema..."
+if [[ -f "v1_3/scripts/update_database_schema.py" ]]; then
+    echo "Running database schema update..."
+    if python v1_3/scripts/update_database_schema.py; then
+        echo "✅ Database schema updated successfully"
+    else
+        echo "❌ Database schema update failed"
+        echo "⚠️  This may cause WebSocket logging errors"
+        echo "📋 You can manually run: python v1_3/scripts/update_database_schema.py"
+    fi
+else
+    echo "⚠️  Database schema update script not found"
+    echo "📋 Please ensure v1_3/scripts/update_database_schema.py exists"
+fi
+
 # Setup and start systemd service
 echo "Setting up systemd service..."
 if [[ -f "systemd_service/aicamera_v1.3.service" ]]; then
@@ -176,6 +192,19 @@ fi
 
 echo "🎉 Installation completed successfully!"
 echo "🚀 Production environment is ready!"
+
+# Run validation
+echo ""
+echo "🔍 Running installation validation..."
+if python scripts/validate_installation.py; then
+    echo "✅ Installation validation completed"
+else
+    echo "⚠️  Installation validation found issues"
+    echo "📋 Please review the validation output above"
+fi
+
+echo ""
 echo "📋 Service Status: sudo systemctl status aicamera_v1.3.service"
 echo "📋 Service Logs: sudo journalctl -u aicamera_v1.3.service -f"
 echo "🌐 Web Interface: http://localhost:5000"
+echo "🔍 Validation: python scripts/validate_installation.py"

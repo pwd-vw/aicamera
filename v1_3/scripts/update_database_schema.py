@@ -16,10 +16,16 @@ import sys
 from pathlib import Path
 
 # Add project root to path
-project_root = Path(__file__).parent.parent
+project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from v1_3.src.core.config import DATABASE_PATH
+# Try to import config, fallback to default if not available
+try:
+    from v1_3.src.core.config import DATABASE_PATH
+except ImportError:
+    # Fallback to default database path
+    DATABASE_PATH = "db/lpr_data.db"
+    print(f"⚠️  Could not import config, using default database path: {DATABASE_PATH}")
 
 def update_database_schema():
     """Update database schema for WebSocket sender support."""
@@ -27,6 +33,11 @@ def update_database_schema():
     print("🔧 Updating database schema for WebSocket sender support...")
     
     try:
+        # Ensure database directory exists
+        db_dir = Path(DATABASE_PATH).parent
+        db_dir.mkdir(parents=True, exist_ok=True)
+        print(f"📁 Database directory: {db_dir}")
+        
         # Connect to database
         conn = sqlite3.connect(DATABASE_PATH)
         cursor = conn.cursor()
