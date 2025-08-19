@@ -25,11 +25,7 @@ from pathlib import Path
 import json
 import queue
 
-from picamera2 import Picamera2
-from picamera2.encoders import H264Encoder, MJPEGEncoder
-from picamera2.outputs import FileOutput
-from picamera2.controls import Controls
-from libcamera import controls
+import os
 import cv2
 import numpy as np
 from v1_3.src.core.utils.logging_config import get_logger
@@ -189,7 +185,18 @@ class CameraHandler:
                     time.sleep(1.0)  # Give more time to release resources
                 
                 self.logger.info("Initializing camera...")
-                
+
+                # Guard: ensure device present and modules available
+                if not (os.path.exists('/dev/video0') or os.path.exists('/dev/media0')):
+                    self.logger.warning("No camera device found (/dev/video0 or /dev/media0). Skipping camera initialization.")
+                    return False
+
+                try:
+                    from picamera2 import Picamera2
+                except Exception as e:
+                    self.logger.warning(f"Picamera2 not available: {e}. Running without camera.")
+                    return False
+
                 # Create Picamera2 instance
                 self.picam2 = Picamera2()
                 
@@ -735,6 +742,11 @@ class CameraHandler:
                 self.logger.info(f"Starting recording: {filename}")
                 
                 # Create encoder and start recording
+                try:
+                    from picamera2.encoders import H264Encoder
+                except Exception as e:
+                    self.logger.error(f"Failed to import H264Encoder: {e}")
+                    return False
                 self.recording_encoder = H264Encoder(bitrate)
                 self.recording_file = filename
                 
@@ -973,10 +985,16 @@ class CameraHandler:
                     self.logger.error("Camera not streaming")
                     return False
                 
+                try:
+                    from libcamera import controls as lc_controls
+                except Exception as e:
+                    self.logger.error(f"libcamera controls not available: {e}")
+                    return False
+
                 mode_map = {
-                    'Manual': controls.AfModeEnum.Manual,
-                    'Auto': controls.AfModeEnum.Auto,
-                    'Continuous': controls.AfModeEnum.Continuous
+                    'Manual': lc_controls.AfModeEnum.Manual,
+                    'Auto': lc_controls.AfModeEnum.Auto,
+                    'Continuous': lc_controls.AfModeEnum.Continuous
                 }
                 
                 if mode not in mode_map:

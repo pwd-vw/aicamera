@@ -145,7 +145,7 @@ python scripts/validate_config.py
 ```
 
 ### **4️⃣ Install Dependencies**
-Run the following script to automate the installation process:
+Run the following script to automate the installation process (installs Python deps, initializes DB, sets up systemd, configures Nginx proxy on port 80 to Gunicorn unix socket):
 ```bash
 # Install all dependencies including gunicorn for production
 ./install.sh
@@ -155,8 +155,9 @@ The installation script will:
 - ✅ Install all Python dependencies
 - ✅ Create necessary directories and files
 - ✅ Set up environment configuration
-- ✅ Update database schema automatically
-- ✅ Configure and start systemd service
+- ✅ Initialize database schema up-front (fresh installs)
+- ✅ Configure and start systemd service (Gunicorn via unix:/tmp/aicamera.sock)
+- ✅ Install and configure Nginx (port 80) to proxy to Gunicorn socket
 - ✅ Validate the installation
 - ✅ Open browser to verify the service
 
@@ -166,11 +167,10 @@ After installation, verify everything is working:
 # Check installation status
 python scripts/validate_installation.py
 
-# Check service status
+# Check service and proxy
 sudo systemctl status aicamera_v1.3.service
-
-# View service logs
-sudo journalctl -u aicamera_v1.3.service -f
+sudo systemctl status nginx
+curl -i http://localhost/health
 ```
 ### **6️⃣ Configure & Setup**
 - ตั้งค่า **Camera Module 3**
@@ -204,6 +204,11 @@ sudo journalctl -u aicamera_v1.3.service -f
 
 # Validate installation
 python scripts/validate_installation.py
+
+# Check Nginx
+sudo nginx -t
+sudo systemctl status nginx
+sudo tail -n 200 /var/log/nginx/error.log
 ```
 
 #### **Configuration Issues**

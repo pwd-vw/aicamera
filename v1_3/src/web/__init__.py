@@ -12,7 +12,7 @@ Version: 1.3
 Date: August 7, 2025
 """
 
-from web.blueprints import (
+from v1_3.src.web.blueprints import (
     main_bp,
     camera_bp,
     detection_bp,

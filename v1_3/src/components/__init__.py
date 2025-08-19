@@ -25,14 +25,11 @@ Author: AI Camera Team
 Version: 1.3
 Date: August 7, 2025
 """
-import sys
-import os
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from detection_processor import DetectionProcessor
-from camera_handler import CameraHandler
-from health_monitor import HealthMonitor
-from database_manager import DatabaseManager
-from improved_camera_manager import ImprovedCameraManager
+from v1_3.src.components.detection_processor import DetectionProcessor
+from v1_3.src.components.camera_handler import CameraHandler
+from v1_3.src.components.health_monitor import HealthMonitor
+from v1_3.src.components.database_manager import DatabaseManager
+from v1_3.src.components.improved_camera_manager import ImprovedCameraManager
 
 
 __all__ = [

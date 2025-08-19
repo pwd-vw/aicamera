@@ -44,31 +44,40 @@ def update_database_schema():
         
         print(f"📁 Database: {DATABASE_PATH}")
         
-        # Check if sent_to_server column exists in detection_results
-        cursor.execute("PRAGMA table_info(detection_results)")
-        columns = [col[1] for col in cursor.fetchall()]
-        
-        if 'sent_to_server' not in columns:
-            print("➕ Adding sent_to_server column to detection_results table...")
-            cursor.execute("ALTER TABLE detection_results ADD COLUMN sent_to_server BOOLEAN DEFAULT 0")
-            cursor.execute("ALTER TABLE detection_results ADD COLUMN sent_at DATETIME")
-            cursor.execute("ALTER TABLE detection_results ADD COLUMN server_response TEXT")
-            print("✅ Added sent_to_server columns to detection_results")
+        # Helper: table exists check
+        def table_exists(table_name: str) -> bool:
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table_name,))
+            return cursor.fetchone() is not None
+
+        # detection_results updates (only if table exists)
+        if table_exists("detection_results"):
+            cursor.execute("PRAGMA table_info(detection_results)")
+            detection_columns = [col[1] for col in cursor.fetchall()]
+            if 'sent_to_server' not in detection_columns:
+                print("➕ Adding sent_to_server column to detection_results table...")
+                cursor.execute("ALTER TABLE detection_results ADD COLUMN sent_to_server BOOLEAN DEFAULT 0")
+                cursor.execute("ALTER TABLE detection_results ADD COLUMN sent_at DATETIME")
+                cursor.execute("ALTER TABLE detection_results ADD COLUMN server_response TEXT")
+                print("✅ Added sent_to_server columns to detection_results")
+            else:
+                print("✅ sent_to_server column already exists in detection_results")
         else:
-            print("✅ sent_to_server column already exists in detection_results")
+            print("ℹ️  Table detection_results not found. Skipping its column/index updates.")
         
-        # Check if sent_to_server column exists in health_checks
-        cursor.execute("PRAGMA table_info(health_checks)")
-        columns = [col[1] for col in cursor.fetchall()]
-        
-        if 'sent_to_server' not in columns:
-            print("➕ Adding sent_to_server column to health_checks table...")
-            cursor.execute("ALTER TABLE health_checks ADD COLUMN sent_to_server BOOLEAN DEFAULT 0")
-            cursor.execute("ALTER TABLE health_checks ADD COLUMN sent_at DATETIME")
-            cursor.execute("ALTER TABLE health_checks ADD COLUMN server_response TEXT")
-            print("✅ Added sent_to_server columns to health_checks")
+        # health_checks updates (only if table exists)
+        if table_exists("health_checks"):
+            cursor.execute("PRAGMA table_info(health_checks)")
+            health_columns = [col[1] for col in cursor.fetchall()]
+            if 'sent_to_server' not in health_columns:
+                print("➕ Adding sent_to_server column to health_checks table...")
+                cursor.execute("ALTER TABLE health_checks ADD COLUMN sent_to_server BOOLEAN DEFAULT 0")
+                cursor.execute("ALTER TABLE health_checks ADD COLUMN sent_at DATETIME")
+                cursor.execute("ALTER TABLE health_checks ADD COLUMN server_response TEXT")
+                print("✅ Added sent_to_server columns to health_checks")
+            else:
+                print("✅ sent_to_server column already exists in health_checks")
         else:
-            print("✅ sent_to_server column already exists in health_checks")
+            print("ℹ️  Table health_checks not found. Skipping its column/index updates.")
         
         # Create websocket_sender_logs table if it doesn't exist
         cursor.execute("""
@@ -104,8 +113,10 @@ def update_database_schema():
         
         # Create indexes for better performance
         print("🔍 Creating indexes...")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_detection_sent_to_server ON detection_results(sent_to_server)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_health_sent_to_server ON health_checks(sent_to_server)")
+        if table_exists("detection_results"):
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_detection_sent_to_server ON detection_results(sent_to_server)")
+        if table_exists("health_checks"):
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_health_sent_to_server ON health_checks(sent_to_server)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_websocket_logs_timestamp ON websocket_sender_logs(timestamp)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_websocket_logs_action ON websocket_sender_logs(action)")
         print("✅ Indexes created/verified")
@@ -117,14 +128,20 @@ def update_database_schema():
         print("\n🔍 Verifying database schema...")
         
         # Check detection_results schema
-        cursor.execute("PRAGMA table_info(detection_results)")
-        detection_columns = [col[1] for col in cursor.fetchall()]
-        print(f"📋 detection_results columns: {detection_columns}")
+        if table_exists("detection_results"):
+            cursor.execute("PRAGMA table_info(detection_results)")
+            detection_columns = [col[1] for col in cursor.fetchall()]
+            print(f"📋 detection_results columns: {detection_columns}")
+        else:
+            print("📋 detection_results table: (missing)")
         
         # Check health_checks schema
-        cursor.execute("PRAGMA table_info(health_checks)")
-        health_columns = [col[1] for col in cursor.fetchall()]
-        print(f"📋 health_checks columns: {health_columns}")
+        if table_exists("health_checks"):
+            cursor.execute("PRAGMA table_info(health_checks)")
+            health_columns = [col[1] for col in cursor.fetchall()]
+            print(f"📋 health_checks columns: {health_columns}")
+        else:
+            print("📋 health_checks table: (missing)")
         
         # Check websocket_sender_logs schema
         cursor.execute("PRAGMA table_info(websocket_sender_logs)")
@@ -132,13 +149,19 @@ def update_database_schema():
         print(f"📋 websocket_sender_logs columns: {websocket_columns}")
         
         # Check table counts
-        cursor.execute("SELECT COUNT(*) FROM detection_results")
-        detection_count = cursor.fetchone()[0]
-        print(f"📊 detection_results count: {detection_count}")
+        try:
+            cursor.execute("SELECT COUNT(*) FROM detection_results")
+            detection_count = cursor.fetchone()[0]
+            print(f"📊 detection_results count: {detection_count}")
+        except sqlite3.OperationalError:
+            print("📊 detection_results count: (table missing)")
         
-        cursor.execute("SELECT COUNT(*) FROM health_checks")
-        health_count = cursor.fetchone()[0]
-        print(f"📊 health_checks count: {health_count}")
+        try:
+            cursor.execute("SELECT COUNT(*) FROM health_checks")
+            health_count = cursor.fetchone()[0]
+            print(f"📊 health_checks count: {health_count}")
+        except sqlite3.OperationalError:
+            print("📊 health_checks count: (table missing)")
         
         cursor.execute("SELECT COUNT(*) FROM websocket_sender_logs")
         websocket_count = cursor.fetchone()[0]

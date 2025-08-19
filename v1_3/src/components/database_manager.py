@@ -150,6 +150,8 @@ class DatabaseManager:
                     data_type TEXT,
                     record_count INTEGER DEFAULT 0,
                     server_response TEXT,
+                    aicamera_id TEXT,
+                    checkpoint_id TEXT,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
             """)

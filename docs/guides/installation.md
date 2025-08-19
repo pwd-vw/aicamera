@@ -157,7 +157,7 @@ sudo raspi-config nonint do_i2c 0
 sudo reboot
 ```
 
-### Step 7: Setup Systemd Service
+### Step 7: Setup Systemd Service and Nginx Proxy
 
 ```bash
 # Copy service file
@@ -168,6 +168,13 @@ sudo systemctl daemon-reload
 
 # Enable service
 sudo systemctl enable aicamera_v1.3.service
+
+# Install and configure Nginx (port 80) to proxy to Gunicorn socket
+sudo apt-get install -y nginx
+sudo cp nginx.conf /etc/nginx/sites-available/aicamera
+sudo ln -sf /etc/nginx/sites-available/aicamera /etc/nginx/sites-enabled/aicamera
+sudo rm -f /etc/nginx/sites-enabled/default
+sudo nginx -t && sudo systemctl enable nginx && sudo systemctl restart nginx
 ```
 
 ### Step 8: Configure Tailscale
