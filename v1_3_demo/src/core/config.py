@@ -46,10 +46,11 @@ DETECTION_LOG_FILE = os.path.join(BASE_DIR, "logs", "detection.log")
 # AI Models Configuration
 HEF_MODEL_PATH = "@local"
 MODEL_ZOO_URL = "resources" 
-VEHICLE_DETECTION_MODEL = "yolov8n_relu6_car--640x640_quant_hailort_hailo8_1"
-LICENSE_PLATE_DETECTION_MODEL ="yolov8n_relu6_lp--640x640_quant_hailort_hailo8_1"
-LICENSE_PLATE_OCR_MODEL = "yolov8n_relu6_lp_ocr--256x128_quant_hailort_hailo8_1"
-OCR_MODEL ="easyOCR_raw_image" 
+#VEHICLE_DETECTION_MODEL = "yolov8n_relu6_car--640x640_quant_hailort_hailo8_1"
+#LICENSE_PLATE_DETECTION_MODEL ="yolov8n_relu6_lp--640x640_quant_hailort_hailo8_1"
+#LICENSE_PLATE_OCR_MODEL = "yolov8n_relu6_lp_ocr--256x128_quant_hailort_hailo8_1"
+
+#OCR_MODEL ="easyOCR_raw_image" 
 
 # OCR Configuration
 EASYOCR_LANGUAGES = ['en', 'th']

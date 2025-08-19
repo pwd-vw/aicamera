@@ -1,191 +1,143 @@
-# AI Camera Edge System - Project Documentation
+# AI Camera Edge System - Documentation
 
-**Version:** 1.3.0  
-**Last Updated:** 2024-08-16  
+**Version:** 1.3.4  
+**Last Updated:** 2025-08-19  
 **Author:** AI Camera Team  
-**Status:** Active
 
-## Overview
+## 📚 Documentation Structure
 
-เอกสารเฉพาะโปรเจคสำหรับระบบ AI Camera Edge ที่ประกอบด้วย Edge Device (Raspberry Pi + Hailo) และ LPR Server (Ubuntu)
+This documentation is organized into three main categories:
 
-## 📁 Documentation Structure
+### 🖥️ **Edge Device Documentation** (`edge/`)
+Documentation specific to edge device deployment and operation.
 
-```
-docs/
-├── edge/                    # เอกสารเฉพาะ Edge Device
-│   ├── project-overview.md  # ภาพรวมโปรเจค AI Camera Edge
-│   ├── api-reference.md     # API เฉพาะของ Edge device
-│   ├── metadata-debugging.md # การ debug metadata
-│   ├── dashboard-improvements.md # การปรับปรุง dashboard
-│   └── picamera2-reference.md # อ้างอิง PiCamera2
-├── server/                  # เอกสารเฉพาะ Server
-│   └── README.md           # LPR Server Documentation
-├── shared/                  # เอกสารที่แชร์ระหว่าง Edge และ Server
-│   ├── tailscale-setup.md  # การตั้งค่า Tailscale เฉพาะโปรเจค
-│   ├── tailscale-acls.json # ACLs configuration
-│   └── tailscale-acls-fixed.json # ACLs ที่แก้ไขแล้ว
-└── README.md               # This file
-```
+- **[RELEASE_v1.3.1.md](edge/RELEASE_v1.3.1.md)** - Release notes and changelog
+- **[INSTALLATION.md](edge/INSTALLATION.md)** - Edge device installation guide
+- **[DEPLOYMENT.md](edge/DEPLOYMENT.md)** - Production deployment guide
+- **[TROUBLESHOOTING.md](edge/TROUBLESHOOTING.md)** - Edge device troubleshooting
+- **[project-overview.md](edge/project-overview.md)** - Project overview and architecture
+- **[api-reference.md](edge/api-reference.md)** - Edge device API reference
+- **[picamera2-reference.md](edge/picamera2-reference.md)** - PiCamera2 configuration reference
+- **[metadata-debugging.md](edge/metadata-debugging.md)** - Metadata debugging guide
+- **[dashboard-improvements.md](edge/dashboard-improvements.md)** - Dashboard improvements guide
+
+### 🖥️ **Server Documentation** (`server/`)
+Documentation for server-side components and APIs.
+
+- **[API_REFERENCE.md](server/API_REFERENCE.md)** - REST API documentation
+- **[WEBSOCKET_API.md](server/WEBSOCKET_API.md)** - WebSocket API documentation
+- **[DATABASE_SCHEMA.md](server/DATABASE_SCHEMA.md)** - Database schema documentation
+- **[SERVER_DEPLOYMENT.md](server/SERVER_DEPLOYMENT.md)** - Server deployment guide
+
+### 📖 **Guides** (`guides/`)
+General guides and tutorials applicable to both edge and server components.
+
+- **[CONFIGURATION_GUIDE.md](guides/CONFIGURATION_GUIDE.md)** - Complete configuration guide
+- **[README_IMPORT_ISSUES.md](guides/README_IMPORT_ISSUES.md)** - Import and dependency troubleshooting
+- **[PERFORMANCE_TUNING.md](guides/PERFORMANCE_TUNING.md)** - Performance optimization guide
+- **[SECURITY_GUIDE.md](guides/SECURITY_GUIDE.md)** - Security best practices
+- **[installation.md](guides/installation.md)** - General installation guide
+- **[development.md](guides/development.md)** - Development setup guide
+- **[tailscale-setup.md](guides/tailscale-setup.md)** - Tailscale VPN setup guide
 
 ## 🚀 Quick Start
 
-### For Edge Device Development
-1. **[Project Overview](edge/project-overview.md)** - ภาพรวมระบบ Edge AI
-2. **[API Reference](edge/api-reference.md)** - API endpoints และ WebSocket
-3. **[PiCamera2 Reference](edge/picamera2-reference.md)** - การใช้งาน PiCamera2
-4. **[Metadata Debugging](edge/metadata-debugging.md)** - การ debug metadata
-5. **[Dashboard Improvements](edge/dashboard-improvements.md)** - การปรับปรุง dashboard
+### For Edge Device Setup
+1. **[Configuration Guide](guides/CONFIGURATION_GUIDE.md)** - Start here for configuration
+2. **[Installation Guide](edge/INSTALLATION.md)** - Follow installation steps
+3. **[Deployment Guide](edge/DEPLOYMENT.md)** - Production deployment
+4. **[Troubleshooting](edge/TROUBLESHOOTING.md)** - If you encounter issues
 
-### For Server Development
-1. **[LPR Server Documentation](server/README.md)** - เอกสารสำหรับ LPR Server
+### For Server Setup
+1. **[Server Deployment](server/SERVER_DEPLOYMENT.md)** - Server installation
+2. **[API Reference](server/API_REFERENCE.md)** - API documentation
+3. **[Database Schema](server/DATABASE_SCHEMA.md)** - Database setup
 
-### For Shared Configuration
-1. **[Tailscale Setup](shared/tailscale-setup.md)** - การตั้งค่า Tailscale เฉพาะโปรเจค
-2. **[Tailscale ACLs](shared/tailscale-acls.json)** - ACLs configuration
-3. **[Fixed ACLs](shared/tailscale-acls-fixed.json)** - ACLs ที่แก้ไขแล้ว
-4. **[Unified Communication Architecture](shared/unified-communication-architecture.md)** - สถาปัตยกรรมการสื่อสารแบบรวม
-5. **[GitHub Issue Guidelines](GITHUB_ISSUE_GUIDELINES.md)** - แนวทางการจัดการ GitHub Issues
+### For Developers
+1. **[Configuration Guide](guides/CONFIGURATION_GUIDE.md)** - Environment setup
+2. **[Performance Tuning](guides/PERFORMANCE_TUNING.md)** - Optimization
+3. **[Security Guide](guides/SECURITY_GUIDE.md)** - Security practices
 
-## 🔗 Cross-References
+## 📋 Documentation Status
 
-### Installation and Setup
-- **[Installation Guides](../../pwd_library/docs/installation/README.md)** - คู่มือการติดตั้งทุก platform
-- **[Setup Guides](../../pwd_library/docs/setup/README.md)** - คู่มือการตั้งค่าทุกเทคโนโลยี
+| Document | Status | Last Updated | Version |
+|----------|--------|--------------|---------|
+| Configuration Guide | ✅ Complete | 2025-08-19 | 1.3.4 |
+| Release Notes | ✅ Complete | 2025-08-19 | 1.3.1 |
+| Import Issues Guide | ✅ Complete | 2025-08-19 | 1.3.4 |
+| Project Overview | ✅ Complete | 2025-08-19 | 1.3.4 |
+| PiCamera2 Reference | ✅ Complete | 2025-08-19 | 1.3.4 |
+| Installation Guide | 🔄 In Progress | 2025-08-19 | 1.3.4 |
+| Deployment Guide | 🔄 In Progress | 2025-08-19 | 1.3.4 |
+| API Reference | 🔄 In Progress | 2025-08-19 | 1.3.4 |
+| Troubleshooting | 🔄 In Progress | 2025-08-19 | 1.3.4 |
 
-### General Knowledge
-- **[General Guides](../../pwd_library/docs/guides/)** - คู่มือทั่วไป
-- **[References](../../pwd_library/docs/reference/)** - เอกสารอ้างอิงทั่วไป
-- **[Monitoring](../../pwd_library/docs/monitoring/)** - การติดตามระบบ
-- **[Deployment](../../pwd_library/docs/deployment/)** - การ deploy
+## 🔍 Search Documentation
 
-## 📊 System Architecture
+### By Topic
+- **Installation**: [Installation Guide](edge/INSTALLATION.md), [Configuration Guide](guides/CONFIGURATION_GUIDE.md)
+- **Configuration**: [Configuration Guide](guides/CONFIGURATION_GUIDE.md)
+- **Deployment**: [Deployment Guide](edge/DEPLOYMENT.md), [Server Deployment](server/SERVER_DEPLOYMENT.md)
+- **Troubleshooting**: [Troubleshooting](edge/TROUBLESHOOTING.md), [Import Issues](guides/README_IMPORT_ISSUES.md)
+- **API**: [API Reference](server/API_REFERENCE.md), [WebSocket API](server/WEBSOCKET_API.md)
+- **Performance**: [Performance Tuning](guides/PERFORMANCE_TUNING.md)
+- **Security**: [Security Guide](guides/SECURITY_GUIDE.md)
 
-### Edge Device (Raspberry Pi 5 + Hailo-8)
-- **Hardware:** Raspberry Pi 5 (ARM64)
-- **OS:** Raspberry Pi OS (Brookwarm)
-- **AI Accelerator:** Hailo-8
-- **Camera:** PiCamera2
-- **Communication:** REST API, WebSocket, MQTT
+### By Component
+- **Edge Device**: All files in `edge/` directory
+- **Server**: All files in `server/` directory
+- **General**: All files in `guides/` directory
 
-### LPR Server (Ubuntu)
-- **Hardware:** Ubuntu Server
-- **OS:** Ubuntu 22.04+/24.04 LTS
-- **Database:** PostgreSQL
-- **Web Framework:** Flask + Flask-SocketIO
-- **Frontend:** Bootstrap 5 + Chart.js
+## 📝 Contributing to Documentation
 
-### Development Environment
-- **Platforms:** Windows, macOS, Linux
-- **Tools:** VS Code, PyCharm, Cursor
-- **Version Control:** Git
-- **VPN:** Tailscale
+### Adding New Documentation
+1. Create the document in the appropriate directory:
+   - `edge/` for edge device specific docs
+   - `server/` for server specific docs
+   - `guides/` for general guides
+2. Update this index file
+3. Follow the documentation template
 
-## 🔧 Development Workflow
+### Documentation Template
+```markdown
+# Document Title
 
-### Edge Device Development
-1. **Setup Environment** - ติดตั้ง Hailo TAPPAS และ dependencies
-2. **Camera Configuration** - ตั้งค่า PiCamera2
-3. **AI Model Integration** - เชื่อมต่อ Hailo-8 models
-4. **API Development** - พัฒนา REST API และ WebSocket
-5. **Testing** - ทดสอบบน Edge device
+**Version:** X.X.X  
+**Last Updated:** YYYY-MM-DD  
+**Author:** Author Name  
 
-### Server Development
-1. **Database Design** - ออกแบบ PostgreSQL schema
-2. **API Development** - พัฒนา REST API endpoints
-3. **WebSocket Integration** - เชื่อมต่อ real-time communication
-4. **Frontend Development** - พัฒนา web dashboard
-5. **Integration Testing** - ทดสอบการเชื่อมต่อกับ Edge devices
+## Overview
+Brief description of the document's purpose.
 
-### Shared Development
-1. **Network Setup** - ตั้งค่า Tailscale VPN
-2. **Communication Protocol** - กำหนด REST API และ WebSocket
-3. **Security Configuration** - ตั้งค่าความปลอดภัย
-4. **Monitoring Setup** - ตั้งค่าการติดตามระบบ
+## Table of Contents
+- [Section 1](#section-1)
+- [Section 2](#section-2)
 
-## 📝 API Documentation
+## Section 1
+Content...
 
-### REST API Endpoints
-- **Health Check:** `GET /health`
-- **Camera Control:** `POST /api/camera/start`, `POST /api/camera/stop`
-- **AI Processing:** `POST /api/ai/process`
-- **System Information:** `GET /api/system/info`
+## Section 2
+Content...
 
-### WebSocket Events
-- **Connection:** `connect`, `disconnect`
-- **Camera Events:** `camera_started`, `camera_stopped`, `frame_captured`
-- **AI Events:** `ai_processing_started`, `ai_processing_completed`, `detection_result`
-- **System Events:** `system_status`, `error_occurred`
-
-## 🔒 Security Configuration
-
-### Network Security
-- **Tailscale VPN** - เชื่อมต่อทุกเครื่องอย่างปลอดภัย
-- **ACLs Configuration** - ควบคุมการเข้าถึงระหว่างเครื่อง
-- **Firewall Rules** - ตั้งค่าความปลอดภัย
-
-### Application Security
-- **Authentication** - JWT-based authentication
-- **Authorization** - Role-based access control
-- **Data Encryption** - เข้ารหัสข้อมูลที่สำคัญ
-- **Input Validation** - ตรวจสอบข้อมูล input
-
-## 📊 Monitoring and Logging
-
-### System Monitoring
-- **CPU Usage** - ตรวจสอบ CPU utilization
-- **Memory Usage** - ตรวจสอบ memory consumption
-- **Temperature** - ตรวจสอบ system temperature
-- **Network** - ตรวจสอบ network connectivity
-
-### Application Monitoring
-- **Service Status** - ตรวจสอบ service health
-- **AI Processing** - ตรวจสอบ AI inference performance
-- **Camera Status** - ตรวจสอบ camera operation
-- **Error Logging** - บันทึก errors และ exceptions
-
-## 🛠️ Troubleshooting
-
-### Common Issues
-- **Camera Detection** - ตรวจสอบ camera interface และ permissions
-- **Hailo Device** - ตรวจสอบ Hailo-8 connection และ firmware
-- **Network Connectivity** - ตรวจสอบ Tailscale status และ ACLs
-- **Service Startup** - ตรวจสอบ systemd services และ logs
-
-### Diagnostic Commands
-```bash
-# System information
-uname -a
-vcgencmd get_mem gpu
-vcgencmd measure_temp
-
-# Service status
-sudo systemctl status aicamera_v1.3
-sudo journalctl -u aicamera_v1.3 -f
-
-# Network connectivity
-tailscale status
-tailscale ping lprserver
-
-# Camera status
-vcgencmd get_camera
-ls -la /dev/video*
+## Related Documents
+- [Link to related doc](path/to/doc.md)
 ```
 
-## 📚 References
+## 🔗 External Resources
 
-### Official Documentation
-- [Raspberry Pi Documentation](https://www.raspberrypi.org/documentation/)
-- [Hailo TAPPAS Documentation](https://hailo.ai/developer-zone/)
-- [PiCamera2 Documentation](https://picamera2.readthedocs.io/)
-- [Flask Documentation](https://flask.palletsprojects.com/)
-- [Tailscale Documentation](https://tailscale.com/kb/)
+- **[Main README](../README.md)** - Project overview and quick start
+- **[GitHub Repository](https://github.com/your-repo/aicamera)** - Source code
+- **[Issue Tracker](https://github.com/your-repo/aicamera/issues)** - Bug reports and feature requests
+- **[Wiki](https://github.com/your-repo/aicamera/wiki)** - Additional resources
 
-### Project Resources
-- [Installation Guides](../../pwd_library/docs/installation/) - คู่มือการติดตั้ง
-- [Setup Guides](../../pwd_library/docs/setup/) - คู่มือการตั้งค่า
-- [General Knowledge](../../pwd_library/docs/) - ความรู้ทั่วไป
+## 📞 Support
+
+For documentation issues or suggestions:
+1. Check the [troubleshooting guide](edge/TROUBLESHOOTING.md)
+2. Review [import issues guide](guides/README_IMPORT_ISSUES.md)
+3. Create an issue in the GitHub repository
+4. Contact the development team
 
 ---
 
-**Note:** เอกสารนี้เป็นเอกสารเฉพาะโปรเจค AI Camera Edge System
+**Note:** This documentation is continuously updated. For the latest version, check the repository or run `git pull` to update your local copy.

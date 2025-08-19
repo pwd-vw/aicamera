@@ -46,10 +46,10 @@ DETECTION_LOG_FILE = os.path.join(BASE_DIR, "logs", "detection.log")
 # AI Models Configuration
 HEF_MODEL_PATH = "@local"
 MODEL_ZOO_URL = "resources" 
-VEHICLE_DETECTION_MODEL = "yolov8n_relu6_car--640x640_quant_hailort_hailo8_1"
-LICENSE_PLATE_DETECTION_MODEL ="yolov8n_relu6_lp--640x640_quant_hailort_hailo8_1"
-LICENSE_PLATE_OCR_MODEL = "yolov8n_relu6_lp_ocr--256x128_quant_hailort_hailo8_1"
-OCR_MODEL ="easyOCR_raw_image" 
+VEHICLE_DETECTION_MODEL = os.getenv("VEHICLE_DETECTION_MODEL", "yolov8n_relu6_car--640x640_quant_hailort_hailo8_1")
+LICENSE_PLATE_DETECTION_MODEL = os.getenv("LICENSE_PLATE_DETECTION_MODEL", "yolov8n_relu6_lp--640x640_quant_hailort_hailo8_1")
+LICENSE_PLATE_OCR_MODEL = os.getenv("LICENSE_PLATE_OCR_MODEL", "yolov8n_relu6_lp_ocr--256x128_quant_hailort_hailo8_1")
+OCR_MODEL = os.getenv("OCR_MODEL", "easyOCR_raw_image") 
 
 # OCR Configuration
 EASYOCR_LANGUAGES = ['en', 'th']
@@ -60,32 +60,33 @@ IMAGE_SAVE_DIR =  os.path.join(BASE_DIR, 'captured_images')
 # WebSocket server configuration
 WEBSOCKET_SERVER_URL = os.getenv("WEBSOCKET_SERVER_URL")
 
-# AI Camera Identification
+# AI Camera Identification - Can be overridden via environment variables
 AICAMERA_ID = os.getenv("AICAMERA_ID", "1")
 CHECKPOINT_ID = os.getenv("CHECKPOINT_ID", "1")
-LOCATION_LAT = "13.729610"
-LOCATION_LON = "100.501443"
+LOCATION_LAT = os.getenv("LOCATION_LAT", "13.729610")
+LOCATION_LON = os.getenv("LOCATION_LON", "100.501443")
+CAMERA_LOCATION = os.getenv("CAMERA_LOCATION", "Main Entrance")
 
-# Camera properties defaults
-DEFAULT_RESOLUTION = (640, 640)
-DEFAULT_FRAMERATE = 30
-DEFAULT_BRIGHTNESS = 0.0  # -1.0 to 1.0
-DEFAULT_CONTRAST = 1.0    # 0.0 to 2.0
-DEFAULT_SATURATION = 1.0  # 0.0 to 2.0
-DEFAULT_SHARPNESS = 1.0   # 0.0 to 4.0
-DEFAULT_AWB_MODE = 0      # 0=auto, 1=fluorescent, etc.
+# Camera properties defaults - Can be overridden via environment variables
+DEFAULT_RESOLUTION = tuple(map(int, os.getenv("CAMERA_RESOLUTION", "640x640").split('x')))
+DEFAULT_FRAMERATE = int(os.getenv("CAMERA_FPS", "30"))
+DEFAULT_BRIGHTNESS = float(os.getenv("CAMERA_BRIGHTNESS", "0.0"))  # -1.0 to 1.0
+DEFAULT_CONTRAST = float(os.getenv("CAMERA_CONTRAST", "1.0"))    # 0.0 to 2.0
+DEFAULT_SATURATION = float(os.getenv("CAMERA_SATURATION", "1.0"))  # 0.0 to 2.0
+DEFAULT_SHARPNESS = float(os.getenv("CAMERA_SHARPNESS", "1.0"))   # 0.0 to 4.0
+DEFAULT_AWB_MODE = int(os.getenv("CAMERA_AWB_MODE", "0"))      # 0=auto, 1=fluorescent, etc.
 
-# Detection Settings
-DETECTION_INTERVAL = float( 0.1)
-CONFIDENCE_THRESHOLD = float( 0.5)
-PLATE_CONFIDENCE_THRESHOLD = float( 0.3)
+# Detection Settings - Can be overridden via environment variables
+DETECTION_INTERVAL = float(os.getenv("DETECTION_INTERVAL", "0.1"))
+CONFIDENCE_THRESHOLD = float(os.getenv("DETECTION_CONFIDENCE_THRESHOLD", "0.8"))
+PLATE_CONFIDENCE_THRESHOLD = float(os.getenv("PLATE_CONFIDENCE_THRESHOLD", "0.6"))
 
-# Threading intervals (in seconds)
-SENDER_INTERVAL = 60.0    # How often the sender thread checks for new detections (1 minute)
-HEALTH_SENDER_INTERVAL = 300.0  # How often health status is sent to server (5 minutes)
+# Threading intervals (in seconds) - Can be overridden via environment variables
+SENDER_INTERVAL = float(os.getenv("SENDER_INTERVAL", "60.0"))    # How often the sender thread checks for new detections (1 minute)
+HEALTH_SENDER_INTERVAL = float(os.getenv("HEALTH_SENDER_INTERVAL", "300.0"))  # How often health status is sent to server (5 minutes)
 
 # Health monitoring interval (in seconds, 3600 seconds = 1 hour)
-HEALTH_CHECK_INTERVAL = 3600
+HEALTH_CHECK_INTERVAL = int(os.getenv("HEALTH_CHECK_INTERVAL", "3600"))
 
 # WebSocket sender configuration
 WEBSOCKET_SENDER_ENABLED = True  # Enable WebSocket sender

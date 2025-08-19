@@ -121,13 +121,36 @@ rpicam-hello -t 0 --post-process-file /usr/share/rpi-camera-assets/hailo_yolov5_
 git clone https://github.com/popwandee/aicamera.git
 cd aicamera
 ```
-### **2️⃣ Install Dependencies**
+### **2️⃣ Configure Environment**
+Copy the environment template and customize for your installation:
+```bash
+# Copy environment template
+cp env.template .env.production
+
+# Edit the configuration file
+nano .env.production
+```
+
+**Important Configuration Options:**
+- **AICAMERA_ID**: Unique identifier for this camera (e.g., "1", "2", "main_gate")
+- **CHECKPOINT_ID**: Location identifier (e.g., "1", "entrance", "exit")
+- **LOCATION_LAT/LOCATION_LON**: GPS coordinates for this camera
+- **VEHICLE_DETECTION_MODEL**: Choose Hailo8 or Hailo8L models based on your device
+- **CAMERA_LOCATION**: Human-readable location name
+
+### **3️⃣ Validate Configuration**
+Run the validation script to check your setup:
+```bash
+python scripts/validate_config.py
+```
+
+### **4️⃣ Install Dependencies**
 Run the following script to automate the installation process:
 ```bash
 # Install all dependencies including gunicorn for production
 ./install.sh
 ```
-### **3️⃣ Configure & Setup**
+### **5️⃣ Configure & Setup**
 - ตั้งค่า **Camera Module 3**
 - **Camera Module 3**: ตั้งค่าแสง โฟกัส และความคมชัด
 - ตรวจสอบ **Hailo 8 AI Accelerator**

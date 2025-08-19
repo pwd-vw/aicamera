@@ -113,6 +113,24 @@ fi
 touch v1_3/__init__.py
 touch v1_3/src/__init__.py
 
+# Setup environment configuration
+echo "Setting up environment configuration..."
+if [[ ! -f ".env.production" ]]; then
+    if [[ -f "env.template" ]]; then
+        cp env.template .env.production
+        echo "✅ Created .env.production file from template"
+        echo "📝 Please edit .env.production file to customize your installation:"
+        echo "   - Set AICAMERA_ID and CHECKPOINT_ID for unique identification"
+        echo "   - Configure GPS coordinates (LOCATION_LAT, LOCATION_LON)"
+        echo "   - Choose appropriate Hailo models for your device"
+        echo "   - Set camera and detection parameters"
+    else
+        echo "⚠️  env.template not found - please create .env.production file manually"
+    fi
+else
+    echo "✅ .env.production file already exists"
+fi
+
 # Setup and start systemd service
 echo "Setting up systemd service..."
 if [[ -f "systemd_service/aicamera_v1.3.service" ]]; then
