@@ -14,10 +14,7 @@ Flask
 Flask-SocketIO
 websockets
 python-dotenv
-pandas
-matplotlib
+pandas<2.0.0
 requests
-sqlite3
-libcamera
-difflib
 eventlet
+gunicorn

@@ -124,6 +124,7 @@ cd aicamera
 ### **2️⃣ Install Dependencies**
 Run the following script to automate the installation process:
 ```bash
+# Install all dependencies including gunicorn for production
 ./install.sh
 ```
 ### **3️⃣ Configure & Setup**
