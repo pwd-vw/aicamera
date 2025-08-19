@@ -1,7 +1,7 @@
-# AI Camera Edge System - Release v1.3.1
+# AI Camera Edge System - Release v1.3.4
 
 **Release Date:** 2025-08-19  
-**Version:** 1.3.1  
+**Version:** 1.3.4  
 **Status:** Production Ready  
 **Author:** AI Camera Team  
 
