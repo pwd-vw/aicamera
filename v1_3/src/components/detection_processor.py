@@ -352,38 +352,61 @@ class DetectionProcessor:
                     continue
                 
                 # Try Hailo OCR model first (if available)
-                ocr_text = ""
-                ocr_confidence = 0.0
+                hailo_ocr_text = ""
+                hailo_ocr_confidence = 0.0
+                hailo_ocr_success = False
                 
                 if self.lp_ocr_model:
                     try:
                         ocr_result = self.lp_ocr_model(plate_region)
                         # Extract text from Hailo OCR result
-                        ocr_text = str(ocr_result)  # Adapt based on actual model output format
-                        ocr_confidence = 0.8  # Placeholder - extract actual confidence
+                        hailo_ocr_text = str(ocr_result)  # Adapt based on actual model output format
+                        hailo_ocr_confidence = 0.8  # Placeholder - extract actual confidence
+                        hailo_ocr_success = True
                     except Exception as e:
                         self.logger.debug(f"Hailo OCR failed for plate {i}: {e}")
                 
                 # Fallback to EasyOCR
-                if not ocr_text and self.ocr_reader:
+                easyocr_text = ""
+                easyocr_confidence = 0.0
+                easyocr_success = False
+                
+                if self.ocr_reader:
                     try:
                         easyocr_results = self.ocr_reader.readtext(plate_region)
                         if easyocr_results:
                             # Take the result with highest confidence
                             best_result = max(easyocr_results, key=lambda x: x[2])
-                            ocr_text = best_result[1]
-                            ocr_confidence = best_result[2]
+                            easyocr_text = best_result[1]
+                            easyocr_confidence = best_result[2]
+                            easyocr_success = True
                     except Exception as e:
                         self.logger.debug(f"EasyOCR failed for plate {i}: {e}")
                 
-                if ocr_text:
+                # Determine final OCR result (prefer Hailo OCR if available)
+                final_ocr_text = hailo_ocr_text if hailo_ocr_success else easyocr_text
+                final_ocr_confidence = hailo_ocr_confidence if hailo_ocr_success else easyocr_confidence
+                ocr_method = "hailo" if hailo_ocr_success else "easyocr" if easyocr_success else "none"
+                
+                if final_ocr_text:
                     ocr_results.append({
                         'plate_idx': i,
                         'bbox': plate_box['bbox'],
-                        'text': ocr_text.strip(),
-                        'confidence': ocr_confidence,
+                        'text': final_ocr_text.strip(),
+                        'confidence': final_ocr_confidence,
                         'vehicle_idx': plate_box.get('vehicle_idx', -1),
-                        'detection_confidence': plate_box.get('score', 0)
+                        'detection_confidence': plate_box.get('score', 0),
+                        'ocr_method': ocr_method,
+                        'hailo_ocr': {
+                            'text': hailo_ocr_text.strip() if hailo_ocr_success else "",
+                            'confidence': hailo_ocr_confidence,
+                            'success': hailo_ocr_success
+                        },
+                        'easyocr': {
+                            'text': easyocr_text.strip() if easyocr_success else "",
+                            'confidence': easyocr_confidence,
+                            'success': easyocr_success
+                        }
                     })
                     self.processing_stats['successful_ocr'] += 1
                 
@@ -437,16 +460,25 @@ class DetectionProcessor:
                 cv2.rectangle(annotated_frame, (int(x1), int(y1)), (int(x2), int(y2)), 
                             (255, 0, 0), 2)
                 
+                # Add plate confidence score
+                plate_confidence = plate_box.get('score', 0)
+                cv2.putText(annotated_frame, f"LP {plate_confidence:.2f}", 
+                          (int(x1), int(y1) - 10), cv2.FONT_HERSHEY_SIMPLEX, 
+                          0.5, (255, 0, 0), 2)
+                
                 # Add OCR text if available
                 plate_idx = plate_boxes.index(plate_box)
                 ocr_text = ""
+                ocr_confidence = 0.0
                 for ocr_result in ocr_results:
                     if ocr_result.get('plate_idx') == plate_idx:
                         ocr_text = ocr_result['text']
+                        ocr_confidence = ocr_result.get('confidence', 0)
                         break
                 
                 if ocr_text:
-                    cv2.putText(annotated_frame, ocr_text, 
+                    # Display OCR text with confidence
+                    cv2.putText(annotated_frame, f"{ocr_text} ({ocr_confidence:.2f})", 
                               (int(x1), int(y2) + 20), cv2.FONT_HERSHEY_SIMPLEX, 
                               0.6, (255, 0, 0), 2)
             

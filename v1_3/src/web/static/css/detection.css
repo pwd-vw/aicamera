@@ -1,5 +1,43 @@
 /* AI Camera v1.3 - Detection Dashboard Specific Styles */
 
+/* Compact Card Headers */
+.card-header {
+    padding: 0.5rem 1rem !important;
+    background-color: #f8f9fa !important;
+    border-bottom: 1px solid #dee2e6 !important;
+}
+
+.card-header h5 {
+    margin: 0 !important;
+    font-size: 1.1rem !important;
+    font-weight: 600 !important;
+    color: #495057 !important;
+}
+
+.card-header h6 {
+    margin: 0 !important;
+    font-size: 1rem !important;
+    font-weight: 600 !important;
+    color: #495057 !important;
+}
+
+/* Compact Card Bodies */
+.card-body {
+    padding: 0.75rem 1rem !important;
+}
+
+.card-body.py-2 {
+    padding: 0.5rem 1rem !important;
+}
+
+.card-body.py-3 {
+    padding: 0.75rem 1rem !important;
+}
+
+.card-body.p-0 {
+    padding: 0 !important;
+}
+
 /* Detection Results */
 .detection-result {
     border: 1px solid #dee2e6;
@@ -51,6 +89,52 @@
     margin-bottom: 1rem;
 }
 
+/* Configuration Form Styles */
+#detection-config-form .form-control {
+    border: 2px solid #e9ecef;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+#detection-config-form .form-control:focus {
+    border-color: #007bff;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+#detection-config-form .btn-primary {
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+    border: none;
+    box-shadow: 0 4px 8px rgba(0, 123, 255, 0.3);
+    transition: all 0.3s ease;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+#detection-config-form .btn-primary:hover {
+    background: linear-gradient(135deg, #0056b3 0%, #004085 100%);
+    box-shadow: 0 6px 12px rgba(0, 123, 255, 0.4);
+    transform: translateY(-1px);
+}
+
+#detection-config-form .btn-primary:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+}
+
+/* Form Labels */
+#detection-config-form .form-label {
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 0.5rem;
+}
+
+/* Form Text */
+#detection-config-form .form-text {
+    font-size: 0.75rem;
+    color: #6c757d;
+    margin-top: 0.25rem;
+}
+
 /* Detection specific responsive design */
 @media (max-width: 768px) {
     .model-status-grid {
@@ -64,5 +148,132 @@
     .btn-control {
         min-width: 100px;
         font-size: 0.8rem;
+    }
+    
+    #detection-config-form .row {
+        flex-direction: column;
+    }
+    
+    #detection-config-form .col-md-3 {
+        margin-bottom: 1rem;
+    }
+}
+
+/* Detail Modal Styles */
+.modal-xxl {
+    max-width: 95%;
+}
+
+#detail-modal .modal-body {
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+/* OCR Results Styling */
+.ocr-text-display h4 {
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    letter-spacing: 1px;
+    background: linear-gradient(135deg, #007bff, #0056b3);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.ocr-details {
+    font-size: 0.875rem;
+}
+
+/* Image Preview Styling */
+.main-image-container {
+    position: relative;
+    background: #f8f9fa;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    text-align: center;
+}
+
+.main-image-container img {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    transition: transform 0.2s ease;
+}
+
+.main-image-container img:hover {
+    transform: scale(1.02);
+}
+
+.cropped-plates-container {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.cropped-plate-item {
+    background: #f8f9fa;
+    border-radius: 0.375rem;
+    padding: 0.5rem;
+    text-align: center;
+}
+
+.cropped-plate-item img {
+    border: 2px solid #dee2e6;
+    transition: border-color 0.2s ease;
+}
+
+.cropped-plate-item:hover img {
+    border-color: #007bff;
+}
+
+/* Confidence Color Indicators */
+.border-success {
+    border-color: #28a745 !important;
+}
+
+.border-warning {
+    border-color: #ffc107 !important;
+}
+
+.border-danger {
+    border-color: #dc3545 !important;
+}
+
+/* Metadata Styling */
+.table-borderless td {
+    padding: 0.5rem 0;
+    border: none;
+}
+
+.table-borderless td:first-child {
+    font-weight: 600;
+    color: #495057;
+    width: 40%;
+}
+
+/* Responsive adjustments for detail modal */
+@media (max-width: 1200px) {
+    .modal-xxl {
+        max-width: 98%;
+    }
+    
+    .ocr-text-display h4 {
+        font-size: 1.5rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .modal-xxl {
+        max-width: 100%;
+        margin: 0.5rem;
+    }
+    
+    .ocr-text-display h4 {
+        font-size: 1.25rem;
+    }
+    
+    .main-image-container {
+        padding: 0.5rem;
+    }
+    
+    .cropped-plates-container {
+        max-height: 200px;
     }
 }

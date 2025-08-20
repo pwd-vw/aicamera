@@ -200,7 +200,6 @@ chmod 775 /home/camuser/aicamera/v1_3/src/web/static/css/ 2>/dev/null || true
 chmod 775 /home/camuser/aicamera/v1_3/src/web/static/js/ 2>/dev/null || true
 
 # Set proper permissions for captured images directory
-chmod 755 /home/camuser/aicamera/v1_3/captured_images/ 2>/dev/null || true
 chmod 755 /home/camuser/aicamera/captured_images/ 2>/dev/null || true
 
 # Create basic WSGI file if it doesn't exist

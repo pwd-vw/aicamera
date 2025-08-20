@@ -15,7 +15,7 @@ from pathlib import Path
 # Load environment variables from .env.production first
 def load_env_file():
     """Load environment variables from .env.production file."""
-    env_file = Path(__file__).parent.parent.parent / '.env.production'
+    env_file = Path(__file__).parent.parent.parent.parent / '.env.production'
     if env_file.exists():
         with open(env_file, 'r') as f:
             for line in f:
@@ -45,7 +45,7 @@ WEBSOCKET_LOG_FILE = os.path.join(BASE_DIR, "logs", "websocket.log")
 DETECTION_LOG_FILE = os.path.join(BASE_DIR, "logs", "detection.log")
 # AI Models Configuration
 HEF_MODEL_PATH = "@local"
-MODEL_ZOO_URL = "resources" 
+MODEL_ZOO_URL = os.path.join(BASE_DIR, 'resources') 
 VEHICLE_DETECTION_MODEL = os.getenv("VEHICLE_DETECTION_MODEL", "yolov8n_relu6_car--640x640_quant_hailort_hailo8_1")
 LICENSE_PLATE_DETECTION_MODEL = os.getenv("LICENSE_PLATE_DETECTION_MODEL", "yolov8n_relu6_lp--640x640_quant_hailort_hailo8_1")
 LICENSE_PLATE_OCR_MODEL = os.getenv("LICENSE_PLATE_OCR_MODEL", "yolov8n_relu6_lp_ocr--256x128_quant_hailort_hailo8_1")

@@ -1,7 +1,7 @@
 # AI Camera Edge System - API Reference
 
-**Version:** 1.0.0  
-**Last Updated:** 2024-08-16  
+**Version:** 1.3.9  
+**Last Updated:** 2025-08-20  
 **Author:** AI Camera Team  
 **Category:** API Documentation  
 **Status:** Active

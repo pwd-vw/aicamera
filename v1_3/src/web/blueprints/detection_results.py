@@ -19,9 +19,11 @@ Version: 1.3
 Date: August 2025
 """
 
-from flask import Blueprint, render_template, request, jsonify
+from flask import Blueprint, render_template, request, jsonify, send_from_directory
 from datetime import datetime
 from typing import Dict, Any
+import os
+from pathlib import Path
 
 from v1_3.src.core.dependency_container import get_service
 from v1_3.src.core.utils.logging_config import get_logger
@@ -357,3 +359,36 @@ def export_detection_results():
             'success': False,
             'error': str(e)
         }), 500
+
+
+@detection_results_bp.route('/images/<path:filename>')
+def serve_captured_image(filename):
+    """
+    Serve captured images from the captured_images directory.
+    
+    Args:
+        filename: Image filename (e.g., car_det_results.png)
+    
+    Returns:
+        Response: Image file
+    """
+    try:
+        # Get the project root directory
+        project_root = Path(__file__).parent.parent.parent.parent.parent
+        captured_images_dir = project_root / 'captured_images'
+        
+        # Security check: ensure filename doesn't contain path traversal
+        if '..' in filename or '/' in filename:
+            return jsonify({'error': 'Invalid filename'}), 400
+        
+        # Check if file exists
+        image_path = captured_images_dir / filename
+        if not image_path.exists():
+            return jsonify({'error': 'Image not found'}), 404
+        
+        # Serve the image
+        return send_from_directory(captured_images_dir, filename)
+        
+    except Exception as e:
+        logger.error(f"Error serving image {filename}: {e}")
+        return jsonify({'error': 'Internal server error'}), 500

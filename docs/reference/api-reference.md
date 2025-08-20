@@ -1,343 +1,696 @@
 # AI Camera Edge System - API Reference
 
-**Version:** 1.0.0  
-**Last Updated:** 2024-08-16  
+**Version:** 1.3.9  
+**Last Updated:** 2025-08-20  
 **Author:** AI Camera Team  
 **Category:** API Documentation  
 **Status:** Active
 
 ## Overview
 
-API Reference สำหรับ AI Camera Edge System ครอบคลุม REST API endpoints และ WebSocket interfaces
+API Reference สำหรับ AI Camera Edge System v1.3.9 ครอบคลุม REST API endpoints, WebSocket interfaces, และ data structures สำหรับ development และ UI design รวมถึง checkpoint vehicle tracking system
 
 ## Base URL
 
-- **Development:** `http://localhost:5000`
-- **Production:** `http://aicamera1:5000` (via Tailscale)
+- **Development:** `http://localhost`
+- **Production:** `http://aicamera1` (via Tailscale)
 
 ## Authentication
 
 API ใช้ Tailscale authentication โดยอัตโนมัติ
 
+## System Architecture
+
+### Blueprint Structure
+```
+v1_3/src/web/blueprints/
+├── main.py              # Main dashboard (/)
+├── camera.py            # Camera control (/camera/*)
+├── detection.py         # Detection control (/detection/*)
+├── detection_results.py # Results viewing (/detection_results/*)
+├── health.py            # Health monitoring (/health/*)
+├── streaming.py         # Video streaming (/streaming/*)
+└── experiments.py       # Experiments (optional)
+```
+
+### Service Dependencies
+```
+Dependency Container:
+├── camera_manager       # Camera operations
+├── detection_manager    # AI detection
+├── database_manager     # Data storage
+├── health_service       # System health
+├── video_streaming      # Video streaming
+└── experiment_service   # Experiments (optional)
+```
+
 ## REST API Endpoints
 
-### Health Check
+### Main Dashboard
 
-#### GET /health
-ตรวจสอบสถานะของระบบ
+#### GET /
+Main dashboard page
 
-**Response:**
+**Template Variables:**
+- `camera_status` (object) - Camera service status and metadata
+- `title` (string) - Page title
+
+**Response:** HTML page
+
+#### WebSocket: main_status_request
+Request system status
+
+**Response Event:** `main_status_update`
 ```json
 {
-  "status": "healthy",
-  "timestamp": "2024-08-16T10:30:00Z",
-  "version": "1.3.0",
-  "services": {
-    "camera": "running",
-    "ai_processor": "running",
-    "network": "connected"
-  }
+  "status": "ok",
+  "camera": {...},
+  "message": "System status retrieved successfully"
 }
 ```
 
-### Camera Control
+### Camera APIs
 
-#### GET /api/camera/status
-ตรวจสอบสถานะกล้อง
+#### GET /camera/
+Camera dashboard page
+
+**Template Variables:**
+- `camera_status` (object) - Camera service status
+
+**Response:** HTML page
+
+#### GET /camera/status
+Camera service status
 
 **Response:**
 ```json
 {
-  "status": "active",
+  "success": true,
+  "camera_status": {
+    "is_running": boolean,
+    "camera_handler": {
+      "camera_properties": {...},
+      "current_config": {...},
+      "configuration": {...},
+      "sensor_modes": [...],
+      "sensor_modes_count": number
+    },
+    "metadata": {...},
+    "frame_count": number,
+    "average_fps": number,
+    "timestamp": string
+  },
+  "timestamp": "2025-08-20T08:51:30Z"
+}
+```
+
+#### POST /camera/start
+Start camera service
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Camera started successfully",
+  "timestamp": "2025-08-20T08:51:30Z"
+}
+```
+
+#### POST /camera/stop
+Stop camera service
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Camera stopped successfully",
+  "timestamp": "2025-08-20T08:51:30Z"
+}
+```
+
+#### POST /camera/restart
+Restart camera service
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Camera restarted successfully",
+  "timestamp": "2025-08-20T08:51:30Z"
+}
+```
+
+#### GET/POST /camera/config
+Camera configuration management
+
+**GET Response:**
+```json
+{
+  "success": true,
+  "config": {
   "resolution": "1920x1080",
   "fps": 30,
-  "device": "/dev/video0"
+    "exposure": "auto",
+    "white_balance": "auto"
+  },
+  "timestamp": "2025-08-20T08:51:30Z"
 }
 ```
 
-#### POST /api/camera/start
-เริ่มการทำงานกล้อง
+#### POST /camera/capture
+Capture image
 
 **Response:**
 ```json
 {
   "success": true,
-  "message": "Camera started successfully"
+  "image_path": "captured_images/image_20250820_085130.png",
+  "timestamp": "2025-08-20T08:51:30Z"
 }
 ```
 
-#### POST /api/camera/stop
-หยุดการทำงานกล้อง
+#### GET /camera/metadata
+Camera metadata viewer
+
+**Response:** HTML page
+
+#### GET /camera/api/metadata
+Camera metadata API
 
 **Response:**
 ```json
 {
   "success": true,
-  "message": "Camera stopped successfully"
+  "camera_status": {...},
+  "camera_properties": {...},
+  "current_config": {...},
+  "camera_controls": {...},
+  "frame_metadata": {...},
+  "frame_statistics": {
+    "frame_count": number,
+    "average_fps": number,
+    "last_frame_time": string
+  },
+  "available_modes": [...],
+  "sensor_modes_count": number,
+  "timestamp": "2025-08-20T08:51:30Z"
 }
 ```
 
-### AI Processing
+### Detection APIs
 
-#### POST /api/ai/process
-ประมวลผลภาพด้วย AI
+#### GET /detection/
+Detection dashboard page
 
-**Request:**
-```json
-{
-  "image_data": "base64_encoded_image",
-  "confidence_threshold": 0.5
-}
-```
+**Template Variables:**
+- `detection_status` (object) - Detection service status and statistics
+- `stats` (object) - Detection statistics from database
+- `title` (string) - Page title
+
+**Response:** HTML page
+
+#### GET /detection/status
+Detection service status
 
 **Response:**
 ```json
 {
   "success": true,
-  "detections": [
-    {
-      "bbox": [100, 100, 200, 200],
-      "confidence": 0.95,
-      "class": "person"
-    }
-  ],
-  "processing_time": 0.045
+  "detection_status": {
+    "is_running": boolean,
+    "model_loaded": boolean,
+    "current_fps": number,
+    "total_detections": number,
+    "last_detection": string,
+    "processing_time": number,
+    "error_count": number,
+    "config": {...}
+  },
+  "timestamp": "2025-08-20T08:51:30Z"
 }
 ```
 
-#### GET /api/ai/status
-ตรวจสอบสถานะ AI processor
+#### POST /detection/start
+Start detection service
 
 **Response:**
 ```json
 {
-  "status": "ready",
-  "model_loaded": true,
-  "device": "hailo-8",
-  "inference_count": 1234
+  "success": true,
+  "message": "Detection service started successfully",
+  "timestamp": "2025-08-20T08:51:30Z"
 }
 ```
 
-### System Information
-
-#### GET /api/system/info
-ข้อมูลระบบ
+#### POST /detection/stop
+Stop detection service
 
 **Response:**
 ```json
 {
-  "hostname": "aicamera1",
-  "cpu_usage": 45.2,
-  "memory_usage": 67.8,
-  "temperature": 52.3,
-  "uptime": "2 days, 3 hours"
+  "success": true,
+  "message": "Detection service stopped successfully",
+  "timestamp": "2025-08-20T08:51:30Z"
 }
 ```
 
-#### GET /api/system/logs
-ดู logs ระบบ
+#### GET/POST /detection/config
+Detection configuration
+
+**GET Response:**
+```json
+{
+  "success": true,
+  "config": {
+    "detection_interval": 0.1,
+    "vehicle_confidence": 0.5,
+    "plate_confidence": 0.3,
+    "detection_resolution": "640x640"
+  },
+  "timestamp": "2025-08-20T08:51:30Z"
+}
+```
+
+#### GET /detection/statistics
+Detection statistics
+
+**Response:**
+```json
+{
+  "success": true,
+  "stats": {
+    "total_detections": number,
+    "total_vehicles": number,
+    "total_plates": number,
+    "avg_processing_time_ms": number,
+    "last_detection": string
+  },
+  "timestamp": "2025-08-20T08:51:30Z"
+}
+```
+
+### Detection Results APIs
+
+#### GET /detection_results/
+Results dashboard page
+
+**Template Variables:**
+- `stats` (object) - Detection statistics from database
+
+**Response:** HTML page
+
+#### GET /detection_results/api/results
+Paginated results with filters
 
 **Query Parameters:**
-- `lines` (optional): จำนวนบรรทัด (default: 100)
-- `level` (optional): log level (debug, info, warning, error)
+- `page` (int, default: 1) - Page number
+- `per_page` (int, default: 20, max: 100) - Results per page
+- `search` (string) - Search term for OCR/plate text
+- `sort_by` (string, default: "created_at") - Column to sort by
+- `sort_order` (string, default: "desc") - Sort order (asc/desc)
+- `date_from` (string, YYYY-MM-DD) - Start date filter
+- `date_to` (string, YYYY-MM-DD) - End date filter
+- `has_vehicles` (boolean) - Filter by vehicle presence
+- `has_plates` (boolean) - Filter by license plate presence
 
 **Response:**
 ```json
 {
-  "logs": [
+  "success": true,
+  "results": [
     {
-      "timestamp": "2024-08-16T10:30:00Z",
-      "level": "INFO",
-      "message": "Camera initialized successfully"
+      "id": number,
+      "timestamp": string,
+      "created_at": string,
+      "vehicles_count": number,
+      "plates_count": number,
+      "processing_time_ms": number,
+      "ocr_results": [...],
+      "vehicle_detections": [...],
+      "plate_detections": [...],
+      "annotated_image_path": string,
+      "cropped_plates_paths": [...]
     }
-  ]
+  ],
+  "pagination": {
+    "page": number,
+    "per_page": number,
+    "total": number,
+    "pages": number,
+    "has_prev": boolean,
+    "has_next": boolean
+  },
+  "timestamp": "2025-08-20T08:51:30Z"
 }
 ```
 
-## WebSocket API
+#### GET /detection_results/api/results/{id}
+Single result detail
 
-### Connection
-
-**URL:** `ws://aicamera1:8765`
-
-### Events
-
-#### camera_frame
-ส่งข้อมูล frame จากกล้อง
-
-**Data:**
+**Response:**
 ```json
 {
-  "event": "camera_frame",
-  "data": {
-    "frame_id": 12345,
-    "timestamp": "2024-08-16T10:30:00Z",
-    "image_data": "base64_encoded_image",
-    "detections": [
+  "success": true,
+  "result": {
+    "id": number,
+    "timestamp": string,
+    "created_at": string,
+    "vehicles_count": number,
+    "plates_count": number,
+    "processing_time_ms": number,
+    "ocr_results": [
       {
-        "bbox": [100, 100, 200, 200],
-        "confidence": 0.95,
-        "class": "person"
+        "text": string,
+        "confidence": number,
+        "language": string
       }
-    ]
-  }
+    ],
+    "vehicle_detections": [...],
+    "plate_detections": [...],
+    "annotated_image_path": string,
+    "cropped_plates_paths": [...]
+  },
+  "timestamp": "2025-08-20T08:51:30Z"
 }
 ```
 
-#### system_status
-ส่งสถานะระบบ
+#### GET /detection_results/api/export
+Export results (CSV/JSON)
+
+**Query Parameters:**
+- `format` (string, default: "csv") - Export format (csv/json)
+- Same filters as `/api/results`
+
+**Response:** File download
+
+#### GET /detection_results/images/{filename}
+Serve captured images
+
+**Response:** Image file
+
+### Health APIs
+
+#### GET /health/
+Health dashboard page
+
+**Response:** HTML page
+
+#### GET /health/system
+System health status
+
+**Response:**
+```json
+{
+  "success": true,
+  "health_data": {
+    "system_health": {
+      "overall_status": string,
+      "checks": {...},
+      "last_check": string
+    },
+    "services": {...},
+    "resources": {...},
+    "timestamp": string
+  },
+  "timestamp": "2025-08-20T08:51:30Z"
+}
+```
+
+#### GET /health/logs
+Health check logs with pagination
+
+**Query Parameters:**
+- `level` (string) - Log level filter (PASS/FAIL/WARNING)
+- `page` (int, default: 1) - Page number
+- `limit` (int, default: 50, max: 100) - Log entries per page
+
+**Response:**
+```json
+{
+  "success": true,
+  "logs": [...],
+  "pagination": {...},
+  "timestamp": "2025-08-20T08:51:30Z"
+}
+```
+
+#### POST /health/check
+Run health check
+
+**Response:**
+```json
+{
+  "success": true,
+  "check_result": {
+    "overall_status": string,
+    "checks": {...},
+    "timestamp": string
+  },
+  "timestamp": "2025-08-20T08:51:30Z"
+}
+```
+
+### Streaming APIs
+
+#### GET /streaming/
+Streaming dashboard page
+
+**Response:** HTML page
+
+#### GET /streaming/status
+Streaming service status
+
+**Response:**
+```json
+{
+  "success": true,
+  "status": {
+    "is_streaming": boolean,
+    "stream_url": string,
+    "fps": number,
+    "resolution": string
+  },
+  "timestamp": "2025-08-20T08:51:30Z"
+}
+```
+
+#### POST /streaming/start
+Start video streaming
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Streaming started successfully",
+  "timestamp": "2025-08-20T08:51:30Z"
+}
+```
+
+#### POST /streaming/stop
+Stop video streaming
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Streaming stopped successfully",
+  "timestamp": "2025-08-20T08:51:30Z"
+}
+```
+
+## WebSocket Events
+
+### Client → Server Events
+
+#### main_status_request
+Request system status
+
+**Data:** None
+
+### Server → Client Events
+
+#### main_status_update
+System status update
 
 **Data:**
 ```json
 {
-  "event": "system_status",
-  "data": {
-    "cpu_usage": 45.2,
-    "memory_usage": 67.8,
-    "temperature": 52.3,
-    "camera_status": "active",
-    "ai_status": "ready"
-  }
+  "status": "ok",
+  "camera": {...},
+  "message": "System status retrieved successfully"
 }
 ```
 
-#### error
-ส่งข้อผิดพลาด
+#### camera_status_update
+Camera status update
 
-**Data:**
+**Data:** `camera_status` object
+
+#### detection_status_update
+Detection status update
+
+**Data:** `detection_status` object
+
+#### health_status_update
+Health status update
+
+**Data:** `health_data` object
+
+## Data Structures
+
+### Camera Status Object
 ```json
 {
-  "event": "error",
-  "data": {
-    "error_code": "CAMERA_ERROR",
-    "message": "Camera device not found",
-    "timestamp": "2024-08-16T10:30:00Z"
-  }
+  "is_running": boolean,
+  "camera_handler": {
+    "camera_properties": {...},
+    "current_config": {...},
+    "configuration": {...},
+    "sensor_modes": [...],
+    "sensor_modes_count": number
+  },
+  "metadata": {...},
+  "frame_count": number,
+  "average_fps": number,
+  "timestamp": string
 }
 ```
 
-## Error Codes
+### Detection Status Object
+```json
+{
+  "is_running": boolean,
+  "model_loaded": boolean,
+  "current_fps": number,
+  "total_detections": number,
+  "last_detection": string,
+  "processing_time": number,
+  "error_count": number,
+  "config": {...}
+}
+```
 
-| Code | Description |
-|------|-------------|
-| `CAMERA_ERROR` | ข้อผิดพลาดเกี่ยวกับกล้อง |
-| `AI_MODEL_ERROR` | ข้อผิดพลาดเกี่ยวกับ AI model |
-| `NETWORK_ERROR` | ข้อผิดพลาดเกี่ยวกับเครือข่าย |
-| `SYSTEM_ERROR` | ข้อผิดพลาดระบบ |
-| `VALIDATION_ERROR` | ข้อผิดพลาดการตรวจสอบข้อมูล |
-
-## Rate Limiting
-
-- **REST API:** 100 requests/minute
-- **WebSocket:** ไม่จำกัด
-
-## Examples
-
-### Python Client Example
-
-```python
-import requests
-import websocket
-import json
-
-# REST API Example
-def get_system_status():
-    response = requests.get('http://aicamera1:5000/api/system/info')
-    return response.json()
-
-def process_image(image_data):
-    payload = {
-        'image_data': image_data,
-        'confidence_threshold': 0.5
+### Detection Result Object
+```json
+{
+  "id": number,
+  "timestamp": string,
+  "created_at": string,
+  "vehicles_count": number,
+  "plates_count": number,
+  "processing_time_ms": number,
+  "ocr_results": [
+    {
+      "text": string,
+      "confidence": number,
+      "language": string
     }
-    response = requests.post('http://aicamera1:5000/api/ai/process', json=payload)
-    return response.json()
-
-# WebSocket Example
-def on_message(ws, message):
-    data = json.loads(message)
-    if data['event'] == 'camera_frame':
-        print(f"Received frame {data['data']['frame_id']}")
-
-def on_error(ws, error):
-    print(f"WebSocket error: {error}")
-
-def on_close(ws, close_status_code, close_msg):
-    print("WebSocket connection closed")
-
-def on_open(ws):
-    print("WebSocket connection opened")
-
-# Connect to WebSocket
-ws = websocket.WebSocketApp(
-    "ws://aicamera1:8765",
-    on_open=on_open,
-    on_message=on_message,
-    on_error=on_error,
-    on_close=on_close
-)
-ws.run_forever()
+  ],
+  "vehicle_detections": [...],
+  "plate_detections": [...],
+  "annotated_image_path": string,
+  "cropped_plates_paths": [...]
+}
 ```
 
-### JavaScript Client Example
-
-```javascript
-// REST API Example
-async function getSystemStatus() {
-    const response = await fetch('http://aicamera1:5000/api/system/info');
-    return await response.json();
+### Health Data Object
+```json
+{
+  "system_health": {
+    "overall_status": string,
+    "checks": {...},
+    "last_check": string
+  },
+  "services": {...},
+  "resources": {...},
+  "timestamp": string
 }
-
-async function processImage(imageData) {
-    const payload = {
-        image_data: imageData,
-        confidence_threshold: 0.5
-    };
-    
-    const response = await fetch('http://aicamera1:5000/api/ai/process', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
-    });
-    
-    return await response.json();
-}
-
-// WebSocket Example
-const ws = new WebSocket('ws://aicamera1:8765');
-
-ws.onopen = function(event) {
-    console.log('WebSocket connection opened');
-};
-
-ws.onmessage = function(event) {
-    const data = JSON.parse(event.data);
-    
-    if (data.event === 'camera_frame') {
-        console.log(`Received frame ${data.data.frame_id}`);
-        // Process frame data
-    } else if (data.event === 'system_status') {
-        console.log('System status:', data.data);
-    }
-};
-
-ws.onerror = function(error) {
-    console.error('WebSocket error:', error);
-};
-
-ws.onclose = function(event) {
-    console.log('WebSocket connection closed');
-};
 ```
 
-## References
+## Template Variables Mapping
 
-- [Flask Documentation](https://flask.palletsprojects.com/)
-- [WebSocket Documentation](https://websockets.readthedocs.io/)
-- [REST API Best Practices](https://restfulapi.net/)
+| Variable | Type | Description | Available In | Backend Source |
+|----------|------|-------------|--------------|----------------|
+| `camera_status` | object | Camera service status and metadata | Main, Camera | `camera_manager.get_status()` |
+| `detection_status` | object | Detection service status and statistics | Detection | `detection_manager.get_status()` |
+| `stats` | object | Detection statistics from database | Detection, Results | `database_manager.get_detection_statistics()` |
+| `title` | string | Page title | All pages | Hardcoded in blueprints |
+| `results` | array | Detection results for display | Results | `database_manager.get_detection_results_paginated()` |
+| `pagination` | object | Pagination information | Results | Calculated in blueprints |
 
----
+## Main Dashboard Status Variables
 
-**Note:** เอกสารนี้จะได้รับการอัปเดตเมื่อมีการเปลี่ยนแปลงใน API specification
+Key status variables สำหรับ main dashboard display:
+
+- `camera_status.is_running` - Camera service status
+- `camera_status.average_fps` - Current FPS
+- `camera_status.frame_count` - Total frames processed
+- `camera_status.camera_handler.current_config` - Current camera settings
+- `detection_status.is_running` - Detection service status
+- `detection_status.total_detections` - Total detections made
+- `detection_status.current_fps` - Detection FPS
+- `stats.total_detections` - Database statistics
+- `stats.total_vehicles` - Total vehicles detected
+- `stats.total_plates` - Total plates detected
+- `health_data.system_health.overall_status` - System health status
+
+## Development Guidelines
+
+### Import Patterns
+- ใช้ **absolute imports** จาก `v1_3.src.*`
+- ตัวอย่าง: `from v1_3.src.core.dependency_container import get_service`
+
+### Service Access
+- เข้าถึง services ผ่าน `get_service('service_name')` จาก dependency container
+- ตัวอย่าง: `camera_manager = get_service('camera_manager')`
+
+### API Response Standards
+- ทุก response ต้องมี `timestamp` และ `success` fields
+- Error responses ต้องมี `error` field พร้อม descriptive message
+- ใช้ consistent JSON structure
+
+### Template Variables
+- Pass variables explicitly เพื่อ avoid undefined errors
+- ใช้ proper error handling ใน blueprints
+- ตรวจสอบ service availability ก่อนใช้งาน
+
+### WebSocket Communication
+- ใช้ room-based communication สำหรับ real-time updates
+- Handle connection errors gracefully
+- ใช้ consistent event naming
+
+### Database Operations
+- ใช้ `database_manager` service สำหรับ database operations
+- ใช้ proper error handling และ logging
+- ตรวจสอบ database connection status
+
+### Image Serving
+- ใช้ Flask routes สำหรับ image serving (security และ flexibility)
+- ตรวจสอบ file existence ก่อน serving
+- ใช้ proper content-type headers
+
+## Error Handling
+
+### Common Error Responses
+```json
+{
+  "success": false,
+  "error": "Service not available",
+  "timestamp": "2025-08-20T08:51:30Z"
+}
+```
+
+### HTTP Status Codes
+- `200` - Success
+- `400` - Bad Request
+- `404` - Not Found
+- `500` - Internal Server Error
+
+## Version History
+
+- **v1.3.8** (2025-08-20) - Updated API reference with comprehensive endpoint mapping
+- **v1.3.7** - Added detection results APIs and image serving
+- **v1.3.6** - Enhanced health monitoring APIs
+- **v1.3.5** - Added streaming APIs
+- **v1.3.4** - Improved camera metadata APIs
+- **v1.3.3** - Initial API structure

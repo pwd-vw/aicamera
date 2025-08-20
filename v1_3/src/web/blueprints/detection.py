@@ -41,15 +41,20 @@ def detection_dashboard():
     """
     try:
         detection_manager = get_service('detection_manager')
+        database_manager = get_service('database_manager')
+        
         detection_status = detection_manager.get_status() if detection_manager else {}
+        stats = database_manager.get_detection_statistics() if database_manager else {}
         
         return render_template('detection/dashboard.html',
                              detection_status=detection_status,
+                             stats=stats,
                              title="Detection Dashboard")
     except Exception as e:
         logger.error(f"Error in detection dashboard: {e}")
         return render_template('detection/dashboard.html',
                              detection_status={},
+                             stats={},
                              title="Detection Dashboard")
 
 

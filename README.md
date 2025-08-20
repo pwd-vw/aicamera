@@ -523,7 +523,7 @@ sudo systemctl start send_socket.service
 - ✅ ตั้งค่าให้ทำงานอัตโนมัติผ่าน **Systemd (`send_socket.service`)**  
 ---
 
-## 📋 **เวอร์ชันปัจจุบัน: v1.3.8** (อัปเดตล่าสุด: August 2025)
+## 📋 **เวอร์ชันปัจจุบัน: v1.3.9** (อัปเดตล่าสุด: August 2025)
 
 ### 🎯 **สถานะปัจจุบันของโครงการ**
 ✅ **ระบบ Edge AI LPR** ทำงานบน **Raspberry Pi 5 + Camera Module 3 + Hailo 8 AI Accelerator**  
@@ -545,7 +545,23 @@ sudo systemctl start send_socket.service
 
 ---
 
-## 📝 **Changelog: v1.3.3 → v1.3.8**
+## 📝 **Changelog: v1.3.3 → v1.3.9**
+
+### 🚀 **v1.3.9 - Checkpoint Vehicle Tracking & Storage Optimization** ( August 2025)
+**การปรับปรุงหลัก:**
+- ✅ **เพิ่มระบบ Vehicle Tracking** ใช้ IoU และ Distance-based tracking เพื่อติดตามรถยนต์ข้ามเฟรม
+- ✅ **เพิ่ม Best Detection Selection Algorithm** เลือกการตรวจจับที่ดีที่สุดจากหลายการตรวจจับของรถคันเดียวกัน
+- ✅ **เพิ่ม Storage Optimization** ลดการใช้พื้นที่จัดเก็บ 90% (1 การตรวจจับ vs 10-20 ต่อรถยนต์)
+- ✅ **เพิ่ม Automatic Cleanup** ลบข้อมูลเก่าและคุณภาพต่ำอัตโนมัติ
+- ✅ **เพิ่ม Enhanced Database Schema** รองรับ vehicle tracking และ best detection marking
+- ✅ **เพิ่ม Checkpoint Deployment Documentation** คู่มือการใช้งานสำหรับจุดตรวจ
+
+**การเปลี่ยนแปลงทางเทคนิค:**
+- เพิ่ม Vehicle Lifecycle Management (Active → Completed → Expired)
+- เพิ่ม Selective Image Storage (เฉพาะ best detection)
+- เพิ่ม Image Compression based on quality
+- เพิ่ม Composite Score Algorithm (OCR confidence + vehicle confidence + distance + image quality)
+- เพิ่ม Vehicle Tracking Tables และ Enhanced Detection Results Schema
 
 ### 🚀 **v1.3.8 - Modular Dashboard Architecture** ( August 2025)
 **การปรับปรุงหลัก:**

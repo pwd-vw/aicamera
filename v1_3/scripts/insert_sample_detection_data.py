@@ -22,24 +22,16 @@ Date: August 2025
 
 import sys
 import os
-from pathlib import Path
+import sqlite3
 import json
 import random
+from pathlib import Path
 from datetime import datetime, timedelta
 
 # Add project root to path
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 sys.path.insert(0, str(project_root / 'v1_3' / 'src'))
-
-from v1_3.src.core.utils.import_helper import setup_import_paths
-setup_import_paths()
-
-from v1_3.src.core.utils.logging_config import setup_logging, get_logger
-from v1_3.src.components.database_manager import DatabaseManager
-
-# Setup logging
-logger = setup_logging(level="INFO")
 
 # Sample data configurations
 SAMPLE_IMAGES = ['car1.jpg', 'car2.jpg', 'car3.jpg']
@@ -74,6 +66,126 @@ ENGLISH_PLATES = [
 
 # Vehicle types for detection
 VEHICLE_TYPES = ['car', 'truck', 'motorcycle', 'bus', 'van']
+
+class StandaloneDatabaseManager:
+    """Standalone database manager that doesn't import camera modules."""
+    
+    def __init__(self, db_path=None):
+        if db_path is None:
+            # Correct database path
+            db_path = project_root / 'db' / 'lpr_data.db'
+        
+        self.db_path = Path(db_path)
+        self.connection = None
+    
+    def initialize(self):
+        """Initialize database connection."""
+        try:
+            # Ensure database directory exists
+            self.db_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            # Connect to database
+            self.connection = sqlite3.connect(str(self.db_path))
+            self.connection.row_factory = sqlite3.Row
+            
+            # Create tables if they don't exist
+            self._create_tables()
+            
+            print(f"✅ Database initialized: {self.db_path}")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Failed to initialize database: {e}")
+            return False
+    
+    def _create_tables(self):
+        """Create detection_results table if it doesn't exist."""
+        cursor = self.connection.cursor()
+        
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS detection_results (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp TEXT NOT NULL,
+                vehicles_count INTEGER DEFAULT 0,
+                plates_count INTEGER DEFAULT 0,
+                vehicle_detections TEXT,
+                plate_detections TEXT,
+                ocr_results TEXT,
+                annotated_image_path TEXT,
+                cropped_plates_paths TEXT,
+                processing_time_ms REAL DEFAULT 0.0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        
+        self.connection.commit()
+        print("✅ Database tables created/verified")
+    
+    def insert_detection_result(self, record):
+        """Insert a detection result record."""
+        try:
+            cursor = self.connection.cursor()
+            
+            cursor.execute("""
+                INSERT INTO detection_results (
+                    timestamp, vehicles_count, plates_count, vehicle_detections,
+                    plate_detections, ocr_results, annotated_image_path,
+                    cropped_plates_paths, processing_time_ms
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                record['timestamp'],
+                record['vehicles_count'],
+                record['plates_count'],
+                json.dumps(record['vehicle_detections']),
+                json.dumps(record['plate_detections']),
+                json.dumps(record['ocr_results']),
+                record['annotated_image_path'],
+                json.dumps(record['cropped_plates_paths']),
+                record['processing_time_ms']
+            ))
+            
+            self.connection.commit()
+            return cursor.lastrowid
+            
+        except Exception as e:
+            print(f"❌ Error inserting record: {e}")
+            return None
+    
+    def get_detection_statistics(self):
+        """Get detection statistics."""
+        try:
+            cursor = self.connection.cursor()
+            
+            cursor.execute("""
+                SELECT 
+                    COUNT(*) as total_detections,
+                    SUM(vehicles_count) as total_vehicles,
+                    SUM(plates_count) as total_plates,
+                    AVG(processing_time_ms) as avg_processing_time_ms,
+                    MAX(timestamp) as last_detection
+                FROM detection_results
+            """)
+            
+            row = cursor.fetchone()
+            if row:
+                return {
+                    'total_detections': row['total_detections'] or 0,
+                    'total_vehicles': row['total_vehicles'] or 0,
+                    'total_plates': row['total_plates'] or 0,
+                    'avg_processing_time_ms': row['avg_processing_time_ms'] or 0,
+                    'last_detection': row['last_detection']
+                }
+            return {}
+            
+        except Exception as e:
+            print(f"❌ Error getting statistics: {e}")
+            return {}
+    
+    def cleanup(self):
+        """Close database connection."""
+        if self.connection:
+            self.connection.close()
+            print("✅ Database connection closed")
 
 def generate_bbox(image_width=1920, image_height=1080):
     """Generate realistic bounding box coordinates."""
@@ -211,17 +323,17 @@ def insert_sample_data():
     """Insert sample detection data into database."""
     try:
         # Initialize database manager
-        logger.info("Initializing database manager...")
-        db_manager = DatabaseManager()
+        print("🔧 Initializing database manager...")
+        db_manager = StandaloneDatabaseManager()
         
         if not db_manager.initialize():
-            logger.error("Failed to initialize database")
+            print("❌ Failed to initialize database")
             return False
         
-        logger.info("Database initialized successfully")
+        print("✅ Database initialized successfully")
         
         # Generate and insert sample records
-        logger.info("Generating 20 sample detection records...")
+        print("📊 Generating 20 sample detection records...")
         
         inserted_count = 0
         for i in range(1, 21):  # Generate 20 records
@@ -234,42 +346,42 @@ def insert_sample_data():
                 
                 if record_id:
                     inserted_count += 1
-                    logger.info(f"Inserted record {i}/20 - ID: {record_id}, "
-                              f"Vehicles: {record['vehicles_count']}, "
-                              f"Plates: {record['plates_count']}, "
-                              f"OCR: {len(record['ocr_results'])}")
+                    print(f"✅ Inserted record {i}/20 - ID: {record_id}, "
+                          f"Vehicles: {record['vehicles_count']}, "
+                          f"Plates: {record['plates_count']}, "
+                          f"OCR: {len(record['ocr_results'])}")
                 else:
-                    logger.error(f"Failed to insert record {i}")
+                    print(f"❌ Failed to insert record {i}")
                     
             except Exception as e:
-                logger.error(f"Error inserting record {i}: {e}")
+                print(f"❌ Error inserting record {i}: {e}")
         
-        logger.info(f"Successfully inserted {inserted_count}/20 sample records")
+        print(f"✅ Successfully inserted {inserted_count}/20 sample records")
         
         # Display statistics
         stats = db_manager.get_detection_statistics()
-        logger.info("Database statistics after insertion:")
-        logger.info(f"  Total detections: {stats.get('total_detections', 0)}")
-        logger.info(f"  Total vehicles: {stats.get('total_vehicles', 0)}")
-        logger.info(f"  Total plates: {stats.get('total_plates', 0)}")
-        logger.info(f"  Average processing time: {stats.get('avg_processing_time_ms', 0):.1f}ms")
+        print("📈 Database statistics after insertion:")
+        print(f"  Total detections: {stats.get('total_detections', 0)}")
+        print(f"  Total vehicles: {stats.get('total_vehicles', 0)}")
+        print(f"  Total plates: {stats.get('total_plates', 0)}")
+        print(f"  Average processing time: {stats.get('avg_processing_time_ms', 0):.1f}ms")
         
         # Cleanup
         db_manager.cleanup()
-        logger.info("Sample data insertion completed successfully!")
+        print("✅ Sample data insertion completed successfully!")
         
         return True
         
     except Exception as e:
-        logger.error(f"Error during sample data insertion: {e}")
+        print(f"❌ Error during sample data insertion: {e}")
         return False
 
 def clear_existing_data():
     """Clear existing detection data (optional)."""
     try:
-        db_manager = DatabaseManager()
+        db_manager = StandaloneDatabaseManager()
         if not db_manager.initialize():
-            logger.error("Failed to initialize database for clearing data")
+            print("❌ Failed to initialize database for clearing data")
             return False
         
         # Get current count
@@ -283,19 +395,19 @@ def clear_existing_data():
                 cursor = db_manager.connection.cursor()
                 cursor.execute("DELETE FROM detection_results")
                 db_manager.connection.commit()
-                logger.info(f"Cleared {current_count} existing detection records")
+                print(f"✅ Cleared {current_count} existing detection records")
         
         db_manager.cleanup()
         return True
         
     except Exception as e:
-        logger.error(f"Error clearing existing data: {e}")
+        print(f"❌ Error clearing existing data: {e}")
         return False
 
 def main():
     """Main function."""
-    logger.info("AI Camera v1.3 - Sample Detection Data Insertion Script")
-    logger.info("=" * 60)
+    print("🤖 AI Camera v1.3 - Sample Detection Data Insertion Script")
+    print("=" * 60)
     
     try:
         # Check if user wants to clear existing data
@@ -303,26 +415,26 @@ def main():
         
         # Insert sample data
         if insert_sample_data():
-            logger.info("✅ Sample data insertion completed successfully!")
-            logger.info("")
-            logger.info("You can now test the detection results UI at:")
-            logger.info("  http://localhost:5000/detection_results")
-            logger.info("")
-            logger.info("Sample data includes:")
-            logger.info("  - 20 detection records")
-            logger.info("  - Mixed Thai and English license plates")
-            logger.info("  - Various vehicle types and counts")
-            logger.info("  - Realistic confidence scores and processing times")
-            logger.info("  - Timestamps spread over the last 30 days")
+            print("✅ Sample data insertion completed successfully!")
+            print("")
+            print("You can now test the detection results UI at:")
+            print("  http://localhost/detection/")
+            print("")
+            print("Sample data includes:")
+            print("  - 20 detection records")
+            print("  - Mixed Thai and English license plates")
+            print("  - Various vehicle types and counts")
+            print("  - Realistic confidence scores and processing times")
+            print("  - Timestamps spread over the last 30 days")
         else:
-            logger.error("❌ Sample data insertion failed!")
+            print("❌ Sample data insertion failed!")
             return 1
             
     except KeyboardInterrupt:
-        logger.info("Operation cancelled by user")
+        print("⏹️  Operation cancelled by user")
         return 1
     except Exception as e:
-        logger.error(f"Unexpected error: {e}")
+        print(f"❌ Unexpected error: {e}")
         return 1
     
     return 0

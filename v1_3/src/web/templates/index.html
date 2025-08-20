@@ -330,6 +330,545 @@
         </div>
     </div>
 </div>
+
+<!-- Development Reference Section -->
+<div class="row mt-5">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-code"></i> Development Reference - APIs & Data Structures</h5>
+            </div>
+            <div class="card-body">
+                <!-- Main Dashboard APIs -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h6 class="text-primary"><i class="fas fa-home"></i> Main Dashboard APIs</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Endpoint</th>
+                                        <th>Method</th>
+                                        <th>Description</th>
+                                        <th>Response Data</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><code>/</code></td>
+                                        <td>GET</td>
+                                        <td>Main dashboard page</td>
+                                        <td><code>camera_status</code> object</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>WebSocket: main_status_request</code></td>
+                                        <td>WS</td>
+                                        <td>Request system status</td>
+                                        <td><code>main_status_update</code> event</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Camera APIs -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h6 class="text-success"><i class="fas fa-video"></i> Camera APIs</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Endpoint</th>
+                                        <th>Method</th>
+                                        <th>Description</th>
+                                        <th>Response Data</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><code>/camera/</code></td>
+                                        <td>GET</td>
+                                        <td>Camera dashboard</td>
+                                        <td><code>camera_status</code> object</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>/camera/status</code></td>
+                                        <td>GET</td>
+                                        <td>Camera service status</td>
+                                        <td><code>camera_status</code> object</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>/camera/start</code></td>
+                                        <td>POST</td>
+                                        <td>Start camera service</td>
+                                        <td><code>success</code>, <code>message</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>/camera/stop</code></td>
+                                        <td>POST</td>
+                                        <td>Stop camera service</td>
+                                        <td><code>success</code>, <code>message</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>/camera/restart</code></td>
+                                        <td>POST</td>
+                                        <td>Restart camera service</td>
+                                        <td><code>success</code>, <code>message</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>/camera/config</code></td>
+                                        <td>GET/POST</td>
+                                        <td>Camera configuration</td>
+                                        <td><code>config</code> object</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>/camera/capture</code></td>
+                                        <td>POST</td>
+                                        <td>Capture image</td>
+                                        <td><code>success</code>, <code>image_path</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>/camera/metadata</code></td>
+                                        <td>GET</td>
+                                        <td>Camera metadata viewer</td>
+                                        <td>HTML page</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>/camera/api/metadata</code></td>
+                                        <td>GET</td>
+                                        <td>Camera metadata API</td>
+                                        <td><code>camera_status</code>, <code>camera_properties</code></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Detection APIs -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h6 class="text-warning"><i class="fas fa-robot"></i> Detection APIs</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Endpoint</th>
+                                        <th>Method</th>
+                                        <th>Description</th>
+                                        <th>Response Data</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><code>/detection/</code></td>
+                                        <td>GET</td>
+                                        <td>Detection dashboard</td>
+                                        <td><code>detection_status</code>, <code>stats</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>/detection/status</code></td>
+                                        <td>GET</td>
+                                        <td>Detection service status</td>
+                                        <td><code>detection_status</code> object</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>/detection/start</code></td>
+                                        <td>POST</td>
+                                        <td>Start detection service</td>
+                                        <td><code>success</code>, <code>message</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>/detection/stop</code></td>
+                                        <td>POST</td>
+                                        <td>Stop detection service</td>
+                                        <td><code>success</code>, <code>message</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>/detection/config</code></td>
+                                        <td>GET/POST</td>
+                                        <td>Detection configuration</td>
+                                        <td><code>config</code> object</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>/detection/statistics</code></td>
+                                        <td>GET</td>
+                                        <td>Detection statistics</td>
+                                        <td><code>stats</code> object</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Detection Results APIs -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h6 class="text-info"><i class="fas fa-list"></i> Detection Results APIs</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Endpoint</th>
+                                        <th>Method</th>
+                                        <th>Description</th>
+                                        <th>Response Data</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><code>/detection_results/</code></td>
+                                        <td>GET</td>
+                                        <td>Results dashboard</td>
+                                        <td><code>stats</code> object</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>/detection_results/api/results</code></td>
+                                        <td>GET</td>
+                                        <td>Paginated results with filters</td>
+                                        <td><code>results</code>, <code>pagination</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>/detection_results/api/results/&lt;id&gt;</code></td>
+                                        <td>GET</td>
+                                        <td>Single result detail</td>
+                                        <td><code>result</code> object</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>/detection_results/api/export</code></td>
+                                        <td>GET</td>
+                                        <td>Export results (CSV/JSON)</td>
+                                        <td>File download</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>/detection_results/images/&lt;filename&gt;</code></td>
+                                        <td>GET</td>
+                                        <td>Serve captured images</td>
+                                        <td>Image file</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Health APIs -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h6 class="text-danger"><i class="fas fa-heartbeat"></i> Health APIs</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Endpoint</th>
+                                        <th>Method</th>
+                                        <th>Description</th>
+                                        <th>Response Data</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><code>/health/</code></td>
+                                        <td>GET</td>
+                                        <td>Health dashboard</td>
+                                        <td>HTML page</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>/health/system</code></td>
+                                        <td>GET</td>
+                                        <td>System health status</td>
+                                        <td><code>health_data</code> object</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>/health/logs</code></td>
+                                        <td>GET</td>
+                                        <td>Health check logs</td>
+                                        <td><code>logs</code>, <code>pagination</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>/health/check</code></td>
+                                        <td>POST</td>
+                                        <td>Run health check</td>
+                                        <td><code>check_result</code> object</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Streaming APIs -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h6 class="text-secondary"><i class="fas fa-stream"></i> Streaming APIs</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Endpoint</th>
+                                        <th>Method</th>
+                                        <th>Description</th>
+                                        <th>Response Data</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><code>/streaming/</code></td>
+                                        <td>GET</td>
+                                        <td>Streaming dashboard</td>
+                                        <td>HTML page</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>/streaming/status</code></td>
+                                        <td>GET</td>
+                                        <td>Streaming service status</td>
+                                        <td><code>status</code> object</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>/streaming/start</code></td>
+                                        <td>POST</td>
+                                        <td>Start video streaming</td>
+                                        <td><code>success</code>, <code>message</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>/streaming/stop</code></td>
+                                        <td>POST</td>
+                                        <td>Stop video streaming</td>
+                                        <td><code>success</code>, <code>message</code></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Data Structures -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h6 class="text-dark"><i class="fas fa-database"></i> Key Data Structures</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6 class="text-primary">Camera Status Object</h6>
+                                <pre class="bg-light p-2 rounded"><code>{
+  "is_running": boolean,
+  "camera_handler": {
+    "camera_properties": {...},
+    "current_config": {...},
+    "configuration": {...},
+    "sensor_modes": [...],
+    "sensor_modes_count": number
+  },
+  "metadata": {...},
+  "frame_count": number,
+  "average_fps": number,
+  "timestamp": string
+}</code></pre>
+                            </div>
+                            <div class="col-md-6">
+                                <h6 class="text-warning">Detection Status Object</h6>
+                                <pre class="bg-light p-2 rounded"><code>{
+  "is_running": boolean,
+  "model_loaded": boolean,
+  "current_fps": number,
+  "total_detections": number,
+  "last_detection": string,
+  "processing_time": number,
+  "error_count": number,
+  "config": {...}
+}</code></pre>
+                            </div>
+                        </div>
+                        <div class="row mt-3">
+                            <div class="col-md-6">
+                                <h6 class="text-info">Detection Result Object</h6>
+                                <pre class="bg-light p-2 rounded"><code>{
+  "id": number,
+  "timestamp": string,
+  "created_at": string,
+  "vehicles_count": number,
+  "plates_count": number,
+  "processing_time_ms": number,
+  "ocr_results": [...],
+  "vehicle_detections": [...],
+  "plate_detections": [...],
+  "annotated_image_path": string,
+  "cropped_plates_paths": [...]
+}</code></pre>
+                            </div>
+                            <div class="col-md-6">
+                                <h6 class="text-danger">Health Data Object</h6>
+                                <pre class="bg-light p-2 rounded"><code>{
+  "system_health": {
+    "overall_status": string,
+    "checks": {...},
+    "last_check": string
+  },
+  "services": {...},
+  "resources": {...},
+  "timestamp": string
+}</code></pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Template Variables -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h6 class="text-dark"><i class="fas fa-file-code"></i> Template Variables</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Variable</th>
+                                        <th>Type</th>
+                                        <th>Description</th>
+                                        <th>Available In</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><code>camera_status</code></td>
+                                        <td>object</td>
+                                        <td>Camera service status and metadata</td>
+                                        <td>Main, Camera</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>detection_status</code></td>
+                                        <td>object</td>
+                                        <td>Detection service status and statistics</td>
+                                        <td>Detection</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>stats</code></td>
+                                        <td>object</td>
+                                        <td>Detection statistics from database</td>
+                                        <td>Detection, Results</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>title</code></td>
+                                        <td>string</td>
+                                        <td>Page title</td>
+                                        <td>All pages</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>results</code></td>
+                                        <td>array</td>
+                                        <td>Detection results for display</td>
+                                        <td>Results</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>pagination</code></td>
+                                        <td>object</td>
+                                        <td>Pagination information</td>
+                                        <td>Results</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Main Dashboard Status Variables -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h6 class="text-dark"><i class="fas fa-tachometer-alt"></i> Main Dashboard Status Variables</h6>
+                        <div class="alert alert-info">
+                            <strong>Key Status Variables for Main Dashboard:</strong>
+                            <ul class="mb-0 mt-2">
+                                <li><code>camera_status.is_running</code> - Camera service status</li>
+                                <li><code>camera_status.average_fps</code> - Current FPS</li>
+                                <li><code>camera_status.frame_count</code> - Total frames processed</li>
+                                <li><code>camera_status.camera_handler.current_config</code> - Current camera settings</li>
+                                <li><code>detection_status.is_running</code> - Detection service status</li>
+                                <li><code>detection_status.total_detections</code> - Total detections made</li>
+                                <li><code>detection_status.current_fps</code> - Detection FPS</li>
+                                <li><code>stats.total_detections</code> - Database statistics</li>
+                                <li><code>stats.total_vehicles</code> - Total vehicles detected</li>
+                                <li><code>stats.total_plates</code> - Total plates detected</li>
+                                <li><code>health_data.system_health.overall_status</code> - System health status</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- WebSocket Events -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h6 class="text-dark"><i class="fas fa-broadcast-tower"></i> WebSocket Events</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Event</th>
+                                        <th>Direction</th>
+                                        <th>Description</th>
+                                        <th>Data</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><code>main_status_request</code></td>
+                                        <td>Client → Server</td>
+                                        <td>Request system status</td>
+                                        <td>None</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>main_status_update</code></td>
+                                        <td>Server → Client</td>
+                                        <td>System status update</td>
+                                        <td><code>camera</code>, <code>status</code></td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>camera_status_update</code></td>
+                                        <td>Server → Client</td>
+                                        <td>Camera status update</td>
+                                        <td><code>camera_status</code> object</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>detection_status_update</code></td>
+                                        <td>Server → Client</td>
+                                        <td>Detection status update</td>
+                                        <td><code>detection_status</code> object</td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>health_status_update</code></td>
+                                        <td>Server → Client</td>
+                                        <td>Health status update</td>
+                                        <td><code>health_data</code> object</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Development Notes -->
+                <div class="row">
+                    <div class="col-12">
+                        <h6 class="text-dark"><i class="fas fa-sticky-note"></i> Development Notes</h6>
+                        <div class="alert alert-warning">
+                            <strong>Important Development Guidelines:</strong>
+                            <ul class="mb-0 mt-2">
+                                <li>All blueprints use <strong>absolute imports</strong> from <code>v1_3.src.*</code></li>
+                                <li>Services are accessed via <code>get_service('service_name')</code> from dependency container</li>
+                                <li>All API responses include <code>timestamp</code> and <code>success</code> fields</li>
+                                <li>Error responses include <code>error</code> field with descriptive message</li>
+                                <li>Template variables are passed explicitly to avoid undefined errors</li>
+                                <li>WebSocket events use room-based communication for real-time updates</li>
+                                <li>Database operations are handled through <code>database_manager</code> service</li>
+                                <li>Image serving uses Flask routes for security and flexibility</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block additional_js %}
