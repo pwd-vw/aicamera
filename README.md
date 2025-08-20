@@ -523,7 +523,7 @@ sudo systemctl start send_socket.service
 - ✅ ตั้งค่าให้ทำงานอัตโนมัติผ่าน **Systemd (`send_socket.service`)**  
 ---
 
-## 📋 **เวอร์ชันปัจจุบัน: v1.3.8** (อัปเดตล่าสุด: ธันวาคม 2024)
+## 📋 **เวอร์ชันปัจจุบัน: v1.3.8** (อัปเดตล่าสุด: August 2025)
 
 ### 🎯 **สถานะปัจจุบันของโครงการ**
 ✅ **ระบบ Edge AI LPR** ทำงานบน **Raspberry Pi 5 + Camera Module 3 + Hailo 8 AI Accelerator**  
@@ -547,7 +547,7 @@ sudo systemctl start send_socket.service
 
 ## 📝 **Changelog: v1.3.3 → v1.3.8**
 
-### 🚀 **v1.3.8 - Modular Dashboard Architecture** (ธันวาคม 2024)
+### 🚀 **v1.3.8 - Modular Dashboard Architecture** ( August 2025)
 **การปรับปรุงหลัก:**
 - ✅ **แก้ไขปัญหาการขัดแย้งของสถานะกล้อง** ระหว่าง Health Service และ Camera Service
 - ✅ **เพิ่มฟังก์ชันอัปเดตเฉพาะสำหรับแต่ละบริการ** เพื่อให้แต่ละบริการอัปเดตเฉพาะองค์ประกอบของตัวเอง
@@ -562,32 +562,32 @@ sudo systemctl start send_socket.service
 - ปรับปรุง `updateHealthStatus()` ให้ไม่เขียนทับสถานะกล้องเมื่อมีข้อมูลเฉพาะของกล้อง
 - ลบฟังก์ชันที่ล้าสมัย: `setupStatusUpdates()`, `updateSystemStatus()`, `loadInitialStatus()`, `setupWebSocket()`, `updateStreamingStatus()`
 
-### 🔧 **v1.3.7 - System Integration & Documentation** (ธันวาคม 2024)
+### 🔧 **v1.3.7 - System Integration & Documentation** ( August 2025)
 **การปรับปรุงหลัก:**
 - ✅ **อัปเดต README และคู่มือการติดตั้ง**
 - ✅ **เพิ่มการตั้งค่า nginx และการเริ่มต้นฐานข้อมูล**
 - ✅ **ปรับปรุงการนำเข้า picamera2/libcamera แบบ Lazy Import**
 - ✅ **เพิ่มการเปิดใช้งาน venv และ PYTHONPATH สำหรับ libcamera**
 
-### 🛠️ **v1.3.6 - Installation & Database Automation** (พฤศจิกายน 2024)
+### 🛠️ **v1.3.6 - Installation & Database Automation** ( August 2025)
 **การปรับปรุงหลัก:**
 - ✅ **เพิ่มการตรวจสอบการติดตั้งแบบครอบคลุม**
 - ✅ **เพิ่มการสร้างฐานข้อมูลอัตโนมัติ**
 - ✅ **ปรับปรุงระบบการติดตั้ง**
 
-### ⚙️ **v1.3.5 - Configuration System** (พฤศจิกายน 2024)
+### ⚙️ **v1.3.5 - Configuration System** ( August 2025)
 **การปรับปรุงหลัก:**
 - ✅ **เพิ่มระบบการตั้งค่าแบบครอบคลุม**
 - ✅ **จัดระเบียบเอกสาร**
 - ✅ **ปรับปรุงการจัดการการตั้งค่า**
 
-### 🔄 **v1.3.4 - Core System Improvements** (พฤศจิกายน 2024)
+### 🔄 **v1.3.4 - Core System Improvements** ( August 2025)
 **การปรับปรุงหลัก:**
 - ✅ **ปรับปรุงระบบหลัก**
 - ✅ **แก้ไขข้อผิดพลาด**
 - ✅ **เพิ่มประสิทธิภาพ**
 
-### 🎯 **v1.3.3 - Initial Modular Release** (พฤศจิกายน 2024)
+### 🎯 **v1.3.3 - Initial Modular Release** ( August 2025)
 **การปรับปรุงหลัก:**
 - ✅ **เปิดตัวระบบแบบ Modular Architecture**
 - ✅ **แยกส่วนการทำงานของแต่ละบริการ**

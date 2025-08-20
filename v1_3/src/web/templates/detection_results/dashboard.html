@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 
 {% set active_page = "detection_results" %}
+{% set fluid_container = true %}
 {% set use_socketio = true %}
 
 {% block title %}Detection Results - AI Camera v1.3{% endblock %}
@@ -11,7 +12,6 @@
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid">
     <!-- Page Header -->
     <div class="row mb-4">
         <div class="col-12">

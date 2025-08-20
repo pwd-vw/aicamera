@@ -1,129 +1,177 @@
 {% extends "base.html" %}
 
 {% set active_page = "main" %}
+{% set fluid_container = true %}
 {% set use_socketio = true %}
 
 {% block title %}Main Dashboard{% endblock %}
 
 {% block additional_css %}
-<link href="{{ url_for('static', filename='css/dashboard.css') }}" rel="stylesheet">
+<link href="{{ url_for('static', filename='css/dashboard.css', v=2) }}" rel="stylesheet">
 {% endblock %}
 
 {% block page_header %}
-<!-- Hero Section -->
+<!-- Hero Section with System Status -->
 <section class="hero-section">
-    <div class="container text-center">
-        <h1 class="display-4 mb-4">
-            <i class="fas fa-camera"></i> AI Camera System
-        </h1>
-        <p class="lead mb-4">
-            Advanced camera management system with real-time video streaming,
-            AI detection capabilities, and comprehensive monitoring.
-        </p>
-        <!--- 
-        <div class="mt-4">
-            <a href="/camera" class="btn btn-light btn-lg me-3">
-                <i class="fas fa-video"></i> Camera Dashboard
-            </a>
-            <a href="/health" class="btn btn-outline-light btn-lg">
-                <i class="fas fa-heartbeat"></i> System Health
-            </a>
+    <div class="container-fluid">
+        <!-- System Status - Row 1: Core Services -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="status-card text-center">
+                    <i class="fas fa-camera feature-icon text-primary"></i>
+                    <h5>Camera Status</h5>
+                    <span id="main-camera-status" class="status-indicator status-offline"></span>
+                    <span id="main-camera-status-text">Offline</span>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="status-card text-center">
+                    <i class="fas fa-brain feature-icon text-primary"></i>
+                    <h5>AI Detection</h5>
+                    <span id="main-detection-status" class="status-indicator status-inactive"></span>
+                    <span id="main-detection-status-text">Inactive</span>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="status-card text-center">
+                    <i class="fas fa-server feature-icon text-info"></i>
+                    <h5>System Health</h5>
+                    <span id="main-system-status" class="status-indicator status-healthy"></span>
+                    <span id="main-system-status-text">Healthy</span>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="status-card text-center">
+                    <i class="fas fa-database feature-icon text-warning"></i>
+                    <h5>Database</h5>
+                    <span id="main-database-status" class="status-indicator status-connected"></span>
+                    <span id="main-database-status-text">Connected</span>
+                </div>
+            </div>
         </div>
-        -->
+
+        <!-- System Status - Row 2: Optional Services -->
+        <div class="row">
+            <div class="col-md-3">
+                <div class="status-card text-center" id="health-status-card">
+                    <i class="fas fa-heartbeat feature-icon text-success"></i>
+                    <h5>Health Monitor</h5>
+                    <span id="main-health-status" class="status-indicator status-offline"></span>
+                    <span id="main-health-status-text">Offline</span>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="status-card text-center" id="experiment-status-card">
+                    <i class="fas fa-flask feature-icon text-warning"></i>
+                    <h5>Experiments</h5>
+                    <span id="main-experiment-status" class="status-indicator status-offline"></span>
+                    <span id="main-experiment-status-text">Offline</span>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="status-card text-center" id="websocket-status-card">
+                    <i class="fas fa-broadcast-tower feature-icon text-info"></i>
+                    <h5>WebSocket Sender</h5>
+                    <span id="main-websocket-status" class="status-indicator status-offline"></span>
+                    <span id="main-websocket-status-text">Offline</span>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="status-card text-center" id="storage-status-card">
+                    <i class="fas fa-hdd feature-icon text-secondary"></i>
+                    <h5>Storage Monitor</h5>
+                    <span id="main-storage-status" class="status-indicator status-offline"></span>
+                    <span id="main-storage-status-text">Offline</span>
+                </div>
+            </div>
+        </div>
     </div>
 </section>
 {% endblock %}
 
-{% block container_class %}my-5{% endblock %}
+{% block container_class %}
+<!-- System Information -->
+<div class="row mt-5">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-info-circle"></i> System Information
+                </h5>
+            </div>
+            <div class="card-body">
+                <!-- Row 1: Single centered column with left-aligned text -->
+                <div class="row justify-content-center mb-4">
+                    <div class="col-md-8">
+                        <h6 class="text-center">System Information</h6>
+                        <ul class="list-unstyled text-start">
+                            <li><strong>CPU Architecture:</strong> <span id="system-info-cpu">Loading...</span></li>
+                            <li><strong>AI Accelerator:</strong> <span id="system-info-ai-accelerator">Loading...</span>
+                            </li>
+                            <li><strong>OS & Kernel:</strong> <span id="system-info-os">Loading...</span></li>
+                        </ul>
+                        <hr class="my-3">
+                    </div>
+                </div>
+
+                <!-- Row 2: Three columns -->
+                <div class="row">
+                    <div class="col-md-4">
+                        <h6>Hardware Information</h6>
+                        <ul class="list-unstyled">
+                            <li><strong>Main Board:</strong> Raspberry Pi 5</li>
+                            <li><strong>RAM:</strong> <span id="system-info-ram">Loading...</span></li>
+                            <li><strong>Disk:</strong> <span id="system-info-disk">Loading...</span></li>
+                            <li><strong>Camera Model:</strong> <span id="feature-camera-model">Loading...</span></li>
+                            <li><strong>Resolution:</strong> <span id="feature-camera-resolution">Loading...</span></li>
+                            <li><strong>Frame Rate:</strong> <span id="feature-camera-fps">Loading...</span></li>
+                            <li><strong>Status:</strong> <span id="feature-camera-status">Loading...</span></li>
+                        </ul>
+                    </div>
+
+                    <div class="col-md-4">
+                        <h6>Development Information</h6>
+                        <ul class="list-unstyled">
+                            <li><strong>Application:</strong> AI Camera v1.3</li>
+                            <li><strong>Framework:</strong> Flask + Blueprints</li>
+                            <li><strong>Architecture:</strong> Dependency Injection + Services</li>
+                            <li><strong>Camera:</strong> Picamera2 + Hailo AI</li>
+                            <li><strong>Database:</strong> SQLite + SQLAlchemy</li>
+                            <li><strong>Communication:</strong> WebSocket + REST API</li>
+                            <li><strong>Deployment:</strong> Gunicorn + Nginx</li>
+                            <li><strong>Version Control:</strong> Git</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-4">
+                        <h6>Component and Services</h6>
+                        <ul class="list-unstyled">
+                            <li><strong>*</strong> Flask Streaming</li>
+                            <li><strong>*</strong> Camera Component</li>
+                            <li><strong>*</strong> Detection Component</li>
+                            <li><strong>*</strong> Health Monitor</li>
+                            <li><strong>*</strong> WebSocket Sender</li>
+                            <li><strong>*</strong> Database Manager</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
 
 {% block content %}
-
-<!-- Quick Actions -->
-<div class="row mb-5">
-    <div class="col-12">
-        <h2 class="mb-4">
-            <i class="fas fa-bolt"></i> Quick Actions
-        </h2>
-    </div>
-
-    <div class="col-12 text-center">
-        <a href="/camera" class="quick-action-btn btn btn-primary" onclick="handleQuickAction('camera-control')">
-            <i class="fas fa-video"></i><br>
-            <strong>Camera Control</strong><br>
-            <small>Start/Stop streaming, adjust settings</small>
-        </a>
-
-        <a href="#" class="quick-action-btn btn btn-success" onclick="handleQuickAction('capture-image')">
-            <i class="fas fa-camera"></i><br>
-            <strong>Capture Image</strong><br>
-            <small>Take a photo</small>
-        </a>
-
-        <a href="/health" class="quick-action-btn btn btn-info" onclick="handleQuickAction('system-health')">
-            <i class="fas fa-heartbeat"></i><br>
-            <strong>System Health</strong><br>
-            <small>Monitor system status</small>
-        </a>
-
-        <a href="/detection" class="quick-action-btn btn btn-warning" onclick="handleQuickAction('ai-detection')">
-            <i class="fas fa-brain"></i><br>
-            <strong>AI Detection</strong><br>
-            <small>Configure AI models</small>
-        </a>
-    </div>
-</div>
-
-<!-- System Status -->
-<div class="row mb-5">
-    <div class="col-12">
-        <h2 class="mb-4">
-            <i class="fas fa-info-circle"></i> System Status
-        </h2>
-    </div>
-
-    <div class="col-md-3">
-        <div class="status-card text-center">
-            <i class="fas fa-camera feature-icon text-primary"></i>
-            <h5>Camera Status</h5>
-            <span id="main-camera-status" class="status-indicator status-offline"></span>
-            <span id="main-camera-status-text">Offline</span>
-        </div>
-    </div>
-
-    <div class="col-md-3">
-        <div class="status-card text-center">
-            <i class="fas fa-brain feature-icon text-success"></i>
-            <h5>AI Detection</h5>
-            <span id="main-detection-status" class="status-indicator status-offline"></span>
-            <span id="main-detection-status-text">Inactive</span>
-        </div>
-    </div>
-
-    <div class="col-md-3">
-        <div class="status-card text-center">
-            <i class="fas fa-server feature-icon text-info"></i>
-            <h5>System Health</h5>
-            <span id="main-system-status" class="status-indicator status-online"></span>
-            <span id="main-system-status-text">Healthy</span>
-        </div>
-    </div>
-
-    <div class="col-md-3">
-        <div class="status-card text-center">
-            <i class="fas fa-database feature-icon text-warning"></i>
-            <h5>Database</h5>
-            <span id="main-database-status" class="status-indicator status-online"></span>
-            <span id="main-database-status-text">Connected</span>
-        </div>
-    </div>
-</div>
-
-<!-- Optional: Server Communication (WebSocket Sender) -->
-<div class="row mb-5" id="server-communication-section" style="display: none;">
+<!-- Server Communication (WebSocket Sender) -->
+<div class="row mb-5" id="server-communication-section">
     <div class="col-12">
         <h2 class="mb-4">
             <i class="fas fa-share-alt"></i> Server Communication
-            <small class="text-muted">(Optional Module)</small>
         </h2>
     </div>
 
@@ -171,13 +219,12 @@
                         </div>
                     </div>
                 </div>
-                
+
                 <!-- Optional: Server Communication Log -->
-                <div class="col-md-6" id="server-logs-section" style="display: none;">
+                <div class="col-md-6" id="server-logs-section">
                     <div class="card">
                         <div class="card-header">
                             <h5><i class="fas fa-terminal"></i> Server Communication Log
-                                <small class="text-muted">(Optional Module)</small>
                             </h5>
                         </div>
                         <div class="card-body p-0">
@@ -283,93 +330,8 @@
         </div>
     </div>
 </div>
-
-<!-- System Information -->
-<div class="row mt-5">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="card-title mb-0">
-                    <i class="fas fa-info-circle"></i> System Information
-                </h5>
-            </div>
-            <div class="card-body">
-                <!-- Row 1: Single centered column with left-aligned text -->
-                <div class="row justify-content-center mb-4">
-                    <div class="col-md-8">
-                        <h6 class="text-center">System Information</h6>
-                        <ul class="list-unstyled text-start">
-                            <li><strong>CPU Architecture:</strong> <span id="system-info-cpu">Loading...</span></li>
-                            <li><strong>AI Accelerator:</strong> <span id="system-info-ai-accelerator">Loading...</span></li>
-                            <li><strong>OS & Kernel:</strong> <span id="system-info-os">Loading...</span></li>
-                        </ul>
-                        <hr class="my-3">
-                    </div>
-                </div>
-                
-                <!-- Row 2: Three columns -->
-                <div class="row">
-                    <div class="col-md-4">
-                        <h6>Hardware Information</h6>
-                        <ul class="list-unstyled">
-                            <li><strong>Main Board:</strong> Raspberry Pi 5</li>
-                            <li><strong>RAM:</strong> <span id="system-info-ram">Loading...</span></li>
-                            <li><strong>Disk:</strong> <span id="system-info-disk">Loading...</span></li>
-                            <li><strong>Camera Model:</strong> <span id="feature-camera-model">Loading...</span></li>
-                            <li><strong>Resolution:</strong> <span id="feature-camera-resolution">Loading...</span></li>
-                            <li><strong>Frame Rate:</strong> <span id="feature-camera-fps">Loading...</span></li>
-                            <li><strong>Status:</strong> <span id="feature-camera-status">Loading...</span></li>
-                        </ul>
-                    </div>
-                    
-                    <div class="col-md-4">
-                        <h6>Development Information</h6>
-                        <ul class="list-unstyled">
-                            <li><strong>Application:</strong> AI Camera v1.3</li>
-                            <li><strong>Framework:</strong> Flask + Blueprints</li>
-                            <li><strong>Architecture:</strong> Dependency Injection + Services</li>
-                            <li><strong>Camera:</strong> Picamera2 + Hailo AI</li>
-                            <li><strong>Database:</strong> SQLite + SQLAlchemy</li>
-                            <li><strong>Communication:</strong> WebSocket + REST API</li>
-                            <li><strong>Deployment:</strong> Gunicorn + Nginx</li>
-                            <li><strong>Version Control:</strong> Git</li>
-                        </ul>
-                    </div>
-                    <div class="col-md-4">
-                        <h6>Component and Services</h6>
-                        <ul class="list-unstyled">
-                            <li><strong>*</strong> Flask Streaming</li>
-                            <li><strong>*</strong> Camera Component</li>
-                            <li><strong>*</strong> Detection Component</li>
-                            <li><strong>*</strong> Health Monitor</li>
-                            <li><strong>*</strong> WebSocket Sender</li>
-                            <li><strong>*</strong> Database Manager</li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
-            <!---  No longer needed
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-6">
-                        <p><strong>Camera Model:</strong> <span id="main-camera-model">Loading...</span></p>
-                        <p><strong>Camera Resolution:</strong> <span id="main-camera-resolution">Loading...</span></p>
-                        <p><strong>Camera FPS:</strong> <span id="main-camera-fps">Loading...</span></p>
-                    </div>
-                    <div class="col-md-6">
-                        <p><strong>Camera Status:</strong> <span id="main-camera-detail-status">Loading...</span></p>
-                        <p><strong>Database Status:</strong> <span id="main-database-detail-status">Connected</span></p>
-                    </div>
-                </div>
-            </div>
-            
-
-        </div>
-    </div>
-</div>
-
 {% endblock %}
 
 {% block additional_js %}
-<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+<script src="{{ url_for('static', filename='js/dashboard.js', v=2) }}"></script>
 {% endblock %}

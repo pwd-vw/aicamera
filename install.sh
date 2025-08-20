@@ -176,6 +176,33 @@ chmod 755 logs
 chmod 755 resources
 chmod 755 v1_3
 
+# Set proper project ownership and permissions for development
+echo "Setting up project ownership and permissions for development..."
+# Set entire project ownership to camuser for development access
+sudo chown -R camuser:camuser /home/camuser/aicamera/ 2>/dev/null || true
+
+# Add www-data to camuser group for nginx access to static files
+sudo usermod -a -G camuser www-data 2>/dev/null || true
+
+# Set proper directory permissions for nginx access
+chmod 755 /home/camuser/aicamera/v1_3/src/ 2>/dev/null || true
+chmod 755 /home/camuser/aicamera/v1_3/src/web/ 2>/dev/null || true
+chmod 755 /home/camuser/aicamera/v1_3/src/web/static/ 2>/dev/null || true
+chmod 755 /home/camuser/aicamera/v1_3/src/web/static/css/ 2>/dev/null || true
+chmod 755 /home/camuser/aicamera/v1_3/src/web/static/js/ 2>/dev/null || true
+
+# Set proper file permissions for static files (readable by group for nginx)
+chmod 644 /home/camuser/aicamera/v1_3/src/web/static/css/*.css 2>/dev/null || true
+chmod 644 /home/camuser/aicamera/v1_3/src/web/static/js/*.js 2>/dev/null || true
+
+# Ensure directories have group write permissions for collaborative editing
+chmod 775 /home/camuser/aicamera/v1_3/src/web/static/css/ 2>/dev/null || true
+chmod 775 /home/camuser/aicamera/v1_3/src/web/static/js/ 2>/dev/null || true
+
+# Set proper permissions for captured images directory
+chmod 755 /home/camuser/aicamera/v1_3/captured_images/ 2>/dev/null || true
+chmod 755 /home/camuser/aicamera/captured_images/ 2>/dev/null || true
+
 # Create basic WSGI file if it doesn't exist
 if [[ ! -f "v1_3/src/wsgi.py" ]]; then
     echo "Creating basic WSGI file..."

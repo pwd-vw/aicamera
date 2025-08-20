@@ -1,0 +1,253 @@
+/*
+ * Corporate Modern Dashboard Theme
+ * A professional, authoritative, and trustworthy style with strong, clean lines.
+ */
+
+/*
+ * Variables for easy theme customization.
+ */
+:root {
+    /* Color Palette */
+    --primary-color: #007bff; /* Light Blue, a common corporate blue */
+    --primary-dark-color: #0056b3; /* A darker shade for hover states */
+    --secondary-color: #6c757d; /* Muted gray for secondary text */
+    --background-light: #f4f7f9; /* Off-white, subtle background */
+    --card-background: #ffffff; /* Pure white for clean cards */
+    --text-color-dark: #212529; /* Heading and body text */
+    --text-color-light: #e9ecef; /* Light text for contrast */
+    --border-color: #dee2e6; /* Light gray for dividers and borders */
+
+    /* Typography */
+    --font-family-en: 'Montserrat', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    --font-family-th: 'Sarabun', 'Prompt', sans-serif;
+    --font-size-base: 1rem;
+    --font-size-heading-1: 2rem;
+    --font-size-heading-2: 1.5rem;
+    --font-size-heading-3: 1.25rem;
+
+    /* Spacing */
+    --spacing-xs: 0.5rem;
+    --spacing-sm: 1rem;
+    --spacing-md: 1.5rem;
+    --spacing-lg: 2rem;
+    --border-radius: 6px;
+}
+
+/*
+ * Global Styles & Reset
+ */
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: var(--font-family-en), var(--font-family-th);
+    font-size: var(--font-size-base);
+    line-height: 1.6;
+    color: var(--text-color-dark);
+    background-color: var(--background-light);
+    padding: var(--spacing-md);
+}
+
+h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-family-en), var(--font-family-th);
+    font-weight: 600;
+    margin-bottom: var(--spacing-sm);
+    color: var(--text-color-dark);
+}
+
+h1 { font-size: var(--font-size-heading-1); }
+h2 { font-size: var(--font-size-heading-2); }
+h3 { font-size: var(--font-size-heading-3); }
+
+/*
+ * Layout
+ * A simple two-column grid for sidebar and main content.
+ */
+.dashboard-layout {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--spacing-md);
+    max-width: 1400px;
+    margin: auto;
+}
+
+@media (min-width: 992px) {
+    .dashboard-layout {
+        grid-template-columns: 250px 1fr; /* Fixed width sidebar + main content */
+    }
+}
+
+.sidebar {
+    background-color: var(--card-background);
+    padding: var(--spacing-lg) var(--spacing-md);
+    border-radius: var(--border-radius);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.main-content {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: var(--spacing-md);
+}
+
+/*
+ * Components
+ */
+.card {
+    background-color: var(--card-background);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    padding: var(--spacing-lg);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    display: flex;
+    flex-direction: column;
+}
+
+.card-header {
+    margin-bottom: var(--spacing-sm);
+    padding-bottom: var(--spacing-sm);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.card-title {
+    font-size: var(--font-size-heading-3);
+    color: var(--text-color-dark);
+}
+
+.metric-value {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--primary-color);
+    margin-top: auto; /* Pushes the value to the bottom of the card */
+}
+
+.button {
+    display: inline-block;
+    padding: 0.75rem 1.5rem;
+    font-size: var(--font-size-base);
+    font-weight: 500;
+    text-align: center;
+    text-decoration: none;
+    cursor: pointer;
+    border: none;
+    border-radius: 50px;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+    background-color: var(--primary-color);
+    color: #fff;
+}
+
+.button:hover {
+    background-color: var(--primary-dark-color);
+    transform: translateY(-1px);
+}
+
+/*
+ * Navigation Styles (e.g., for the sidebar)
+ */
+.nav-list {
+    list-style: none;
+    padding: 0;
+}
+
+.nav-item a {
+    display: block;
+    padding: var(--spacing-sm) var(--spacing-xs);
+    color: var(--text-color-dark);
+    text-decoration: none;
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
+}
+
+.nav-item a:hover {
+    background-color: var(--background-light);
+}
+
+.nav-item.active a {
+    background-color: var(--primary-color);
+    color: #fff;
+    font-weight: 600;
+}
+
+/*
+ * Top Navigation Bar Styles
+ * Part of the Corporate Modern Dashboard Theme.
+ */
+
+.top-navbar {
+    background-color: var(--card-background);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-bottom: 1px solid var(--border-color);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.navbar-brand {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-color-dark);
+    text-decoration: none;
+    line-height: 1;
+}
+
+.navbar-nav {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    gap: var(--spacing-md);
+}
+
+.navbar-nav .nav-link {
+    color: var(--secondary-color);
+    text-decoration: none;
+    font-weight: 500;
+    padding: var(--spacing-sm);
+    transition: color 0.2s ease, transform 0.1s ease;
+    position: relative;
+}
+
+.navbar-nav .nav-link:hover {
+    color: var(--primary-color);
+    transform: translateY(-1px);
+}
+
+.navbar-nav .nav-link.active {
+    color: var(--primary-color);
+    font-weight: 600;
+}
+
+.navbar-nav .nav-link.active::after {
+    content: '';
+    position: absolute;
+    bottom: -8px;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    background-color: var(--primary-color);
+    border-radius: 2px;
+}
+
+.navbar-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+/* For a search icon or small button */
+.icon-button {
+    background: none;
+    border: none;
+    color: var(--secondary-color);
+    cursor: pointer;
+    font-size: 1.25rem;
+    transition: color 0.2s ease;
+}
+
+.icon-button:hover {
+    color: var(--primary-color);
+}
