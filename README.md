@@ -104,8 +104,8 @@ rpicam-hello -t 0 --post-process-file /usr/share/rpi-camera-assets/hailo_yolov6_
 
 ## 🖥️ **9️⃣ Optional Kiosk Browser & Desktop Launcher Setup**
 
-### **9.1 Kiosk Browser Service (Optional)**
-The AI Camera system includes an optional kiosk browser service that can launch the web interface in full-screen mode:
+### **9.1 Kiosk Browser Service (Optional - Boot Startup)**
+The AI Camera system includes an optional kiosk browser service that automatically launches the web interface in full-screen mode on system boot:
 
 ```bash
 # Start kiosk browser service
@@ -131,10 +131,10 @@ A desktop launcher is automatically installed during setup for easy access (if d
 # Location: /home/camuser/Desktop/aicamera-browser.desktop
 ```
 
-### **9.3 Exit Full Screen Mode**
-Multiple ways to exit full screen mode:
+### **9.3 Exit/Close Browser**
+Multiple ways to close the browser:
 
-1. **Exit Button**: Click the red "Exit" button in the navigation bar
+1. **Exit Button**: Click the red "Exit" button in the navigation bar (closes browser window)
 2. **Keyboard Shortcuts**: 
    - `F11` - Toggle full screen
    - `Alt + F4` - Close browser
@@ -145,8 +145,8 @@ Multiple ways to exit full screen mode:
    ```
 4. **Emergency Exit**: `Ctrl + Alt + F1` to switch to terminal
 
-### **9.4 Management Scripts (Optional)**
-Use the provided management scripts for easy control of the optional kiosk browser:
+### **9.4 Management Scripts (Optional - Boot Startup)**
+Use the provided management scripts for easy control of the optional kiosk browser (designed for boot startup):
 
 ```bash
 # Kiosk browser management
@@ -673,7 +673,7 @@ sudo systemctl start send_socket.service
   - ✅ **Added Exit button to dashboard navigation bar for easy full screen exit**
   - ✅ **Created desktop launcher for easy web browser access**
   - ✅ **Implemented automatic kiosk browser service management**
-- 🔄 **Analyze factory reset script and install.sh script to ensure it's work properly with no dependency issue for fresh install and re-install after factory reset process**
+- ✅ **Analyze factory reset script and install.sh script to ensure it's work properly with no dependency issue for fresh install and re-install after factory reset process**
 - 🔄 **Update core Edge UI**
 - 📊 **Update share api and db schema**
 - 📊 **Build Server infrastructure**

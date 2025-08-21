@@ -202,36 +202,26 @@
             const exitBtn = document.getElementById('exit-browser-btn');
             if (exitBtn) {
                 exitBtn.addEventListener('click', function() {
-                    if (confirm('Are you sure you want to exit the full screen browser?')) {
-                        // Try to stop the kiosk browser service
-                        fetch('/api/exit-browser', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
+                    if (confirm('Are you sure you want to close the web browser?')) {
+                        // Close the browser window/tab
+                        window.close();
+                        
+                        // If window.close() doesn't work (due to browser security), try alternative methods
+                        setTimeout(function() {
+                            // Try to exit full screen first
+                            if (document.exitFullscreen) {
+                                document.exitFullscreen();
+                            } else if (document.webkitExitFullscreen) {
+                                document.webkitExitFullscreen();
+                            } else if (document.mozCancelFullScreen) {
+                                document.mozCancelFullScreen();
+                            } else if (document.msExitFullscreen) {
+                                document.msExitFullscreen();
                             }
-                        })
-                        .then(response => response.json())
-                        .then(data => {
-                            if (data.success) {
-                                alert('Kiosk browser service stopped. You can now exit full screen mode.');
-                                // Try to exit full screen using browser API
-                                if (document.exitFullscreen) {
-                                    document.exitFullscreen();
-                                } else if (document.webkitExitFullscreen) {
-                                    document.webkitExitFullscreen();
-                                } else if (document.mozCancelFullScreen) {
-                                    document.mozCancelFullScreen();
-                                } else if (document.msExitFullscreen) {
-                                    document.msExitFullscreen();
-                                }
-                            } else {
-                                alert('Failed to stop kiosk browser service: ' + data.message);
-                            }
-                        })
-                        .catch(error => {
-                            console.error('Error stopping kiosk browser:', error);
-                            alert('Error stopping kiosk browser service. Please use Ctrl+Alt+F1 to switch to terminal and run: sudo systemctl stop kiosk-browser.service');
-                        });
+                            
+                            // Show message if browser couldn't be closed automatically
+                            alert('Browser could not be closed automatically. Please close the browser window manually or use Alt+F4.');
+                        }, 100);
                     }
                 });
             }

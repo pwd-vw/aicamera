@@ -1,6 +1,6 @@
 [Unit]
-Description=AI Camera Kiosk Browser
-After=network.target
+Description=AI Camera Kiosk Browser (Boot Startup)
+After=network.target graphical-session.target
 Wants=network.target
 Requires=graphical-session.target
 
@@ -12,13 +12,13 @@ Environment=DISPLAY=:0
 Environment=XAUTHORITY=/home/camuser/.Xauthority
 WorkingDirectory=/home/camuser/aicamera
 
-# Wait for the web service to be ready before starting browser (optional - will timeout after 60 seconds)
-ExecStartPre=/bin/bash -c 'timeout 60 bash -c "until curl -s http://localhost/ >/dev/null 2>&1; do sleep 2; done" || echo "Web service not ready, starting browser anyway"'
-ExecStart=/bin/bash -c 'sleep 5 && chromium-browser --kiosk --disable-web-security --disable-features=VizDisplayCompositor --no-first-run --no-default-browser-check --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-renderer-backgrounding --disable-features=TranslateUI --disable-ipc-flooding-protection --disable-dev-shm-usage --disable-gpu --no-sandbox --autoplay-policy=no-user-gesture-required http://localhost/'
+# Wait for the web service to be ready before starting browser (with longer timeout for boot)
+ExecStartPre=/bin/bash -c 'timeout 120 bash -c "until curl -s http://localhost/ >/dev/null 2>&1; do sleep 5; done" || echo "Web service not ready after 2 minutes, starting browser anyway"'
+ExecStart=/bin/bash -c 'sleep 10 && chromium-browser --kiosk --disable-web-security --disable-features=VizDisplayCompositor --no-first-run --no-default-browser-check --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-renderer-backgrounding --disable-features=TranslateUI --disable-ipc-flooding-protection --disable-dev-shm-usage --disable-gpu --no-sandbox --autoplay-policy=no-user-gesture-required --disable-session-crashed-bubble --disable-infobars --disable-notifications http://localhost/'
 
-# Restart policy
-Restart=always
-RestartSec=10
+# Restart policy - only restart on failure, not always
+Restart=on-failure
+RestartSec=30
 
 # Kill the browser process on service stop
 KillMode=mixed
