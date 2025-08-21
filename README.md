@@ -674,6 +674,9 @@ sudo systemctl start send_socket.service
   - ✅ **Created desktop launcher for easy web browser access**
   - ✅ **Implemented automatic kiosk browser service management**
 - ✅ **Analyze factory reset script and install.sh script to ensure it's work properly with no dependency issue for fresh install and re-install after factory reset process**
+- 🔄 **Analyze Workflow from auto start**
+- 🔄 **Reduce unneccessary log espacially iterative log**
+- 🔄 **Create controls page to run script**
 - 🔄 **Update core Edge UI**
 - 📊 **Update share api and db schema**
 - 📊 **Build Server infrastructure**
