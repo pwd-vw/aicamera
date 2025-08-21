@@ -1,0 +1,86 @@
+{
+  "branches": [
+    "main",
+    {
+      "name": "develop",
+      "prerelease": "dev"
+    },
+    {
+      "name": "alpha",
+      "prerelease": "alpha"
+    },
+    {
+      "name": "beta",
+      "prerelease": "beta"
+    },
+    {
+      "name": "rc",
+      "prerelease": "rc"
+    }
+  ],
+  "plugins": [
+    "@semantic-release/commit-analyzer",
+    "@semantic-release/release-notes-generator",
+    "@semantic-release/changelog",
+    "@semantic-release/npm",
+    "@semantic-release/git",
+    "@semantic-release/github"
+  ],
+  "preset": "angular",
+  "releaseRules": [
+    {
+      "type": "feat",
+      "release": "minor"
+    },
+    {
+      "type": "fix",
+      "release": "patch"
+    },
+    {
+      "type": "docs",
+      "release": "patch"
+    },
+    {
+      "type": "style",
+      "release": "patch"
+    },
+    {
+      "type": "refactor",
+      "release": "patch"
+    },
+    {
+      "type": "perf",
+      "release": "patch"
+    },
+    {
+      "type": "test",
+      "release": "patch"
+    },
+    {
+      "type": "build",
+      "release": "patch"
+    },
+    {
+      "type": "ci",
+      "release": "patch"
+    },
+    {
+      "type": "chore",
+      "release": "patch"
+    },
+    {
+      "scope": "BREAKING CHANGE",
+      "release": "major"
+    }
+  ],
+  "parserOpts": {
+    "noteKeywords": ["BREAKING CHANGE", "BREAKING CHANGES"]
+  },
+  "writerOpts": {
+    "groupBy": "type",
+    "commitGroupsSort": "title",
+    "commitsSort": "header"
+  },
+  "changelogFile": "docs/project/CHANGELOG.md",
+  "changelogTitle": "# Changelog\n\nAll notable changes to this project will be documented in this file.\n\n## [Unreleased]\n\n## [2.0.0] - 2024-08-21\n\n### Added\n- Initial monorepo structure\n- Node.js server component\n- Multi-protocol communication\n- Database schema\n- API specifications\n\n### Changed\n- Restructured from v1.x to monorepo\n- Separated edge and server components\n\n### Breaking Changes\n- Complete architectural restructure\n- New API endpoints\n- New database schema"
+}

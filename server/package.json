@@ -1,0 +1,70 @@
+{
+  "name": "aicamera-server",
+  "version": "2.0.0",
+  "description": "AI Camera Server - Data ingestion and management server",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix",
+    "validate": "npm run lint && npm test"
+  },
+  "keywords": [
+    "ai-camera",
+    "lpr-detection",
+    "edge-computing",
+    "nodejs",
+    "python",
+    "monorepo"
+  ],
+  "author": "AI Camera Team",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "helmet": "^7.1.0",
+    "morgan": "^1.10.0",
+    "dotenv": "^16.3.1",
+    "joi": "^17.11.0",
+    "winston": "^3.11.0",
+    "compression": "^1.7.4",
+    "rate-limiter-flexible": "^3.0.8",
+    "express-rate-limit": "^7.1.5",
+    "socket.io": "^4.7.4",
+    "redis": "^4.6.10",
+    "pg": "^8.11.3",
+    "sequelize": "^6.35.1",
+    "multer": "^1.4.5-lts.1",
+    "sharp": "^0.32.6",
+    "node-cron": "^3.0.3",
+    "axios": "^1.6.2",
+    "jsonwebtoken": "^9.0.2",
+    "bcryptjs": "^2.4.3",
+    "uuid": "^9.0.1",
+    "moment": "^2.29.4",
+    "mqtt": "^5.3.5",
+    "ws": "^8.14.2",
+    "ssh2": "^1.15.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2",
+    "jest": "^29.7.0",
+    "supertest": "^6.3.3",
+    "eslint": "^8.55.0",
+    "eslint-config-standard": "^17.1.0",
+    "eslint-plugin-import": "^2.29.0",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-promise": "^6.1.1"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/popwandee/aicamera.git"
+  }
+}

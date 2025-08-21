@@ -1,0 +1,40 @@
+{
+  "name": "aicamera-monorepo",
+  "version": "2.0.0",
+  "description": "AI Camera Monorepo - Edge (Python) + Server (Node.js)",
+  "private": true,
+  "workspaces": [
+    "server"
+  ],
+  "scripts": {
+    "setup": "bash scripts/setup_monorepo.sh",
+    "install:all": "npm install && cd server && npm install",
+    "start:server": "cd server && npm start",
+    "dev:server": "cd server && npm run dev",
+    "test:server": "cd server && npm test",
+    "install:edge": "cd edge && pip install -r requirements.txt",
+    "start:edge": "cd edge && python src/app.py",
+    "test:edge": "cd edge && python -m pytest",
+    "validate": "bash scripts/validate_setup.sh",
+    "docs": "bash scripts/generate_docs.sh",
+    "clean": "rm -rf node_modules server/node_modules"
+  },
+  "keywords": [
+    "ai-camera",
+    "lpr-detection",
+    "edge-computing",
+    "nodejs",
+    "python",
+    "monorepo"
+  ],
+  "author": "AI Camera Team",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/popwandee/aicamera.git"
+  }
+}

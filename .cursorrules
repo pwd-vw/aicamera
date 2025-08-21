@@ -1,0 +1,263 @@
+# AI Camera Monorepo - Cursor Rules
+
+## Project Overview
+This is a monorepo for an AI Camera system with distributed architecture:
+- **Edge Component**: Python-based LPR detection on Raspberry Pi 5 + Hailo AI Accelerator
+- **Server Component**: Node.js-based data ingestion and management server
+- **Communication**: Multi-protocol (WebSocket primary, REST API backup, MQTT fallback)
+- **Image Transfer**: SFTP/rsync for secure image transfer
+
+## Repository Structure
+```
+aicamera/
+├── edge/                    # Python-based edge camera application
+│   ├── src/                # Edge application source code
+│   ├── requirements.txt    # Python dependencies
+│   └── tests/              # Python tests
+├── server/                 # Node.js-based data ingestion server
+│   ├── src/                # Server source code
+│   │   ├── routes/         # API routes
+│   │   ├── utils/          # Utility functions
+│   │   ├── database/       # Database models
+│   │   ├── socket/         # WebSocket handlers
+│   │   ├── communication/  # Multi-protocol communication
+│   │   └── services/       # Business logic services
+│   ├── database/           # Database schema and migrations
+│   ├── protocols/          # Shared communication protocols
+│   └── package.json        # Node.js dependencies
+├── scripts/                # Build, test, and deployment scripts
+├── docs/                   # Documentation
+├── resources/              # AI models and configuration files
+└── captured_images/        # Local image storage (edge)
+```
+
+## Development Environment
+- **Python**: 3.11+ (edge component)
+- **Node.js**: 18+ (server component)
+- **Database**: PostgreSQL 14+, Redis 6+
+- **AI Accelerator**: Hailo-8 for edge inference
+- **Virtual Environment**: `venv_hailo` for Python dependencies
+
+## Versioning Strategy
+- **Current Version**: 2.0.0 (semantic versioning)
+- **Format**: MAJOR.MINOR.PATCH[-PRERELEASE]
+- **Commit Convention**: Conventional Commits (feat:, fix:, BREAKING CHANGE:)
+- **Branch Strategy**: main, develop, feature/*, hotfix/*, alpha, beta, rc
+
+## Communication Protocols
+1. **WebSocket (Primary)**: Real-time bidirectional communication
+2. **REST API (Backup)**: HTTP REST API for reliable communication
+3. **MQTT (Fallback)**: Lightweight messaging for poor network conditions
+4. **Image Transfer**: SFTP/rsync for captured images
+
+## Development Rules
+
+### Code Organization
+- Use absolute imports managed by import_helper.py
+- Follow dependency injection pattern with dependency_container.py
+- Modularize Web UI with Flask Blueprints
+- Separate concerns: CameraManager, DetectionManager, VideoStreaming, HealthMonitor, WebsocketSender, FlaskApp
+
+### Python (Edge) Development
+- Use `venv_hailo` virtual environment
+- Follow PEP 8 style guidelines
+- Use type hints where appropriate
+- Implement proper error handling and logging
+- Guard libcamera imports behind device checks to avoid import-time failures
+- Use absolute paths managed by import_helper.py
+
+### Node.js (Server) Development
+- Use ES6+ syntax
+- Follow ESLint configuration
+- Implement proper error handling with Winston logging
+- Use Joi for validation
+- Follow RESTful API design principles
+- Implement proper middleware (helmet, cors, rate limiting)
+
+### Database Management
+- Use PostgreSQL for primary data storage
+- Use Redis for caching and session management
+- Follow migration-based schema updates
+- Implement proper indexing for performance
+- Use Sequelize ORM for Node.js
+
+### API Design
+- RESTful API with proper versioning (/api/v1/)
+- OpenAPI 3.0 specification
+- Proper HTTP status codes
+- Consistent error response format
+- Rate limiting and security headers
+
+### Testing
+- **Edge**: pytest for Python tests
+- **Server**: Jest for Node.js tests
+- **Integration**: End-to-end testing for communication protocols
+- **Performance**: Load testing for API endpoints
+- **Security**: Vulnerability scanning and penetration testing
+
+### Security Guidelines
+- JWT authentication for API access
+- SSH key-based authentication for SFTP
+- TLS/SSL encryption for all communications
+- Input validation and sanitization
+- Rate limiting to prevent abuse
+- Security headers (helmet)
+- Regular dependency updates
+
+### Performance Optimization
+- Optimize image processing pipeline
+- Implement database query optimization
+- Use connection pooling
+- Implement caching strategies
+- Monitor memory usage and leaks
+- Optimize startup times
+
+### Documentation
+- Keep README.md updated with current structure
+- Document API changes in CHANGELOG.md
+- Maintain versioning.md for release strategy
+- Document configuration options
+- Provide migration guides for breaking changes
+
+### Git Workflow
+- Use conventional commit messages
+- Create feature branches from develop
+- Use pull requests for code review
+- Squash commits before merging
+- Tag releases with semantic versions
+- Keep main branch stable
+
+### Deployment
+- Use systemd for service management
+- Nginx for reverse proxy (port 80)
+- Gunicorn for Python WSGI server
+- PM2 for Node.js process management
+- Health monitoring with automatic startup sequence
+- Environment-based configuration
+
+### Monitoring and Logging
+- Structured logging with Winston
+- Health check endpoints
+- Performance metrics collection
+- Error tracking and alerting
+- System resource monitoring
+- Application-specific metrics
+
+### Dependencies Management
+- Pin dependency versions for stability
+- Regular security updates via Dependabot
+- Separate dev and production dependencies
+- Document breaking changes in dependencies
+- Test compatibility before updates
+
+### Error Handling
+- Implement comprehensive error handling
+- Use proper HTTP status codes
+- Provide meaningful error messages
+- Log errors with context
+- Implement retry mechanisms
+- Graceful degradation
+
+### Configuration Management
+- Use environment variables for configuration
+- Separate dev, staging, and production configs
+- Validate configuration on startup
+- Use .env files for local development
+- Document all configuration options
+
+### Code Quality
+- Use linting tools (ESLint, flake8)
+- Implement code formatting (Prettier, black)
+- Use pre-commit hooks
+- Regular code reviews
+- Maintain test coverage
+- Follow SOLID principles
+
+### Communication Between Components
+- Use defined protocols in server/protocols/
+- Implement proper error handling for network issues
+- Use connection pooling and retry logic
+- Monitor communication health
+- Implement fallback mechanisms
+
+### Image Processing
+- Optimize for Hailo AI Accelerator
+- Implement proper memory management
+- Use efficient image formats
+- Implement batch processing
+- Handle image transfer failures
+
+### Hardware Integration
+- Support Raspberry Pi 5 + Camera Module 3
+- Integrate with Hailo-8 AI Accelerator
+- Handle hardware failures gracefully
+- Implement proper initialization sequences
+- Monitor hardware health
+
+## File Naming Conventions
+- Use kebab-case for files and directories
+- Use camelCase for JavaScript variables and functions
+- Use snake_case for Python variables and functions
+- Use PascalCase for class names
+- Use UPPER_CASE for constants
+
+## Import Conventions
+- Use absolute imports with import_helper.py
+- Group imports: standard library, third-party, local
+- Avoid circular imports
+- Use specific imports over wildcard imports
+
+## Comment Guidelines
+- Use docstrings for functions and classes
+- Comment complex algorithms
+- Explain business logic
+- Document API endpoints
+- Keep comments up to date
+
+## Performance Guidelines
+- Profile code for bottlenecks
+- Optimize database queries
+- Use appropriate data structures
+- Implement caching where beneficial
+- Monitor memory usage
+- Optimize startup time
+
+## Security Best Practices
+- Validate all inputs
+- Use parameterized queries
+- Implement proper authentication
+- Use HTTPS in production
+- Regular security audits
+- Keep dependencies updated
+
+## Testing Strategy
+- Unit tests for individual functions
+- Integration tests for component interaction
+- End-to-end tests for complete workflows
+- Performance tests for critical paths
+- Security tests for vulnerabilities
+
+## Release Process
+- Follow semantic versioning
+- Create release branches
+- Update changelog
+- Tag releases
+- Deploy to staging first
+- Monitor after deployment
+
+## Maintenance
+- Regular dependency updates
+- Security patches
+- Performance monitoring
+- Error tracking
+- User feedback collection
+- Documentation updates
+
+## Emergency Procedures
+- Rollback procedures
+- Hotfix process
+- Incident response
+- Data recovery
+- Service restoration
+
+Remember: This is a production system handling real-time AI inference and data processing. Always prioritize stability, security, and performance in your development decisions.
