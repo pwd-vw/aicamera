@@ -75,13 +75,27 @@ class CameraManager:
                 if success:
                     self.logger.info("Camera handler initialized successfully")
                     
-                    # Auto-start camera if enabled
-                    if self.auto_start_enabled:
-                        self.logger.info("Auto-start enabled - starting camera automatically")
-                        return self._auto_start_camera()
+                    # Check if camera is in fallback mode
+                    camera_status = self.camera_handler.get_camera_status()
+                    if not camera_status['camera_ready']:
+                        self.logger.info("Camera handler initialized in fallback mode - ready for dynamic connection")
+                        self.logger.info("Camera manager will work normally but camera operations will be limited")
+                        
+                        # Auto-start camera if enabled (will work when camera becomes available)
+                        if self.auto_start_enabled:
+                            self.logger.info("Auto-start enabled - will start camera when hardware becomes available")
+                            return self._auto_start_camera_fallback()
+                        else:
+                            self.logger.info("Auto-start disabled - camera ready for manual start when hardware available")
+                            return True
                     else:
-                        self.logger.info("Auto-start disabled - camera ready for manual start")
-                        return True
+                        # Camera is ready - proceed with normal auto-start
+                        if self.auto_start_enabled:
+                            self.logger.info("Auto-start enabled - starting camera automatically")
+                            return self._auto_start_camera()
+                        else:
+                            self.logger.info("Auto-start disabled - camera ready for manual start")
+                            return True
                 else:
                     self.logger.error("Failed to initialize camera handler")
                     return False
@@ -126,6 +140,68 @@ class CameraManager:
         except Exception as e:
             self.logger.error(f"❌ Error in auto-start: {e}")
             return False
+    
+    def _auto_start_camera_fallback(self):
+        """
+        Auto-start camera in fallback mode - will attempt connection when hardware becomes available.
+        
+        Returns:
+            bool: True if fallback mode started successfully, False otherwise
+        """
+        try:
+            self.logger.info("🚀 Starting camera auto-start in fallback mode...")
+            
+            # Start a background thread to monitor camera availability
+            self._fallback_monitor_thread = threading.Thread(
+                target=self._monitor_camera_availability,
+                name="CameraAvailabilityMonitor",
+                daemon=True
+            )
+            self._fallback_monitor_thread.start()
+            
+            self.logger.info("✅ Camera availability monitor started - will connect when hardware becomes available")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"❌ Error starting camera fallback mode: {e}")
+            return False
+    
+    def _monitor_camera_availability(self):
+        """
+        Monitor camera availability and attempt connection when ready.
+        """
+        self.logger.info("🔍 Camera availability monitor started")
+        
+        while True:
+            try:
+                # Check if camera is now available
+                camera_status = self.camera_handler.get_camera_status()
+                
+                if camera_status['camera_ready']:
+                    self.logger.info("📷 Camera is now available - attempting to connect")
+                    
+                    # Try to connect to camera
+                    if self.camera_handler.try_connect_camera():
+                        self.logger.info("✅ Camera connected successfully - starting streaming")
+                        
+                        # Start streaming
+                        if self.auto_streaming_enabled:
+                            self.start_streaming()
+                        
+                        # Update startup time
+                        self.startup_time = datetime.now()
+                        
+                        self.logger.info("🎉 Camera auto-start completed successfully")
+                        break
+                    else:
+                        self.logger.warning("⚠️  Failed to connect to camera - will retry")
+                
+                # Wait before next check
+                time.sleep(5.0)  # Check every 5 seconds
+                
+            except Exception as e:
+                self.logger.error(f"❌ Error in camera availability monitor: {e}")
+                time.sleep(10.0)  # Wait longer on error
     
     def start(self):
         """

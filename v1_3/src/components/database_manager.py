@@ -454,6 +454,35 @@ class DatabaseManager:
             self.logger.error(f"Error getting detection result by ID {result_id}: {e}")
             return None
     
+    def execute_query(self, query: str, params: tuple = None) -> List[tuple]:
+        """
+        Execute a SQL query and return results.
+        
+        Args:
+            query: SQL query string
+            params: Query parameters (optional)
+            
+        Returns:
+            List[tuple]: Query results as list of tuples
+        """
+        try:
+            if not self.connection:
+                self.logger.error("Database connection not available")
+                return []
+            
+            cursor = self.connection.cursor()
+            if params:
+                cursor.execute(query, params)
+            else:
+                cursor.execute(query)
+            
+            results = cursor.fetchall()
+            return results
+            
+        except Exception as e:
+            self.logger.error(f"Error executing query: {e}")
+            return []
+    
     def get_detection_statistics(self) -> Dict[str, Any]:
         """
         Get detection statistics from database.

@@ -56,7 +56,37 @@ sudo apt-get install -y libcap-dev rapidjson-dev
 
 # Camera stack required by picamera2 (Python module libcamera comes from system packages)
 echo "Installing libcamera stack for Picamera2..."
-sudo apt-get install -y python3-libcamera libcamera-tools libcamera-apps || true
+sudo apt-get install -y python3-libcamera libcamera-tools libcamera-apps python3-libcamera-dev || true
+
+# Ensure libcamera is accessible in virtual environment
+echo "Ensuring libcamera is accessible in virtual environment..."
+if python3 -c "import libcamera; print('libcamera available in system Python')" 2>/dev/null; then
+    echo "✅ libcamera available in system Python"
+    
+    # Check if virtual environment can access libcamera
+    if ! python -c "import libcamera; print('libcamera available in venv')" 2>/dev/null; then
+        echo "⚠️  libcamera not accessible in virtual environment - recreating venv with system site-packages"
+        deactivate 2>/dev/null || true
+        rm -rf venv_hailo
+        python3 -m venv --system-site-packages venv_hailo
+        source venv_hailo/bin/activate
+        PIP_CMD="$VIRTUAL_ENV/bin/pip"
+        echo "✅ Recreated venv with system site-packages access"
+    else
+        echo "✅ libcamera accessible in virtual environment"
+    fi
+else
+    echo "❌ libcamera not available in system Python - attempting to install"
+    sudo apt-get update -y
+    sudo apt-get install -y python3-libcamera python3-libcamera-dev libcamera-tools libcamera-apps || true
+    
+    # Try again after installation
+    if python3 -c "import libcamera; print('libcamera now available')" 2>/dev/null; then
+        echo "✅ libcamera installed successfully"
+    else
+        echo "❌ libcamera installation failed - camera functionality will be limited"
+    fi
+fi
 
 # Initialize variables
 DOWNLOAD_RESOURCES_FLAG=""
@@ -139,6 +169,20 @@ echo "Installing required Python dependencies (low priority, wheels preferred)..
 IONICE="ionice -c2 -n7"  # best-effort, lowest priority
 RENICE="renice 19 $$ >/dev/null || true"
 eval "$RENICE"
+
+# Install core dependencies first to avoid conflicts
+echo "Installing core dependencies..."
+$IONICE $PIP_CMD install --prefer-binary --no-build-isolation --no-cache-dir \
+    "typing-extensions>=4.0.0" \
+    "setuptools>=65.0.0" \
+    "wheel>=0.40.0"
+
+# Install v1_3 specific requirements with proper dependency resolution
+echo "Installing v1_3 requirements..."
+$IONICE $PIP_CMD install --prefer-binary --no-build-isolation --no-cache-dir -r v1_3/requirements.txt
+
+# Install root requirements (for compatibility)
+echo "Installing root requirements..."
 $IONICE $PIP_CMD install --prefer-binary --no-build-isolation --no-cache-dir -r requirements.txt
 
 # Helper: check if Hailo python package is available in current venv
@@ -163,18 +207,96 @@ else
     echo "   - Provide wheel paths: ./install.sh --pyhailort /path/pyhailort.whl [--pytappas /path/pytappas.whl]"
 fi
 
+# Validate EasyOCR installation
+echo "🔍 Validating EasyOCR installation..."
+if python -c "import easyocr; print('✅ EasyOCR imported successfully')" 2>/dev/null; then
+    echo "✅ EasyOCR validation passed"
+else
+    echo "❌ EasyOCR validation failed - attempting to fix..."
+    # Try to fix typing_extensions issue
+    $PIP_CMD install --upgrade --force-reinstall "typing-extensions>=4.0.0"
+    $PIP_CMD install --upgrade --force-reinstall "easyocr>=1.7.0"
+    
+    # Test again
+    if python -c "import easyocr; print('✅ EasyOCR fixed successfully')" 2>/dev/null; then
+        echo "✅ EasyOCR fixed successfully"
+    else
+        echo "❌ EasyOCR installation failed - please check dependencies"
+        exit 1
+    fi
+fi
 
+# Validate EasyOCR and typing_extensions comprehensively
+echo "🔍 Running comprehensive EasyOCR validation..."
+if python v1_3/scripts/validate_easyocr.py; then
+    echo "✅ EasyOCR validation passed"
+else
+    echo "❌ EasyOCR validation failed - attempting to fix..."
+    # Try to fix typing_extensions issue
+    $PIP_CMD install --upgrade --force-reinstall "typing-extensions>=4.0.0"
+    $PIP_CMD install --upgrade --force-reinstall "easyocr>=1.7.0"
+    
+    # Test again
+    if python v1_3/scripts/validate_easyocr.py; then
+        echo "✅ EasyOCR fixed successfully"
+    else
+        echo "❌ EasyOCR installation failed - please check dependencies"
+        exit 1
+    fi
+fi
+
+# Validate libcamera installation
+echo "🔍 Running comprehensive libcamera validation..."
+if python v1_3/scripts/validate_libcamera.py; then
+    echo "✅ libcamera validation passed"
+else
+    echo "❌ libcamera validation failed - attempting to fix..."
+    # Try to fix libcamera installation
+    sudo apt-get update -y
+    sudo apt-get install -y python3-libcamera python3-libcamera-dev libcamera-tools libcamera-apps || true
+    
+    # Recreate virtual environment with system site-packages if needed
+    if ! python -c "import libcamera; print('libcamera available')" 2>/dev/null; then
+        echo "⚠️  Recreating virtual environment with system site-packages access..."
+        deactivate 2>/dev/null || true
+        rm -rf venv_hailo
+        python3 -m venv --system-site-packages venv_hailo
+        source venv_hailo/bin/activate
+        PIP_CMD="$VIRTUAL_ENV/bin/pip"
+        
+        # Reinstall core dependencies
+        $PIP_CMD install --prefer-binary --no-build-isolation --no-cache-dir \
+            "typing-extensions>=4.0.0" \
+            "setuptools>=65.0.0" \
+            "wheel>=0.40.0"
+        
+        $PIP_CMD install --prefer-binary --no-build-isolation --no-cache-dir -r v1_3/requirements.txt
+        $PIP_CMD install --prefer-binary --no-build-isolation --no-cache-dir -r requirements.txt
+    fi
+    
+    # Test again
+    if python v1_3/scripts/validate_libcamera.py; then
+        echo "✅ libcamera fixed successfully"
+    else
+        echo "❌ libcamera installation failed - camera functionality will be limited"
+        echo "⚠️  You can still use the system without camera features"
+    fi
+fi
 
 # Production setup - Create necessary directories and files
 echo "Setting up production environment..."
 mkdir -p logs
 mkdir -p resources/models
 mkdir -p v1_3/src
+mkdir -p db
+mkdir -p captured_images
 
 # Set proper permissions for production
 chmod 755 logs
 chmod 755 resources
 chmod 755 v1_3
+chmod 755 db
+chmod 755 captured_images
 
 # Set proper project ownership and permissions for development
 echo "Setting up project ownership and permissions for development..."
@@ -307,6 +429,23 @@ else
     exit 1
 fi
 
+# Validate database setup
+echo "🔍 Validating database setup..."
+if python v1_3/scripts/validate_database.py; then
+    echo "✅ Database validation passed"
+else
+    echo "❌ Database validation failed"
+    echo "🔧 Attempting to fix database issues..."
+    # Try to reinitialize database
+    python v1_3/scripts/init_database.py
+    if python v1_3/scripts/validate_database.py; then
+        echo "✅ Database fixed successfully"
+    else
+        echo "❌ Database validation still failed - manual intervention required"
+        exit 1
+    fi
+fi
+
 # Install and configure nginx (before starting service)
 echo "🌐 Installing and configuring nginx..."
 if ! command -v nginx >/dev/null 2>&1; then
@@ -405,3 +544,55 @@ echo "📋 Service Status: sudo systemctl status aicamera_v1.3.service"
 echo "📋 Service Logs: sudo journalctl -u aicamera_v1.3.service -f"
 echo "🌐 Web Interface: http://localhost"
 echo "🔍 Validation: python scripts/validate_installation.py"
+
+# Setup kiosk browser service
+echo ""
+echo "🖥️  Setting up kiosk browser service..."
+if [[ -f "systemd_service/kiosk-browser.service" ]]; then
+    # Install chromium-browser if not present
+    if ! command -v chromium-browser >/dev/null 2>&1; then
+        echo "   Installing chromium-browser..."
+        sudo apt-get update -y
+        sudo apt-get install -y chromium-browser
+    else
+        echo "   chromium-browser already installed"
+    fi
+    
+    # Copy service file and enable it
+    sudo cp systemd_service/kiosk-browser.service /etc/systemd/system/
+    sudo systemctl daemon-reload
+    sudo systemctl enable kiosk-browser.service
+    
+    echo "   ✅ Kiosk browser service enabled"
+    echo "   📋 To start kiosk browser: sudo systemctl start kiosk-browser.service"
+    echo "   📋 To stop kiosk browser: sudo systemctl stop kiosk-browser.service"
+    echo "   📋 Kiosk browser logs: sudo journalctl -u kiosk-browser.service -f"
+    
+    # Install desktop launcher if desktop environment is available
+    if [[ -n "$DISPLAY" ]] && [[ -d "/home/camuser/Desktop" ]]; then
+        echo "   🖥️  Installing desktop launcher..."
+        cp aicamera-browser.desktop /home/camuser/Desktop/
+        chmod +x /home/camuser/Desktop/aicamera-browser.desktop
+        chown camuser:camuser /home/camuser/Desktop/aicamera-browser.desktop
+        echo "   ✅ Desktop launcher installed at /home/camuser/Desktop/aicamera-browser.desktop"
+    else
+        echo "   ℹ️  Desktop environment not detected, skipping desktop launcher"
+    fi
+    
+    # Start kiosk browser service if GUI is available
+    if [[ -n "$DISPLAY" ]]; then
+        echo "   🚀 Starting kiosk browser service..."
+        if sudo systemctl start kiosk-browser.service; then
+            echo "   ✅ Kiosk browser service started successfully"
+            echo "   🌐 Web interface should open automatically in full screen mode"
+        else
+            echo "   ⚠️  Failed to start kiosk browser service automatically"
+            echo "   📋 You can start it manually with: sudo systemctl start kiosk-browser.service"
+        fi
+    else
+        echo "   ℹ️  No GUI detected, kiosk browser service not started automatically"
+        echo "   📋 Start it manually when GUI is available: sudo systemctl start kiosk-browser.service"
+    fi
+else
+    echo "   ❌ Kiosk browser service file not found: systemd_service/kiosk-browser.service"
+fi

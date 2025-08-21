@@ -17,12 +17,38 @@ import logging
 from datetime import datetime
 import os
 import queue
-from picamera2 import Picamera2
-from libcamera import controls
-from picamera2.encoders import JpegEncoder
-from picamera2.outputs import FileOutput
 import io
 import json
+from pathlib import Path
+
+# Defer picamera2 imports until needed
+PICAMERA2_AVAILABLE = False
+LIBCAMERA_AVAILABLE = False
+
+def check_picamera2_availability():
+    """Check if picamera2 and libcamera are available"""
+    global PICAMERA2_AVAILABLE, LIBCAMERA_AVAILABLE
+    
+    try:
+        import libcamera
+        LIBCAMERA_AVAILABLE = True
+        logger.debug("libcamera available")
+    except ImportError:
+        logger.warning("libcamera not available")
+        LIBCAMERA_AVAILABLE = False
+    
+    try:
+        from picamera2 import Picamera2
+        from picamera2.encoders import JpegEncoder
+        from picamera2.outputs import FileOutput
+        PICAMERA2_AVAILABLE = True
+        logger.debug("picamera2 available")
+    except ImportError:
+        logger.warning("picamera2 not available")
+        PICAMERA2_AVAILABLE = False
+    
+    return PICAMERA2_AVAILABLE and LIBCAMERA_AVAILABLE
+
 # Default camera settings
 DEFAULT_RESOLUTION = (1280, 720)
 DEFAULT_FRAMERATE = 30
@@ -163,9 +189,22 @@ class ImprovedCameraManager:
                 logger.info("Camera already initialized and working, skipping re-initialization")
                 return True
             
+            # Check picamera2 availability
+            if not check_picamera2_availability():
+                error_msg = "picamera2 or libcamera not available - camera initialization skipped"
+                logger.warning(error_msg)
+                self.camera_state.update_state(
+                    initialized=False,
+                    last_error=error_msg
+                )
+                return False
+            
             try:
                 # Clean up any existing instance
                 self._cleanup_camera_internal()
+                
+                # Import picamera2 only when needed
+                from picamera2 import Picamera2
                 
                 # Create new camera instance
                 logger.info("Creating new Picamera2 instance...")
@@ -269,25 +308,31 @@ class ImprovedCameraManager:
                 self.picam2.set_controls(controls_to_set)
                 logger.debug(f"Applied camera controls: {controls_to_set}")
             
-            # AWB mode
-            awb_mode = settings.get('awb_mode', 'auto')
-            awb_modes_map = {
-                'auto': controls.AwbModeEnum.Auto,
-                'fluorescent': controls.AwbModeEnum.Fluorescent,
-                'incandescent': controls.AwbModeEnum.Incandescent,
-                'tungsten': controls.AwbModeEnum.Tungsten,
-                'indoor': controls.AwbModeEnum.Indoor,
-                'daylight': controls.AwbModeEnum.Daylight,
-                'cloudy': controls.AwbModeEnum.Cloudy,
-                'custom': controls.AwbModeEnum.Custom
-            }
-            
-            if awb_mode in awb_modes_map:
-                self.picam2.set_controls({"AwbMode": awb_modes_map[awb_mode]})
-                logger.debug(f"Applied AWB mode: {awb_mode}")
-            else:
-                logger.warning(f"Unknown AWB mode: {awb_mode}, using auto")
-                self.picam2.set_controls({"AwbMode": controls.AwbModeEnum.Auto})
+            # AWB mode - import libcamera controls when needed
+            try:
+                from libcamera import controls
+                
+                awb_mode = settings.get('awb_mode', 'auto')
+                awb_modes_map = {
+                    'auto': controls.AwbModeEnum.Auto,
+                    'fluorescent': controls.AwbModeEnum.Fluorescent,
+                    'incandescent': controls.AwbModeEnum.Incandescent,
+                    'tungsten': controls.AwbModeEnum.Tungsten,
+                    'indoor': controls.AwbModeEnum.Indoor,
+                    'daylight': controls.AwbModeEnum.Daylight,
+                    'cloudy': controls.AwbModeEnum.Cloudy,
+                    'custom': controls.AwbModeEnum.Custom
+                }
+                
+                if awb_mode in awb_modes_map:
+                    self.picam2.set_controls({"AwbMode": awb_modes_map[awb_mode]})
+                    logger.debug(f"Applied AWB mode: {awb_mode}")
+                else:
+                    logger.warning(f"Unknown AWB mode: {awb_mode}, using auto")
+                    self.picam2.set_controls({"AwbMode": controls.AwbModeEnum.Auto})
+                    
+            except ImportError:
+                logger.warning("libcamera controls not available - AWB mode not applied")
                 
         except Exception as e:
             logger.error(f"Error applying camera controls: {e}")

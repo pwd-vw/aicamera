@@ -18,20 +18,25 @@ opencv-python==4.8.1.78
 numpy==1.24.3
 
 
+# Core Dependencies (install first)
+typing-extensions>=4.0.0
+setuptools>=65.0.0
+wheel>=0.40.0
+
 # AI and OCR
-easyocr==1.7.0
-degirum==1.0.0
-degirum_tools==1.0.0
-degirum_cli==1.0.0# AI/ML
-hailo-platform==4.20.0
-hailo-model-zoo==2.15.0
+easyocr>=1.7.0
+degirum>=0.18.2
+degirum-tools==0.19.1
+degirum-cli==0.2.0
+hailo-platform>=4.20.0
+hailo-model-zoo>=2.15.0
 
 # WebSocket
 websockets==11.0.3
 
 # Database and Data Processing
 pandas==2.0.3
-sqlite3
+# Note: sqlite3 is part of Python standard library
 # HTTP Requests
 requests==2.31.0
 
@@ -47,8 +52,10 @@ notebook==7.0.2
 ipykernel==6.25.2
 
 # Additional Dependencies
-libcamera
-difflib
+# Note: libcamera is a system package that should be installed via apt
+# It's included here for documentation purposes
+# libcamera  # System package - install via: sudo apt-get install python3-libcamera
+# Note: difflib is part of Python standard library
 
 # Experiment Dependencies
 scikit-image==0.21.0  # For image processing and blur detection

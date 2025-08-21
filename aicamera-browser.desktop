@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=AI Camera Browser
+Comment=Launch AI Camera Web Interface
+Exec=chromium-browser --disable-web-security --disable-features=VizDisplayCompositor --no-first-run --no-default-browser-check --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-renderer-backgrounding --disable-features=TranslateUI --disable-ipc-flooding-protection --disable-dev-shm-usage --disable-gpu --no-sandbox --autoplay-policy=no-user-gesture-required http://localhost/
+Icon=camera
+Terminal=false
+Categories=Network;WebBrowser;
+Keywords=AI;Camera;Browser;Interface;
+StartupNotify=true

@@ -99,6 +99,62 @@ rpicam-hello -t 10s
 ```bash
 rpicam-hello -t 0 --post-process-file /usr/share/rpi-camera-assets/hailo_yolov6_inference.json
 ```
+
+---
+
+## 🖥️ **9️⃣ Kiosk Browser & Desktop Launcher Setup**
+
+### **9.1 Kiosk Browser Service**
+The AI Camera system includes a kiosk browser service that automatically launches the web interface in full-screen mode:
+
+```bash
+# Start kiosk browser service
+sudo systemctl start kiosk-browser.service
+
+# Stop kiosk browser service  
+sudo systemctl stop kiosk-browser.service
+
+# Check service status
+sudo systemctl status kiosk-browser.service
+
+# View service logs
+sudo journalctl -u kiosk-browser.service -f
+```
+
+### **9.2 Desktop Launcher**
+A desktop launcher is automatically installed during setup for easy access:
+
+```bash
+# Install desktop launcher manually (if needed)
+./scripts/install_desktop_launcher.sh
+
+# Location: /home/camuser/Desktop/aicamera-browser.desktop
+```
+
+### **9.3 Exit Full Screen Mode**
+Multiple ways to exit full screen mode:
+
+1. **Exit Button**: Click the red "Exit" button in the navigation bar
+2. **Keyboard Shortcuts**: 
+   - `F11` - Toggle full screen
+   - `Alt + F4` - Close browser
+   - `Ctrl + W` - Close tab
+3. **Service Management**:
+   ```bash
+   sudo systemctl stop kiosk-browser.service
+   ```
+4. **Emergency Exit**: `Ctrl + Alt + F1` to switch to terminal
+
+### **9.4 Management Scripts**
+Use the provided management scripts for easy control:
+
+```bash
+# Kiosk browser management
+./scripts/kiosk_browser.sh start    # Start kiosk browser
+./scripts/kiosk_browser.sh stop     # Stop kiosk browser
+./scripts/kiosk_browser.sh status   # Check status
+./scripts/kiosk_browser.sh logs     # View logs
+```
 ### 🔵 **YOLOv8 Model**
 ```bash
 rpicam-hello -t 0 --post-process-file /usr/share/rpi-camera-assets/hailo_yolov8_inference.json
@@ -613,8 +669,15 @@ sudo systemctl start send_socket.service
 ---
 
 ## 🎯 **แผนการพัฒนาต่อ**
-- 🔄 **การปรับปรุงประสิทธิภาพของโมเดล AI**
-- 📊 **เพิ่มระบบ Analytics และรายงาน**
+- ✅ **create a systemd service "aicamera/systemd_service/kiosk-browser.service" to launch web browser to localhost url. implement auto-run a web browser in full-screen or kiosk mode on startup in last section of install.sh . enable and start service**
+  - ✅ **Added Exit button to dashboard navigation bar for easy full screen exit**
+  - ✅ **Created desktop launcher for easy web browser access**
+  - ✅ **Implemented automatic kiosk browser service management**
+- 🔄 **nalyze factory reset script and install.sh script to ensure it's work properly with no dependency issue for fresh install and re-install after factory reset process**
+- 🔄 **Update core Edge UI**
+- 📊 **Update share api and db schema**
+- 📊 **Build Server infrastructure**
+- 📊 **Build Unified Communication system**
 - 🔐 **เพิ่มระบบความปลอดภัย**
 - 🌐 **เพิ่มการรองรับการทำงานแบบ Cloud**
 - 📱 **เพิ่ม Mobile Dashboard**

@@ -2,182 +2,283 @@
 """
 Installation Validation Script for AI Camera v1.3
 
-This script validates that the installation is complete and working correctly.
-It checks:
-- Environment configuration
-- Database schema
-- Required directories and files
-- Service configuration
-- System requirements
+This script validates that all components are properly installed and working
+after a fresh installation.
 
 Author: AI Camera Team
-Version: 1.3.4
+Version: 1.3.9
+Date: August 2025
 """
 
-import os
 import sys
+import os
 import subprocess
-import sqlite3
 from pathlib import Path
 
-def check_environment():
-    """Check environment configuration."""
-    print("🔍 Checking environment configuration...")
-    
-    env_file = Path('.env.production')
-    if env_file.exists():
-        print("✅ .env.production file exists")
-        
-        # Load and check key variables
-        from dotenv import load_dotenv
-        load_dotenv('.env.production')
-        
-        required_vars = ['AICAMERA_ID', 'CHECKPOINT_ID', 'LOCATION_LAT', 'LOCATION_LON']
-        for var in required_vars:
-            value = os.getenv(var)
-            if value:
-                print(f"   ✅ {var}: {value}")
-            else:
-                print(f"   ❌ {var}: Not set")
-    else:
-        print("❌ .env.production file not found")
-        print("   Run: cp env.template .env.production")
+# Add project root to Python path
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
 
-def check_database():
-    """Check database schema."""
-    print("\n🔍 Checking database schema...")
+
+def check_python_environment():
+    """Check Python environment and virtual environment."""
+    print("🔍 Checking Python environment...")
+    
+    import sys
+    print(f"📋 Python executable: {sys.executable}")
+    print(f"📋 Python version: {sys.version}")
+    
+    # Check if we're in virtual environment
+    if hasattr(sys, 'real_prefix') or (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix):
+        print("✅ Running in virtual environment")
+        return True
+    else:
+        print("⚠️  Not running in virtual environment")
+        return False
+
+
+def check_systemd_service():
+    """Check if systemd service is properly configured and running."""
+    print("🔍 Checking systemd service...")
     
     try:
-        # Try to import config
-        sys.path.insert(0, str(Path.cwd()))
-        from v1_3.src.core.config import DATABASE_PATH
-    except ImportError:
-        DATABASE_PATH = "db/lpr_data.db"
-        print(f"⚠️  Using default database path: {DATABASE_PATH}")
-    
-    db_path = Path(DATABASE_PATH)
-    if db_path.exists():
-        print(f"✅ Database exists: {db_path}")
+        # Check if service exists
+        result = subprocess.run(['systemctl', 'is-enabled', 'aicamera_v1.3.service'], 
+                              capture_output=True, text=True)
+        if result.returncode == 0:
+            print("✅ Service is enabled")
+        else:
+            print("❌ Service is not enabled")
+            return False
         
-        # Check schema
-        try:
-            conn = sqlite3.connect(db_path)
-            cursor = conn.cursor()
+        # Check if service is active
+        result = subprocess.run(['systemctl', 'is-active', 'aicamera_v1.3.service'], 
+                              capture_output=True, text=True)
+        if result.returncode == 0:
+            print("✅ Service is active")
+            return True
+        else:
+            print(f"❌ Service is not active: {result.stdout.strip()}")
+            return False
             
-            # Check required tables
-            tables = ['detection_results', 'health_checks', 'websocket_sender_logs']
-            for table in tables:
-                cursor.execute(f"SELECT name FROM sqlite_master WHERE type='table' AND name='{table}'")
-                if cursor.fetchone():
-                    print(f"   ✅ Table exists: {table}")
-                else:
-                    print(f"   ❌ Table missing: {table}")
+    except Exception as e:
+        print(f"❌ Error checking systemd service: {e}")
+        return False
+
+
+def check_nginx_service():
+    """Check if nginx is properly configured and running."""
+    print("🔍 Checking nginx service...")
+    
+    try:
+        # Check if nginx is active
+        result = subprocess.run(['systemctl', 'is-active', 'nginx'], 
+                              capture_output=True, text=True)
+        if result.returncode == 0:
+            print("✅ nginx is active")
+        else:
+            print(f"❌ nginx is not active: {result.stdout.strip()}")
+            return False
+        
+        # Check nginx configuration
+        result = subprocess.run(['nginx', '-t'], capture_output=True, text=True)
+        if result.returncode == 0:
+            print("✅ nginx configuration is valid")
+            return True
+        else:
+            print(f"❌ nginx configuration error: {result.stderr.strip()}")
+            return False
             
-            # Check required columns in websocket_sender_logs
-            cursor.execute("PRAGMA table_info(websocket_sender_logs)")
-            columns = [col[1] for col in cursor.fetchall()]
-            required_columns = ['aicamera_id', 'checkpoint_id']
+    except Exception as e:
+        print(f"❌ Error checking nginx: {e}")
+        return False
+
+
+def check_web_interface():
+    """Check if web interface is accessible."""
+    print("🔍 Checking web interface...")
+    
+    try:
+        import requests
+        
+        # Try to access health endpoint
+        response = requests.get('http://localhost/health', timeout=10)
+        if response.status_code == 200:
+            print("✅ Web interface is accessible")
+            return True
+        else:
+            print(f"❌ Web interface returned status code: {response.status_code}")
+            return False
             
-            for col in required_columns:
-                if col in columns:
-                    print(f"   ✅ Column exists: websocket_sender_logs.{col}")
-                else:
-                    print(f"   ❌ Column missing: websocket_sender_logs.{col}")
-            
-            conn.close()
-            
-        except Exception as e:
-            print(f"❌ Database error: {e}")
-    else:
-        print(f"❌ Database not found: {db_path}")
-        print("   Run: python v1_3/scripts/update_database_schema.py")
+    except Exception as e:
+        print(f"❌ Error accessing web interface: {e}")
+        return False
+
 
 def check_directories():
-    """Check required directories."""
-    print("\n🔍 Checking required directories...")
+    """Check if required directories exist and have proper permissions."""
+    print("🔍 Checking required directories...")
     
-    required_dirs = ['logs', 'db', 'captured_images', 'resources/models']
+    required_dirs = [
+        'logs',
+        'db', 
+        'captured_images',
+        'resources/models',
+        'v1_3/src'
+    ]
+    
+    all_ok = True
     for dir_path in required_dirs:
         path = Path(dir_path)
         if path.exists():
-            print(f"✅ Directory exists: {dir_path}")
+            if os.access(path, os.R_OK | os.W_OK):
+                print(f"✅ {dir_path} exists and is accessible")
+            else:
+                print(f"❌ {dir_path} exists but not accessible")
+                all_ok = False
         else:
-            print(f"❌ Directory missing: {dir_path}")
+            print(f"❌ {dir_path} does not exist")
+            all_ok = False
+    
+    return all_ok
 
-def check_files():
-    """Check required files."""
-    print("\n🔍 Checking required files...")
+
+def check_configuration_files():
+    """Check if configuration files exist."""
+    print("🔍 Checking configuration files...")
     
     required_files = [
-        'v1_3/src/wsgi.py',
-        'v1_3/src/__init__.py',
-        'v1_3/__init__.py',
-        'gunicorn_config.py',
-        'setup_env.sh'
+        '.env.production',
+        'nginx.conf',
+        'systemd_service/aicamera_v1.3.service',
+        'gunicorn_config.py'
     ]
     
+    all_ok = True
     for file_path in required_files:
         path = Path(file_path)
         if path.exists():
-            print(f"✅ File exists: {file_path}")
+            print(f"✅ {file_path} exists")
         else:
-            print(f"❌ File missing: {file_path}")
-
-def check_service():
-    """Check systemd service."""
-    print("\n🔍 Checking systemd service...")
+            print(f"❌ {file_path} does not exist")
+            all_ok = False
     
+    return all_ok
+
+
+def run_component_validations():
+    """Run component-specific validations."""
+    print("🔍 Running component validations...")
+    
+    all_ok = True
+    
+    # Run EasyOCR validation
     try:
-        result = subprocess.run(['systemctl', 'is-active', 'aicamera_v1.3.service'], 
-                              capture_output=True, text=True, timeout=10)
+        result = subprocess.run([sys.executable, 'v1_3/scripts/validate_easyocr.py'], 
+                              capture_output=True, text=True)
         if result.returncode == 0:
-            status = result.stdout.strip()
-            if status == 'active':
-                print("✅ Service is running")
-            else:
-                print(f"⚠️  Service status: {status}")
+            print("✅ EasyOCR validation passed")
         else:
-            print("❌ Service not found or not running")
+            print("❌ EasyOCR validation failed")
+            all_ok = False
     except Exception as e:
-        print(f"❌ Could not check service: {e}")
+        print(f"❌ Error running EasyOCR validation: {e}")
+        all_ok = False
+    
+    # Run database validation
+    try:
+        result = subprocess.run([sys.executable, 'v1_3/scripts/validate_database.py'], 
+                              capture_output=True, text=True)
+        if result.returncode == 0:
+            print("✅ Database validation passed")
+        else:
+            print("❌ Database validation failed")
+            all_ok = False
+    except Exception as e:
+        print(f"❌ Error running database validation: {e}")
+        all_ok = False
+    
+    return all_ok
 
-def check_system_requirements():
-    """Check system requirements."""
-    print("\n🔍 Checking system requirements...")
+
+def check_logs():
+    """Check if log files are being created."""
+    print("🔍 Checking log files...")
     
-    # Check Python version
-    python_version = sys.version_info
-    if python_version >= (3, 10):
-        print(f"✅ Python version: {python_version.major}.{python_version.minor}.{python_version.micro}")
-    else:
-        print(f"❌ Python version {python_version.major}.{python_version.minor}.{python_version.micro} - requires 3.10+")
+    log_files = [
+        'logs/aicamera.log',
+        'v1_3/logs/aicamera.log'
+    ]
     
-    # Check if running on ARM64
-    import platform
-    if platform.machine() == 'aarch64':
-        print("✅ Architecture: ARM64 (Raspberry Pi compatible)")
-    else:
-        print(f"⚠️  Architecture: {platform.machine()} (not ARM64)")
+    all_ok = True
+    for log_file in log_files:
+        path = Path(log_file)
+        if path.exists():
+            size = path.stat().st_size
+            if size > 0:
+                print(f"✅ {log_file} exists and has content ({size} bytes)")
+            else:
+                print(f"⚠️  {log_file} exists but is empty")
+        else:
+            print(f"❌ {log_file} does not exist")
+            all_ok = False
+    
+    return all_ok
+
 
 def main():
     """Main validation function."""
-    print("🚀 AI Camera v1.3 Installation Validation")
-    print("=" * 50)
+    print("🚀 Starting Installation Validation for AI Camera v1.3...")
+    print("="*60)
     
-    check_environment()
-    check_database()
-    check_directories()
-    check_files()
-    check_service()
-    check_system_requirements()
+    all_passed = True
     
-    print("\n" + "=" * 50)
-    print("✅ Installation validation completed!")
-    print("\n📝 Next steps:")
-    print("   1. Fix any issues identified above")
-    print("   2. Run: python v1_3/scripts/update_database_schema.py (if database issues)")
-    print("   3. Restart service: sudo systemctl restart aicamera_v1.3.service")
-    print("   4. Check logs: sudo journalctl -u aicamera_v1.3.service -f")
+    # Run all checks
+    if not check_python_environment():
+        all_passed = False
+    
+    if not check_directories():
+        all_passed = False
+    
+    if not check_configuration_files():
+        all_passed = False
+    
+    if not check_systemd_service():
+        all_passed = False
+    
+    if not check_nginx_service():
+        all_passed = False
+    
+    if not check_web_interface():
+        all_passed = False
+    
+    if not run_component_validations():
+        all_passed = False
+    
+    if not check_logs():
+        all_passed = False
+    
+    # Summary
+    print("\n" + "="*60)
+    if all_passed:
+        print("✅ All installation validations passed!")
+        print("🎉 AI Camera v1.3 is properly installed and ready for production use")
+        print("\n📋 Quick access:")
+        print("   🌐 Web Interface: http://localhost")
+        print("   📊 Service Status: sudo systemctl status aicamera_v1.3.service")
+        print("   📋 Service Logs: sudo journalctl -u aicamera_v1.3.service -f")
+        return 0
+    else:
+        print("❌ Some installation validations failed")
+        print("🔧 Please review the validation output above and fix any issues")
+        print("\n📋 Common fixes:")
+        print("   - Run: ./install.sh (to reinstall)")
+        print("   - Check: sudo systemctl status aicamera_v1.3.service")
+        print("   - Check: sudo nginx -t")
+        print("   - Check: python v1_3/scripts/validate_easyocr.py")
+        print("   - Check: python v1_3/scripts/validate_database.py")
+        return 1
+
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

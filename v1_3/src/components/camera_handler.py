@@ -6,11 +6,12 @@ This component provides low-level camera operations using Picamera2
 for Camera Module 3 on Raspberry Pi 5.
 
 Features:
-- Picamera2 integration
+- Picamera2 integration with fallback support
 - Camera configuration and control
 - Frame capture and metadata handling
 - Camera status monitoring
 - Error handling and recovery
+- Dynamic camera detection and connection
 
 Author: AI Camera Team
 Version: 1.3
@@ -59,7 +60,68 @@ def make_json_serializable(obj: Any) -> Any:
         else:
             return str(type(obj).__name__)
     else:
-        return str(obj) 
+        return str(obj)
+
+
+def check_camera_availability():
+    """
+    Check if camera hardware and software are available.
+    
+    Returns:
+        Dict: Availability status with details
+    """
+    status = {
+        'hardware_available': False,
+        'software_available': False,
+        'picamera2_available': False,
+        'libcamera_available': False,
+        'camera_ready': False,
+        'details': {}
+    }
+    
+    # Check for camera hardware
+    try:
+        # Check if camera device exists
+        camera_devices = ['/dev/video0', '/dev/video1', '/dev/video2']
+        for device in camera_devices:
+            if os.path.exists(device):
+                status['hardware_available'] = True
+                status['details']['camera_device'] = device
+                break
+        
+        if not status['hardware_available']:
+            # Check for CSI camera interface
+            if os.path.exists('/sys/class/video4linux'):
+                status['hardware_available'] = True
+                status['details']['camera_interface'] = 'CSI'
+    except Exception as e:
+        status['details']['hardware_check_error'] = str(e)
+    
+    # Check for libcamera
+    try:
+        import libcamera
+        status['libcamera_available'] = True
+        status['details']['libcamera_version'] = getattr(libcamera, '__version__', 'unknown')
+    except ImportError:
+        status['details']['libcamera_error'] = 'libcamera not available'
+    except Exception as e:
+        status['details']['libcamera_error'] = str(e)
+    
+    # Check for picamera2
+    try:
+        from picamera2 import Picamera2
+        status['picamera2_available'] = True
+        status['details']['picamera2_version'] = getattr(Picamera2, '__version__', 'unknown')
+    except ImportError:
+        status['details']['picamera2_error'] = 'picamera2 not available'
+    except Exception as e:
+        status['details']['picamera2_error'] = str(e)
+    
+    # Determine if camera is ready
+    status['software_available'] = status['libcamera_available'] and status['picamera2_available']
+    status['camera_ready'] = status['hardware_available'] and status['software_available']
+    
+    return status
 
 
 class CameraHandler:
@@ -72,6 +134,7 @@ class CameraHandler:
     - Camera controls (exposure, gain, focus, etc.)
     - Video recording and streaming
     - Error handling and recovery
+    - Dynamic camera detection and connection
     
     Singleton pattern ensures only one camera instance exists across all workers.
     Thread-safe and multiprocessing-safe camera access using locks and queues.
@@ -84,6 +147,7 @@ class CameraHandler:
         current_config: Current camera configuration
         camera_properties: Camera sensor properties
         sensor_modes: Available sensor modes
+        camera_status: Camera availability status
     """
     
     _instance = None
@@ -100,59 +164,76 @@ class CameraHandler:
         if cls._instance is None:
             with cls._lock:
                 if cls._instance is None:
-                    cls._instance = super(CameraHandler, cls).__new__(cls)
-                    cls._instance._initialized = False
+                    cls._instance = super().__new__(cls)
         return cls._instance
     
-    def __init__(self, logger=None):
-        """
-        Initialize CameraHandler (only once due to Singleton).
-        
-        Args:
-            logger: Logger instance (optional)
-        """
-        if self._initialized:
+    def __init__(self):
+        """Initialize Camera Handler with robust camera detection."""
+        if hasattr(self, '_initialized') and self._initialized:
             return
-            
-        with self._lock:
-            if self._initialized:
-                return
-                
-            self.logger = logger or get_logger(__name__)
-            
-            # Camera state
-            self.picam2 = None
-            self.initialized = False
-            self.streaming = False
-            self.camera_properties = {}
-            self.sensor_modes = []
-            self.current_config = {}
-            
-            self._initialized = True
-            self.logger.info("CameraHandler Singleton initialized")
-        self.streaming = False
         
-        # Configuration
+        self.logger = get_logger(__name__)
+        self.picam2 = None
+        self.initialized = False
+        self.streaming = False
         self.current_config = {}
         self.camera_properties = {}
         self.sensor_modes = []
+        self.camera_status = check_camera_availability()
         
-        # Recording state
-        self.recording = False
-        self.recording_encoder = None
-        self.recording_file = None
+        # Camera connection retry settings
+        self.connection_retry_count = 0
+        self.max_retry_attempts = 5
+        self.retry_delay = 2.0  # seconds
         
-        # Frame counting and FPS calculation
-        self.frame_count = 0
-        self.average_fps = 0.0
-        self._last_frame_time = None
-        self._fps_samples = []
-        self._max_fps_samples = 30  # Keep last 30 samples for average
+        self.logger.info("CameraHandler Singleton initialized")
+        self.logger.info(f"Camera status: {self.camera_status}")
         
-        # Threading
-        self._lock = threading.RLock()
+        self._initialized = True
+    
+    def try_connect_camera(self) -> bool:
+        """
+        Try to connect to camera if it becomes available.
         
-        self.logger.info("CameraHandler initialized")
+        Returns:
+            bool: True if connection successful, False otherwise
+        """
+        if self.connection_retry_count >= self.max_retry_attempts:
+            self.logger.warning(f"Max retry attempts ({self.max_retry_attempts}) reached")
+            return False
+        
+        self.connection_retry_count += 1
+        self.logger.info(f"Attempting camera connection (attempt {self.connection_retry_count}/{self.max_retry_attempts})")
+        
+        # Check if camera is now available
+        self.camera_status = check_camera_availability()
+        
+        if self.camera_status['camera_ready']:
+            self.logger.info("Camera is now available - attempting to initialize")
+            return self.initialize_camera()
+        else:
+            self.logger.info(f"Camera not ready yet - will retry in {self.retry_delay} seconds")
+            return False
+    
+    def get_camera_status(self) -> Dict[str, Any]:
+        """
+        Get current camera status and availability.
+        
+        Returns:
+            Dict: Camera status information
+        """
+        return {
+            'initialized': self.initialized,
+            'streaming': self.streaming,
+            'camera_ready': self.camera_status['camera_ready'],
+            'hardware_available': self.camera_status['hardware_available'],
+            'software_available': self.camera_status['software_available'],
+            'picamera2_available': self.camera_status['picamera2_available'],
+            'libcamera_available': self.camera_status['libcamera_available'],
+            'connection_retry_count': self.connection_retry_count,
+            'max_retry_attempts': self.max_retry_attempts,
+            'details': self.camera_status['details']
+        }
     
     def initialize_camera(self) -> bool:
         """
@@ -185,6 +266,25 @@ class CameraHandler:
                     time.sleep(1.0)  # Give more time to release resources
                 
                 self.logger.info("Initializing camera...")
+
+                # Check camera availability first
+                self.camera_status = check_camera_availability()
+                self.logger.info(f"Camera availability status: {self.camera_status}")
+                
+                # If camera is not ready, try to initialize in fallback mode
+                if not self.camera_status['camera_ready']:
+                    self.logger.warning("Camera not ready - hardware or software not available")
+                    self.logger.info("Camera handler will run in fallback mode - ready for dynamic connection")
+                    
+                    # Initialize in fallback mode - ready but not connected
+                    self.initialized = True
+                    self.picam2 = None
+                    self.camera_properties = {}
+                    self.sensor_modes = []
+                    self.current_config = {}
+                    
+                    self.logger.info("Camera handler initialized in fallback mode")
+                    return True
 
                 # Guard: ensure device present and modules available
                 if not (os.path.exists('/dev/video0') or os.path.exists('/dev/media0')):

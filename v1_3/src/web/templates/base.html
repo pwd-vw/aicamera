@@ -79,6 +79,13 @@
                         </a>
                     </li>
                     
+                    <!-- Exit Button -->
+                    <li class="nav-item ms-auto">
+                        <button class="btn btn-danger btn-sm" id="exit-browser-btn" title="Exit Full Screen Browser">
+                            <i class="fas fa-times"></i>
+                            <span class="d-none d-md-inline">Exit</span>
+                        </button>
+                    </li>
 
                 </ul>
             </div>
@@ -189,6 +196,46 @@
                 menuItem.style.display = 'none';
             }
         }
+        
+        // Exit Browser Functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const exitBtn = document.getElementById('exit-browser-btn');
+            if (exitBtn) {
+                exitBtn.addEventListener('click', function() {
+                    if (confirm('Are you sure you want to exit the full screen browser?')) {
+                        // Try to stop the kiosk browser service
+                        fetch('/api/exit-browser', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            }
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                alert('Kiosk browser service stopped. You can now exit full screen mode.');
+                                // Try to exit full screen using browser API
+                                if (document.exitFullscreen) {
+                                    document.exitFullscreen();
+                                } else if (document.webkitExitFullscreen) {
+                                    document.webkitExitFullscreen();
+                                } else if (document.mozCancelFullScreen) {
+                                    document.mozCancelFullScreen();
+                                } else if (document.msExitFullscreen) {
+                                    document.msExitFullscreen();
+                                }
+                            } else {
+                                alert('Failed to stop kiosk browser service: ' + data.message);
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error stopping kiosk browser:', error);
+                            alert('Error stopping kiosk browser service. Please use Ctrl+Alt+F1 to switch to terminal and run: sudo systemctl stop kiosk-browser.service');
+                        });
+                    }
+                });
+            }
+        });
     </script>
     
     {% block additional_js %}{% endblock %}

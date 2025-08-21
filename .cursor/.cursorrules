@@ -99,6 +99,53 @@
       "metrics": "System resources, AI inference latency",
       "logging": "Structured logging with correlation IDs, less concurrency in loop",
       "alerts": "Critical system failures and performance degradation"
+    },
+    "dependency_management": {
+      "new_libraries": [
+        "Update install.sh with new dependencies in proper order",
+        "Add core dependencies first (typing-extensions, setuptools, wheel)",
+        "Update v1_3/requirements.txt with specific versions",
+        "Update root requirements.txt for compatibility",
+        "Add validation scripts for new dependencies",
+        "Test installation process with fresh environment"
+      ],
+      "database_changes": [
+        "Update v1_3/scripts/init_database.py for schema changes",
+        "Add migration scripts if needed",
+        "Update v1_3/scripts/validate_database.py for new tables/columns",
+        "Test database initialization and validation",
+        "Ensure backward compatibility with existing data"
+      ],
+      "installation_validation": [
+        "Run python v1_3/scripts/validate_easyocr.py after dependency changes",
+        "Run python v1_3/scripts/validate_database.py after schema changes",
+        "Run python scripts/validate_installation.py for complete validation",
+        "Test fresh installation from scratch",
+        "Verify all components work correctly"
+      ]
+    },
+    "documentation_updates": {
+      "new_features": [
+        "Update api-reference.md with new endpoints, parameters, and responses",
+        "Update README.md with new features, installation steps, and usage examples",
+        "Add new sections without rewriting existing document structure",
+        "Include code examples and configuration details",
+        "Update version numbers and changelog information"
+      ],
+      "bug_fixes": [
+        "Update api-reference.md with fixed endpoint behaviors",
+        "Update README.md with corrected information and troubleshooting steps",
+        "Add known issues section if applicable",
+        "Update installation instructions if fixes affect setup process",
+        "Document any workarounds or configuration changes"
+      ],
+      "testing_requirements": [
+        "All documentation updates must be made after tests pass",
+        "Verify API documentation matches actual implementation",
+        "Test installation instructions on fresh environment",
+        "Validate code examples in documentation",
+        "Ensure documentation reflects current system behavior"
+      ]
     }
   },
   "tailscale_config": {

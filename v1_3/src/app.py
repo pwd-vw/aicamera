@@ -411,6 +411,47 @@ def create_app():
                 'timestamp': datetime.now().isoformat()
             }), 500
     
+    @app.route('/api/exit-browser', methods=['POST'])
+    def exit_browser():
+        """API endpoint to stop the kiosk browser service."""
+        try:
+            import subprocess
+            import json
+            
+            # Try to stop the kiosk browser service
+            result = subprocess.run(
+                ['sudo', 'systemctl', 'stop', 'kiosk-browser.service'],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            
+            if result.returncode == 0:
+                logger.info("Kiosk browser service stopped successfully")
+                return jsonify({
+                    'success': True,
+                    'message': 'Kiosk browser service stopped successfully'
+                })
+            else:
+                logger.warning(f"Failed to stop kiosk browser service: {result.stderr}")
+                return jsonify({
+                    'success': False,
+                    'message': f'Failed to stop service: {result.stderr}'
+                }), 500
+                
+        except subprocess.TimeoutExpired:
+            logger.error("Timeout while stopping kiosk browser service")
+            return jsonify({
+                'success': False,
+                'message': 'Timeout while stopping service'
+            }), 500
+        except Exception as e:
+            logger.error(f"Error stopping kiosk browser service: {e}")
+            return jsonify({
+                'success': False,
+                'message': f'Error: {str(e)}'
+            }), 500
+    
     @app.errorhandler(404)
     def not_found(error):
         return render_template('errors/404.html'), 404
