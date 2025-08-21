@@ -677,6 +677,9 @@ sudo systemctl start send_socket.service
 - 🔄 **Analyze Workflow from auto start**
 - 🔄 **Reduce unneccessary log espacially iterative log**
 - 🔄 **Create controls page to run script**
+- 🔄 **Display camera metadata**
+- 🔄 **Comact camera control form**
+- 🔄 **Create controls page to run script**
 - 🔄 **Update core Edge UI**
 - 📊 **Update share api and db schema**
 - 📊 **Build Server infrastructure**
