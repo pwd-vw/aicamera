@@ -242,6 +242,7 @@ nohup.out
 # DATA FILES
 # =============================================================================
 *.db
+*.db-journal
 *.csv
 output.json
 plan.md

@@ -90,6 +90,14 @@ if [[ -f "/etc/nginx/sites-available/default.backup" ]]; then
     sudo cp /etc/nginx/sites-available/default.backup /etc/nginx/sites-available/default
     sudo ln -sf /etc/nginx/sites-available/default /etc/nginx/sites-enabled/
     echo "   ✅ Restored default nginx config"
+    
+    # Test nginx configuration after restoration
+    if sudo nginx -t 2>/dev/null; then
+        echo "   ✅ nginx configuration validated after restoration"
+    else
+        echo "   ⚠️  nginx configuration restored but validation failed"
+        echo "   📋 nginx may need manual configuration"
+    fi
 fi
 
 # Step 4: Remove Unix socket
@@ -201,6 +209,16 @@ if [[ "$remove_chromium" == "yes" ]]; then
     echo "   ✅ Removed chromium-browser"
 else
     echo "   ⚪ Keeping chromium-browser installed (optional package)"
+fi
+
+read -p "Do you want to remove Hailo packages? (optional packages) (yes/no): " remove_hailo
+if [[ "$remove_hailo" == "yes" ]]; then
+    echo "   Removing Hailo packages (optional packages)..."
+    sudo apt remove -y hailo-all || true
+    sudo apt autoremove -y
+    echo "   ✅ Removed Hailo packages"
+else
+    echo "   ⚪ Keeping Hailo packages installed (optional packages)"
 fi
 
 # Step 8.5: Clean up system Python packages (optional)
