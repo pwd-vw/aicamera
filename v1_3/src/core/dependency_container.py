@@ -93,8 +93,7 @@ class DependencyContainer:
             from v1_3.src.components.camera_handler import CameraHandler
             self.register_service('camera_handler', CameraHandler, 
                                 singleton=True, 
-                                factory=CameraHandler.get_instance,  # Use Singleton factory
-                                dependencies={'logger': 'logger'})
+                                dependencies={})  # CameraHandler manages its own logger
         except ImportError:
             self.logger.warning("CameraHandler not available")
         

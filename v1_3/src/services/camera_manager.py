@@ -500,6 +500,61 @@ class CameraManager:
             return (datetime.now() - self.startup_time).total_seconds()
         return 0.0
     
+    def _monitor_camera_availability(self):
+        """
+        Monitor camera availability in background thread.
+        This method runs in a separate thread and continuously checks if camera hardware becomes available.
+        """
+        self.logger.info("🔍 Starting camera availability monitoring...")
+        
+        check_interval = 5.0  # Check every 5 seconds
+        max_retries = 60  # Try for 5 minutes (60 * 5 seconds)
+        retry_count = 0
+        
+        while retry_count < max_retries:
+            try:
+                # Check if camera is now available
+                camera_status = self.camera_handler.get_camera_status()
+                
+                if camera_status['camera_ready']:
+                    self.logger.info("🎉 Camera hardware detected! Attempting to initialize...")
+                    
+                    # Try to initialize camera
+                    if self.camera_handler.initialize_camera():
+                        self.logger.info("✅ Camera initialized successfully")
+                        
+                        # Auto-start camera if enabled
+                        if self.auto_start_enabled:
+                            self.logger.info("🚀 Auto-starting camera...")
+                            if self._auto_start_camera():
+                                self.logger.info("✅ Camera auto-started successfully")
+                                break
+                            else:
+                                self.logger.warning("⚠️  Auto-start failed, but camera is initialized")
+                                break
+                        else:
+                            self.logger.info("✅ Camera ready for manual start")
+                            break
+                    else:
+                        self.logger.warning("⚠️  Camera hardware detected but initialization failed")
+                else:
+                    self.logger.debug(f"📋 Camera not ready yet (attempt {retry_count + 1}/{max_retries})")
+                    if retry_count % 12 == 0:  # Log every minute (12 * 5 seconds)
+                        self.logger.info(f"⏳ Waiting for camera hardware... (attempt {retry_count + 1}/{max_retries})")
+                
+                retry_count += 1
+                time.sleep(check_interval)
+                
+            except Exception as e:
+                self.logger.error(f"❌ Error in camera availability monitoring: {e}")
+                retry_count += 1
+                time.sleep(check_interval)
+        
+        if retry_count >= max_retries:
+            self.logger.warning("⏰ Camera availability monitoring timed out - camera hardware not detected")
+        else:
+            self.logger.info("✅ Camera availability monitoring completed")
+    
     def cleanup(self):
         """
         Cleanup camera manager resources.

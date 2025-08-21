@@ -1263,6 +1263,69 @@ class CameraHandler:
             self.logger.error(f"Error resetting camera hardware: {e}")
             return False
     
+    def get_status(self) -> Dict[str, Any]:
+        """
+        Get camera handler status.
+        
+        Returns:
+            Dict[str, Any]: Status information
+        """
+        try:
+            with self._lock:
+                status = {
+                    'initialized': self.initialized,
+                    'streaming': self.streaming,
+                    'camera_ready': self.camera_status['camera_ready'],
+                    'hardware_available': self.camera_status['hardware_available'],
+                    'software_available': self.camera_status['software_available'],
+                    'picamera2_available': self.camera_status['picamera2_available'],
+                    'libcamera_available': self.camera_status['libcamera_available'],
+                    'camera_properties': make_json_serializable(self.camera_properties),
+                    'sensor_modes_count': len(self.sensor_modes),
+                    'current_config': make_json_serializable(self.current_config),
+                    'connection_retry_count': self.connection_retry_count,
+                    'max_retry_attempts': self.max_retry_attempts,
+                    'details': self.camera_status['details']
+                }
+                
+                return status
+                
+        except Exception as e:
+            self.logger.error(f"Failed to get status: {e}")
+            return {
+                'initialized': False,
+                'streaming': False,
+                'error': str(e)
+            }
+    
+    def get_configuration(self) -> Dict[str, Any]:
+        """
+        Get current camera configuration.
+        
+        Returns:
+            Dict[str, Any]: Configuration information
+        """
+        try:
+            with self._lock:
+                config = {
+                    'initialized': self.initialized,
+                    'streaming': self.streaming,
+                    'current_config': make_json_serializable(self.current_config),
+                    'camera_properties': make_json_serializable(self.camera_properties),
+                    'sensor_modes_count': len(self.sensor_modes),
+                    'camera_status': self.camera_status
+                }
+                
+                return config
+                
+        except Exception as e:
+            self.logger.error(f"Failed to get configuration: {e}")
+            return {
+                'initialized': False,
+                'streaming': False,
+                'error': str(e)
+            }
+    
     def cleanup(self):
         """Cleanup resources."""
         try:
