@@ -102,10 +102,10 @@ rpicam-hello -t 0 --post-process-file /usr/share/rpi-camera-assets/hailo_yolov6_
 
 ---
 
-## 🖥️ **9️⃣ Kiosk Browser & Desktop Launcher Setup**
+## 🖥️ **9️⃣ Optional Kiosk Browser & Desktop Launcher Setup**
 
-### **9.1 Kiosk Browser Service**
-The AI Camera system includes a kiosk browser service that automatically launches the web interface in full-screen mode:
+### **9.1 Kiosk Browser Service (Optional)**
+The AI Camera system includes an optional kiosk browser service that can launch the web interface in full-screen mode:
 
 ```bash
 # Start kiosk browser service
@@ -121,8 +121,8 @@ sudo systemctl status kiosk-browser.service
 sudo journalctl -u kiosk-browser.service -f
 ```
 
-### **9.2 Desktop Launcher**
-A desktop launcher is automatically installed during setup for easy access:
+### **9.2 Desktop Launcher (Optional)**
+A desktop launcher is automatically installed during setup for easy access (if desktop environment is available):
 
 ```bash
 # Install desktop launcher manually (if needed)
@@ -145,8 +145,8 @@ Multiple ways to exit full screen mode:
    ```
 4. **Emergency Exit**: `Ctrl + Alt + F1` to switch to terminal
 
-### **9.4 Management Scripts**
-Use the provided management scripts for easy control:
+### **9.4 Management Scripts (Optional)**
+Use the provided management scripts for easy control of the optional kiosk browser:
 
 ```bash
 # Kiosk browser management
@@ -673,7 +673,7 @@ sudo systemctl start send_socket.service
   - ✅ **Added Exit button to dashboard navigation bar for easy full screen exit**
   - ✅ **Created desktop launcher for easy web browser access**
   - ✅ **Implemented automatic kiosk browser service management**
-- 🔄 **nalyze factory reset script and install.sh script to ensure it's work properly with no dependency issue for fresh install and re-install after factory reset process**
+- 🔄 **Analyze factory reset script and install.sh script to ensure it's work properly with no dependency issue for fresh install and re-install after factory reset process**
 - 🔄 **Update core Edge UI**
 - 📊 **Update share api and db schema**
 - 📊 **Build Server infrastructure**

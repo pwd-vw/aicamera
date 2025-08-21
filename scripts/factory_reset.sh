@@ -30,6 +30,14 @@ else
     echo "   ⚪ Service not running"
 fi
 
+if sudo systemctl is-active --quiet kiosk-browser.service; then
+    echo "   Stopping kiosk-browser service (optional)..."
+    sudo systemctl stop kiosk-browser.service
+    echo "   ✅ Kiosk browser service stopped"
+else
+    echo "   ⚪ Kiosk browser service not running (optional service)"
+fi
+
 if sudo systemctl is-active --quiet nginx; then
     echo "   Stopping nginx service..."
     sudo systemctl stop nginx
@@ -41,6 +49,7 @@ fi
 # Disable services
 echo "   Disabling services..."
 sudo systemctl disable aicamera_v1.3.service 2>/dev/null || echo "   ⚪ Service not enabled"
+sudo systemctl disable kiosk-browser.service 2>/dev/null || echo "   ⚪ Kiosk browser service not enabled (optional)"
 sudo systemctl disable nginx 2>/dev/null || echo "   ⚪ Nginx not enabled"
 
 # Step 2: Remove systemd service files
@@ -51,6 +60,13 @@ if [[ -f "/etc/systemd/system/aicamera_v1.3.service" ]]; then
     echo "   ✅ Removed aicamera_v1.3.service"
 else
     echo "   ⚪ Service file not found"
+fi
+
+if [[ -f "/etc/systemd/system/kiosk-browser.service" ]]; then
+    sudo rm -f /etc/systemd/system/kiosk-browser.service
+    echo "   ✅ Removed kiosk-browser.service (optional service)"
+else
+    echo "   ⚪ Kiosk browser service file not found (optional service)"
 fi
 
 # Reload systemd
@@ -177,6 +193,16 @@ else
     echo "   ⚪ Keeping nginx installed"
 fi
 
+read -p "Do you want to remove chromium-browser? (optional package) (yes/no): " remove_chromium
+if [[ "$remove_chromium" == "yes" ]]; then
+    echo "   Removing chromium-browser (optional package)..."
+    sudo apt remove -y chromium-browser
+    sudo apt autoremove -y
+    echo "   ✅ Removed chromium-browser"
+else
+    echo "   ⚪ Keeping chromium-browser installed (optional package)"
+fi
+
 # Step 8.5: Clean up system Python packages (optional)
 echo ""
 echo "📋 Step 8.5: Cleaning up system Python packages..."
@@ -209,14 +235,22 @@ else
     echo "   ⚪ Keeping system Python packages"
 fi
 
-# Step 9: Clean up directories
+# Step 9: Clean up directories and files
 echo ""
-echo "📋 Step 9: Cleaning up directories..."
+echo "📋 Step 9: Cleaning up directories and files..."
 for dir in db logs captured_images; do
     if [[ -d "$dir" ]]; then
         rmdir "$dir" 2>/dev/null && echo "   ✅ Removed empty directory: $dir" || echo "   ⚪ Directory not empty: $dir"
     fi
 done
+
+# Remove desktop launcher (optional)
+if [[ -f "/home/camuser/Desktop/aicamera-browser.desktop" ]]; then
+    rm -f /home/camuser/Desktop/aicamera-browser.desktop
+    echo "   ✅ Removed desktop launcher (optional)"
+else
+    echo "   ⚪ Desktop launcher not found (optional)"
+fi
 
 # Step 10: Reset git (optional)
 echo ""
@@ -244,7 +278,7 @@ echo "🎉 FACTORY RESET COMPLETED!"
 echo "=========================="
 echo ""
 echo "✅ All AI Camera v1.3 components have been removed:"
-echo "   - Services stopped and disabled"
+echo "   - Services stopped and disabled (aicamera_v1.3, nginx, kiosk-browser [optional])"
 echo "   - Systemd service files removed"
 echo "   - Nginx configuration removed"
 echo "   - Database deleted"
@@ -254,6 +288,7 @@ echo "   - Environment files removed"
 echo "   - Virtual environment removed"
 echo "   - Python packages cleaned (virtual environment)"
 echo "   - System packages cleaned (optional)"
+echo "   - Desktop launcher removed (optional)"
 echo "   - Python cache cleaned"
 echo ""
 echo "🔄 To reinstall, run:"
@@ -265,3 +300,14 @@ echo "   2. Check available disk space: df -h"
 echo "   3. Check system status: systemctl status"
 echo ""
 echo "🚀 Ready for fresh installation!"
+
+# Run validation to ensure clean state
+echo ""
+echo "🔍 Running factory reset validation..."
+if python scripts/validate_factory_reset.py; then
+    echo "✅ Factory reset validation passed - system is ready for reinstallation"
+else
+    echo "⚠️  Factory reset validation found issues"
+    echo "📋 Please review the validation output above and address any issues"
+    echo "📋 You may need to run factory reset again or manually clean up remaining files"
+fi

@@ -545,54 +545,76 @@ echo "📋 Service Logs: sudo journalctl -u aicamera_v1.3.service -f"
 echo "🌐 Web Interface: http://localhost"
 echo "🔍 Validation: python scripts/validate_installation.py"
 
-# Setup kiosk browser service
+# Optional: Setup kiosk browser service (non-critical)
 echo ""
-echo "🖥️  Setting up kiosk browser service..."
+echo "🖥️  Setting up optional kiosk browser service..."
+echo "   ℹ️  This is an optional feature - main installation will continue regardless of kiosk setup status"
+
 if [[ -f "systemd_service/kiosk-browser.service" ]]; then
-    # Install chromium-browser if not present
+    # Install chromium-browser if not present (optional)
     if ! command -v chromium-browser >/dev/null 2>&1; then
-        echo "   Installing chromium-browser..."
+        echo "   📦 Installing chromium-browser (optional)..."
         sudo apt-get update -y
         sudo apt-get install -y chromium-browser
+        if ! command -v chromium-browser >/dev/null 2>&1; then
+            echo "   ⚠️  Failed to install chromium-browser - kiosk browser will not be available"
+            echo "   ℹ️  Main installation will continue - you can install chromium-browser manually later"
+        else
+            echo "   ✅ chromium-browser installed successfully"
+        fi
     else
-        echo "   chromium-browser already installed"
+        echo "   ✅ chromium-browser already installed"
     fi
     
-    # Copy service file and enable it
-    sudo cp systemd_service/kiosk-browser.service /etc/systemd/system/
-    sudo systemctl daemon-reload
-    sudo systemctl enable kiosk-browser.service
+    # Copy service file and enable it (optional)
+    echo "   📋 Installing kiosk browser service (optional)..."
+    if sudo cp systemd_service/kiosk-browser.service /etc/systemd/system/; then
+        sudo systemctl daemon-reload
+        sudo systemctl enable kiosk-browser.service
+        echo "   ✅ Kiosk browser service installed and enabled"
+        echo "   📋 To start kiosk browser: sudo systemctl start kiosk-browser.service"
+        echo "   📋 To stop kiosk browser: sudo systemctl stop kiosk-browser.service"
+        echo "   📋 Kiosk browser logs: sudo journalctl -u kiosk-browser.service -f"
+    else
+        echo "   ⚠️  Failed to install kiosk browser service - continuing with main installation"
+    fi
     
-    echo "   ✅ Kiosk browser service enabled"
-    echo "   📋 To start kiosk browser: sudo systemctl start kiosk-browser.service"
-    echo "   📋 To stop kiosk browser: sudo systemctl stop kiosk-browser.service"
-    echo "   📋 Kiosk browser logs: sudo journalctl -u kiosk-browser.service -f"
-    
-    # Install desktop launcher if desktop environment is available
+    # Install desktop launcher if desktop environment is available (optional)
     if [[ -n "$DISPLAY" ]] && [[ -d "/home/camuser/Desktop" ]]; then
-        echo "   🖥️  Installing desktop launcher..."
-        cp aicamera-browser.desktop /home/camuser/Desktop/
-        chmod +x /home/camuser/Desktop/aicamera-browser.desktop
-        chown camuser:camuser /home/camuser/Desktop/aicamera-browser.desktop
-        echo "   ✅ Desktop launcher installed at /home/camuser/Desktop/aicamera-browser.desktop"
+        echo "   🖥️  Installing desktop launcher (optional)..."
+        if [[ -f "aicamera-browser.desktop" ]]; then
+            if cp aicamera-browser.desktop /home/camuser/Desktop/; then
+                chmod +x /home/camuser/Desktop/aicamera-browser.desktop
+                chown camuser:camuser /home/camuser/Desktop/aicamera-browser.desktop
+                echo "   ✅ Desktop launcher installed at /home/camuser/Desktop/aicamera-browser.desktop"
+            else
+                echo "   ⚠️  Failed to install desktop launcher - continuing with main installation"
+            fi
+        else
+            echo "   ⚠️  Desktop launcher file not found: aicamera-browser.desktop"
+        fi
     else
         echo "   ℹ️  Desktop environment not detected, skipping desktop launcher"
     fi
     
-    # Start kiosk browser service if GUI is available
+    # Try to start kiosk browser service if GUI is available (optional)
     if [[ -n "$DISPLAY" ]]; then
-        echo "   🚀 Starting kiosk browser service..."
+        echo "   🚀 Attempting to start kiosk browser service (optional)..."
         if sudo systemctl start kiosk-browser.service; then
             echo "   ✅ Kiosk browser service started successfully"
             echo "   🌐 Web interface should open automatically in full screen mode"
         else
-            echo "   ⚠️  Failed to start kiosk browser service automatically"
-            echo "   📋 You can start it manually with: sudo systemctl start kiosk-browser.service"
+            echo "   ⚠️  Failed to start kiosk browser service - this is optional"
+            echo "   📋 You can start it manually later with: sudo systemctl start kiosk-browser.service"
+            echo "   📋 Check logs with: sudo journalctl -u kiosk-browser.service -f"
         fi
     else
-        echo "   ℹ️  No GUI detected, kiosk browser service not started automatically"
+        echo "   ℹ️  No GUI detected, kiosk browser service not started"
         echo "   📋 Start it manually when GUI is available: sudo systemctl start kiosk-browser.service"
     fi
 else
-    echo "   ❌ Kiosk browser service file not found: systemd_service/kiosk-browser.service"
+    echo "   ℹ️  Kiosk browser service file not found: systemd_service/kiosk-browser.service"
+    echo "   ℹ️  Kiosk browser is an optional feature - main installation continues"
 fi
+
+echo "   ✅ Kiosk browser setup completed (optional feature)"

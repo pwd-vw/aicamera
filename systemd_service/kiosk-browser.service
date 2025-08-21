@@ -1,7 +1,7 @@
 [Unit]
 Description=AI Camera Kiosk Browser
-After=aicamera_v1.3.service
-Wants=aicamera_v1.3.service
+After=network.target
+Wants=network.target
 Requires=graphical-session.target
 
 [Service]
@@ -12,8 +12,8 @@ Environment=DISPLAY=:0
 Environment=XAUTHORITY=/home/camuser/.Xauthority
 WorkingDirectory=/home/camuser/aicamera
 
-# Wait for the web service to be ready before starting browser
-ExecStartPre=/bin/bash -c 'until curl -s http://localhost/ >/dev/null 2>&1; do sleep 2; done'
+# Wait for the web service to be ready before starting browser (optional - will timeout after 60 seconds)
+ExecStartPre=/bin/bash -c 'timeout 60 bash -c "until curl -s http://localhost/ >/dev/null 2>&1; do sleep 2; done" || echo "Web service not ready, starting browser anyway"'
 ExecStart=/bin/bash -c 'sleep 5 && chromium-browser --kiosk --disable-web-security --disable-features=VizDisplayCompositor --no-first-run --no-default-browser-check --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-renderer-backgrounding --disable-features=TranslateUI --disable-ipc-flooding-protection --disable-dev-shm-usage --disable-gpu --no-sandbox --autoplay-policy=no-user-gesture-required http://localhost/'
 
 # Restart policy
