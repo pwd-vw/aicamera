@@ -1,105 +1,83 @@
-# LPR Server - Project Documentation
-
-**Version:** 1.0.0  
-**Last Updated:** 2024-08-16  
-**Author:** AI Camera Team  
-**Status:** Planning
+# Server Component Documentation
 
 ## Overview
 
-LPR Server เป็นระบบประมวลผล License Plate Recognition ที่ทำงานบน Ubuntu Server สำหรับรับข้อมูลจาก Edge devices และประมวลผลผลลัพธ์
+The Server component is a Node.js-based data ingestion and management server designed to handle communication with Edge cameras and provide centralized data management.
 
-## System Architecture
+## Features
 
-### Server Platform (Ubuntu)
-- **Hardware:** Ubuntu Server
-- **OS:** Ubuntu 22.04+/24.04 LTS
-- **Database:** PostgreSQL
-- **Web Framework:** Flask + Flask-SocketIO
-- **Frontend:** Bootstrap 5 + Chart.js
+- **Data Ingestion**: Receive and process data from Edge cameras
+- **Multi-protocol Communication**: WebSocket, REST API, and MQTT support
+- **Database Management**: PostgreSQL database with Sequelize ORM
+- **Real-time Monitoring**: WebSocket-based real-time updates
+- **Image Storage**: Centralized image storage and management
+- **Analytics**: Data analytics and reporting capabilities
+- **Health Monitoring**: System health and performance monitoring
 
-## Key Features
-
-- License Plate Recognition processing
-- Database storage and management
-- Web-based dashboard
-- RESTful API for Edge communication
-- Real-time data streaming via WebSocket
-- User authentication and authorization
-
-## Project Structure
+## Architecture
 
 ```
-lpr_server/
-├── api/                    # API endpoints
-├── database/               # Database models and migrations
-├── frontend/               # Web dashboard
-├── processing/             # LPR processing logic
-├── docs/                   # Documentation
-└── deployment/             # Deployment scripts
+server/
+├── src/                    # Application source code
+│   ├── index.js           # Main application entry point
+│   ├── routes/            # API routes
+│   ├── utils/             # Utility functions
+│   ├── database/          # Database models and connection
+│   ├── socket/            # WebSocket handlers
+│   ├── communication/     # Multi-protocol communication
+│   └── services/          # Business logic services
+├── database/              # Database schema and migrations
+├── protocols/             # Communication protocols
+├── scripts/              # Server-specific scripts
+├── systemd_service/      # Systemd service files
+└── package.json          # Node.js dependencies
 ```
 
-## Technology Stack
+## Quick Start
 
-### Backend
-- **Python 3.10+**
-- **Flask** - Web framework
-- **Flask-SocketIO** - WebSocket support
-- **SQLAlchemy** - Database ORM
-- **PostgreSQL** - Database
+1. **Install Dependencies:**
+   ```bash
+   cd server
+   npm install
+   ```
 
-### Frontend
-- **Bootstrap 5** - UI framework
-- **Chart.js** - Data visualization
-- **JavaScript** - Client-side logic
+2. **Configure Environment:**
+   ```bash
+   cp .env.template .env
+   # Edit .env with your configuration
+   ```
 
-### Infrastructure
-- **Nginx** - Reverse proxy
-- **Gunicorn** - WSGI server
-- **Docker** - Containerization (optional)
+3. **Setup Database:**
+   ```bash
+   # Create database
+   createdb aicamera
+   
+   # Apply schema
+   psql -d aicamera -f database/schema.sql
+   ```
 
-## Development Status
+4. **Start Application:**
+   ```bash
+   npm start
+   ```
 
-### Planned Features
-- [ ] Database schema design
-- [ ] API endpoints development
-- [ ] LPR processing integration
-- [ ] Web dashboard development
-- [ ] User authentication system
-- [ ] Real-time data streaming
-- [ ] Performance monitoring
-- [ ] Security implementation
+5. **Access API:**
+   - API Base: `http://localhost:3000/api/v1`
+   - Health check: `http://localhost:3000/health`
+   - WebSocket: `ws://localhost:3000`
 
-### Documentation Needed
-- [ ] Installation guide
-- [ ] API documentation
-- [ ] Database schema documentation
-- [ ] Deployment guide
-- [ ] Monitoring guide
-- [ ] Security guide
+## Configuration
 
-## Integration with Edge Devices
+See [Configuration Guide](configuration.md) for detailed configuration options.
 
-### Communication Protocol
-- **REST API** สำหรับการส่งข้อมูล
-- **WebSocket** สำหรับ real-time updates
-- **Tailscale VPN** สำหรับ secure communication
+## API Reference
 
-### Data Flow
-1. Edge device captures image
-2. AI processing on Edge
-3. Results sent to LPR Server
-4. Server processes and stores data
-5. Dashboard updates in real-time
+See [API Reference](api-reference.md) for complete API documentation.
 
-## Next Steps
+## Development
 
-1. **Database Design** - ออกแบบ schema สำหรับ LPR data
-2. **API Development** - พัฒนา REST API endpoints
-3. **Frontend Development** - สร้าง web dashboard
-4. **Integration Testing** - ทดสอบการเชื่อมต่อกับ Edge devices
-5. **Deployment** - Deploy ระบบไปยัง production
+See [Development Guide](../developer/server-development.md) for development setup and guidelines.
 
----
+## Troubleshooting
 
-**Note:** เอกสารนี้จะได้รับการอัปเดตเมื่อเริ่มการพัฒนา LPR Server
+See [Troubleshooting Guide](../guides/troubleshooting.md) for common issues and solutions.

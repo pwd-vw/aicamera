@@ -1,0 +1,236 @@
+name: Edge Deployment
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'edge/**'
+      - '.github/workflows/edge-deploy.yml'
+  workflow_dispatch:  # Allow manual triggering
+    inputs:
+      force_deploy:
+        description: 'Force deployment (bypass environment check)'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  deploy-edge:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Check deployment environment
+        run: |
+          # Check if deployment is enabled via environment variable
+          if [ "${{ vars.ENABLE_EDGE_DEPLOYMENT }}" != "true" ]; then
+            echo "🚫 Edge deployment is disabled"
+            echo "📋 To enable: Set ENABLE_EDGE_DEPLOYMENT=true in repository variables"
+            echo "📋 Or use manual trigger with force_deploy=true"
+            exit 0
+          fi
+          echo "✅ Edge deployment is enabled"
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2  # Need previous commit for rollback
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.8.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Add host to known_hosts
+        run: |
+          ssh-keyscan -H ${{ secrets.EDGE_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy to Edge device
+        run: |
+          # Execute deployment directly on remote server
+          ssh ${{ secrets.EDGE_USER }}@${{ secrets.EDGE_HOST }} << 'ENDSSH'
+            set -e
+            
+            # Configuration
+            DEPLOY_PATH="/home/camuser/aicamera"
+            SERVICE_NAME="aicamera_v1.3.service"
+            NGINX_SERVICE="nginx"
+            BACKUP_DIR="/home/camuser/aicamera_backups"
+            TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+            
+            echo "🚀 Starting Edge deployment..."
+            echo "📋 Deploy path: $DEPLOY_PATH"
+            echo "📋 Service: $SERVICE_NAME"
+            echo "📋 Timestamp: $TIMESTAMP"
+            
+            # Create backup directory
+            mkdir -p $BACKUP_DIR
+            
+            # Step 1: Create backup of current deployment
+            echo "📦 Creating backup of current deployment..."
+            if [ -d "$DEPLOY_PATH" ]; then
+              tar -czf "$BACKUP_DIR/edge_backup_$TIMESTAMP.tar.gz" -C "$DEPLOY_PATH" .
+              echo "✅ Backup created: $BACKUP_DIR/edge_backup_$TIMESTAMP.tar.gz"
+            else
+              echo "⚠️  No existing deployment found, skipping backup"
+            fi
+            
+            # Step 2: Pull latest changes
+            echo "📥 Pulling latest changes..."
+            cd $DEPLOY_PATH
+            git fetch origin
+            git reset --hard origin/main
+            echo "✅ Code updated"
+            
+            # Step 3: Update dependencies (skip installation script due to sudo requirements)
+            echo "📦 Updating Python dependencies..."
+            if [ -f "edge/requirements.txt" ]; then
+              # Activate virtual environment if it exists
+              if [ -f "venv_hailo/bin/activate" ]; then
+                source venv_hailo/bin/activate
+                echo "✅ Virtual environment activated"
+              fi
+              
+              # Install/update Python dependencies
+              pip install -r edge/requirements.txt || {
+                echo "⚠️  Some dependencies failed to install - this may be expected for system-specific packages"
+                echo "📋 Attempting to install core dependencies only..."
+                pip install flask flask-socketio python-socketio werkzeug pillow numpy requests psutil python-dotenv
+              }
+              echo "✅ Dependencies updated"
+            else
+              echo "❌ requirements.txt not found"
+              exit 1
+            fi
+            
+            # Step 4: Restart systemd service
+            echo "🔄 Restarting systemd service..."
+            sudo systemctl restart $SERVICE_NAME
+            sleep 5  # Wait for service to start
+            
+            # Step 5: Check service status
+            echo "🔍 Checking service status..."
+            if sudo systemctl is-active --quiet $SERVICE_NAME; then
+              echo "✅ Service is running"
+            else
+              echo "❌ Service failed to start"
+              sudo systemctl status $SERVICE_NAME
+              exit 1
+            fi
+            
+            # Step 6: Restart nginx
+            echo "🌐 Restarting nginx..."
+            sudo systemctl restart $NGINX_SERVICE
+            sleep 2
+            
+            if sudo systemctl is-active --quiet $NGINX_SERVICE; then
+              echo "✅ Nginx is running"
+            else
+              echo "❌ Nginx failed to start"
+              sudo systemctl status $NGINX_SERVICE
+              exit 1
+            fi
+            
+            # Step 7: Test service health
+            echo "🔍 Testing service health..."
+            max_retries=10
+            retry_count=0
+            health_ok=false
+            
+            while [ $retry_count -lt $max_retries ]; do
+              if curl -s -f http://localhost/health >/dev/null 2>&1; then
+                echo "✅ Service health check passed"
+                health_ok=true
+                break
+              else
+                echo "   Attempt $((retry_count + 1))/$max_retries: Health check failed..."
+                retry_count=$((retry_count + 1))
+                sleep 3
+              fi
+            done
+            
+            if [ "$health_ok" = false ]; then
+              echo "❌ Service health check failed after $max_retries attempts"
+              echo "🔄 Initiating rollback..."
+              
+              # Rollback to previous backup
+              LATEST_BACKUP=$(ls -t $BACKUP_DIR/edge_backup_*.tar.gz 2>/dev/null | head -1)
+              if [ -n "$LATEST_BACKUP" ]; then
+                echo "📦 Rolling back to: $LATEST_BACKUP"
+                
+                # Stop services
+                sudo systemctl stop $SERVICE_NAME || true
+                sudo systemctl stop $NGINX_SERVICE || true
+                
+                # Restore from backup
+                cd $DEPLOY_PATH
+                tar -xzf "$LATEST_BACKUP" .
+                echo "✅ Backup restored"
+                
+                # Restart services
+                sudo systemctl start $SERVICE_NAME
+                sudo systemctl start $NGINX_SERVICE
+                
+                # Wait and test
+                sleep 5
+                if curl -s -f http://localhost/health >/dev/null 2>&1; then
+                  echo "✅ Rollback successful"
+                else
+                  echo "❌ Rollback failed - manual intervention required"
+                  exit 1
+                fi
+              else
+                echo "❌ No backup found for rollback"
+                exit 1
+              fi
+            fi
+            
+            # Step 8: Test web interface
+            echo "🌐 Testing web interface..."
+            if curl -s -f http://localhost/ >/dev/null 2>&1; then
+              echo "✅ Web interface is accessible"
+            else
+              echo "❌ Web interface test failed"
+              exit 1
+            fi
+            
+            # Clean up old backups (keep last 5)
+            echo "🧹 Cleaning up old backups..."
+            cd $BACKUP_DIR
+            ls -t edge_backup_*.tar.gz | tail -n +6 | xargs -r rm
+            
+            echo "🎉 Edge deployment completed successfully!"
+            echo "📋 Service URL: http://localhost"
+            echo "📋 Health check: http://localhost/health"
+            echo "📋 Backup location: $BACKUP_DIR/edge_backup_$TIMESTAMP.tar.gz"
+          ENDSSH
+
+      - name: Verify deployment
+        run: |
+          # Wait a bit for services to stabilize
+          sleep 10
+          
+          # Test service health
+          if curl -s -f http://${{ secrets.EDGE_HOST }}/health >/dev/null 2>&1; then
+            echo "✅ Edge deployment verification successful"
+          else
+            echo "❌ Edge deployment verification failed"
+            exit 1
+          fi
+
+  notify-deployment:
+    runs-on: ubuntu-latest
+    needs: deploy-edge
+    if: always()
+    
+    steps:
+      - name: Notify deployment status
+        run: |
+          if [ "${{ needs.deploy-edge.result }}" = "success" ]; then
+            echo "🎉 Edge deployment completed successfully!"
+            echo "📋 Service URL: http://${{ secrets.EDGE_HOST }}"
+            echo "📋 Health check: http://${{ secrets.EDGE_HOST }}/health"
+          else
+            echo "❌ Edge deployment failed!"
+            echo "📋 Check the deployment logs for details"
+            echo "📋 Manual intervention may be required"
+          fi

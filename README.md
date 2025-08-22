@@ -1,45 +1,24 @@
 # AI Camera Monorepo
 
-Edge AI Camera system for License Plate Recognition (LPR) detection with distributed architecture.
+## Project Overview
 
-**Repository:** https://github.com/popwandee/aicamera.git
+This is a monorepo for an AI Camera system with distributed architecture:
 
-## 🏗️ Architecture
+- **Edge Component**: Python-based LPR detection on Raspberry Pi 5 + Hailo AI Accelerator
+- **Server Component**: Node.js-based data ingestion and management server
+- **Communication**: Multi-protocol (WebSocket primary, REST API backup, MQTT fallback)
+- **Image Transfer**: SFTP/rsync for secure image transfer
 
-```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Edge Camera   │    │   Load Balancer │    │   Web Dashboard │
-│   (Python)      │────│   (Nginx)       │────│   (React/Vue)   │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-         │                       │                       │
-         │                       │                       │
-         ▼                       ▼                       ▼
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   API Server    │    │   Database      │    │   Redis Cache   │
-│   (Node.js)     │    │   (PostgreSQL)  │    │                 │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-```
-
-## 📁 Repository Structure
+## Architecture
 
 ```
 aicamera/
 ├── edge/                    # Python-based edge camera application
 │   ├── src/                # Edge application source code
-│   ├── scripts/            # Edge-specific scripts and utilities
-│   ├── installation/       # Installation and configuration files
-│   │   ├── install.sh      # Main installation script
-│   │   ├── setup_env.sh    # Environment setup script
-│   │   ├── requirements.txt # Python dependencies
-│   │   └── .env.production # Production environment config
-│   ├── venv_hailo/         # Python virtual environment
-│   ├── captured_images/    # Local image storage
-│   ├── db/                 # Database files
-│   ├── logs/               # Application logs
-│   ├── nginx.conf          # Web server configuration
-│   ├── gunicorn_config.py  # WSGI server configuration
-│   ├── systemd_service/    # System service files
-│   └── tests/              # Python tests
+│   ├── requirements.txt    # Python dependencies
+│   ├── scripts/           # Edge-specific scripts
+│   ├── systemd_service/   # Edge systemd service files
+│   └── tests/             # Python tests
 ├── server/                 # Node.js-based data ingestion server
 │   ├── src/                # Server source code
 │   │   ├── routes/         # API routes
@@ -49,39 +28,85 @@ aicamera/
 │   │   ├── communication/  # Multi-protocol communication
 │   │   └── services/       # Business logic services
 │   ├── database/           # Database schema and migrations
-│   │   └── schema.sql      # PostgreSQL schema
 │   ├── protocols/          # Shared communication protocols
-│   │   ├── api-spec.json   # REST API specification
-│   │   ├── socket-events.json # Socket.IO event specs
-│   │   └── communication-strategy.json # Multi-protocol strategy
+│   ├── scripts/           # Server-specific scripts
+│   ├── systemd_service/   # Server systemd service files
 │   └── package.json        # Node.js dependencies
+├── scripts/                # Build, test, and deployment scripts
 ├── docs/                   # Documentation
-└── resources/              # AI models and configuration files
+│   ├── edge/              # Edge component documentation
+│   ├── server/            # Server component documentation
+│   ├── shared/            # Shared protocols and schemas
+│   ├── guides/            # User guides
+│   ├── admin/             # Administrator documentation
+│   ├── developer/         # Developer documentation
+│   ├── deployment/        # Deployment guides
+│   ├── project/           # Project management docs
+│   └── scripts/           # Script documentation
+└── captured_images/        # Local image storage (edge)
 ```
 
-## 🔄 Communication Strategy
+## Table of Contents
 
-### Multi-Protocol Approach
-1. **WebSocket (Primary)** - Real-time bidirectional communication
-2. **REST API (Backup)** - HTTP REST API for reliable communication
-3. **MQTT (Fallback)** - Lightweight messaging for poor network conditions
+### 📚 Documentation
 
-### Image Transfer
-- **SFTP + rsync** - Secure file transfer for captured images
-- Source: `captured_images/` (edge)
-- Destination: `image_storage/` (server)
+#### **Edge Component**
+- [Edge Overview](docs/edge/README.md) - Edge component documentation
+- [Edge Installation](docs/edge/installation.md) - Installation guide
+- [Edge Configuration](docs/edge/configuration.md) - Configuration options
+- [Edge API Reference](docs/edge/api-reference.md) - API documentation
 
-## 🚀 Quick Start
+#### **Server Component**
+- [Server Overview](docs/server/README.md) - Server component documentation
+- [Server Installation](docs/server/installation.md) - Installation guide
+- [Server Configuration](docs/server/configuration.md) - Configuration options
+- [Server API Reference](docs/server/api-reference.md) - API documentation
 
-### Prerequisites
+#### **Shared Resources**
+- [Communication Protocols](docs/shared/protocols.md) - WebSocket, REST, MQTT protocols
+- [Database Schema](docs/shared/database-schema.md) - Shared database schema
+- [API Specifications](docs/shared/api-specifications.md) - OpenAPI specifications
+- [Data Models](docs/shared/data-models.md) - Shared data structures
 
-- Node.js 18+ (for server)
-- Python 3.11+ (for edge)
-- PostgreSQL 14+ (for database)
-- Redis 6+ (for caching)
-- Hailo AI Accelerator (for edge inference)
+#### **User Guides**
+- [Quick Start Guide](docs/guides/quick-start.md) - Get started quickly
+- [User Manual](docs/guides/user-manual.md) - Complete user guide
+- [Troubleshooting](docs/guides/troubleshooting.md) - Common issues and solutions
+- [FAQ](docs/guides/faq.md) - Frequently asked questions
 
-### Installation
+#### **Administrator Documentation**
+- [System Administration](docs/admin/system-admin.md) - System administration guide
+- [Monitoring & Logging](docs/admin/monitoring.md) - System monitoring
+- [Security Guide](docs/admin/security.md) - Security best practices
+- [Backup & Recovery](docs/admin/backup-recovery.md) - Backup procedures
+
+#### **Developer Documentation**
+- [Development Setup](docs/developer/setup.md) - Development environment setup
+- [Contributing Guidelines](docs/developer/contributing.md) - How to contribute
+- [Code Standards](docs/developer/code-standards.md) - Coding standards
+- [Testing Guide](docs/developer/testing.md) - Testing procedures
+
+#### **Deployment**
+- [Deployment Overview](docs/deployment/overview.md) - Deployment strategies
+- [Edge Deployment](docs/deployment/edge-deployment-setup.md) - Edge deployment guide
+- [Server Deployment](docs/deployment/server-deployment.md) - Server deployment guide
+- [CI/CD Pipeline](docs/deployment/ci-cd.md) - Continuous integration/deployment
+- [Workflow Configuration](docs/deployment/workflow-config.md) - GitHub Actions configuration
+
+#### **Project Management**
+- [Project Overview](docs/project/overview.md) - Project details
+- [Architecture](docs/project/architecture.md) - System architecture
+- [Versioning Strategy](docs/project/versioning.md) - Semantic versioning
+- [Changelog](docs/project/CHANGELOG.md) - Release history
+- [Roadmap](docs/project/roadmap.md) - Future development plans
+
+#### **Scripts Documentation**
+- [Scripts Overview](docs/scripts/overview.md) - Script documentation
+- [Edge Scripts](docs/scripts/edge-scripts.md) - Edge-specific scripts
+- [Server Scripts](docs/scripts/server-scripts.md) - Server-specific scripts
+- [Deployment Scripts](docs/scripts/deployment-scripts.md) - Deployment automation
+
+### 🚀 Quick Start
 
 1. **Clone the repository:**
    ```bash
@@ -89,152 +114,53 @@ aicamera/
    cd aicamera
    ```
 
-2. **Setup the monorepo:**
+2. **Setup Edge Component:**
    ```bash
-   npm run setup
+   cd edge
+   python3 -m venv venv_hailo
+   source venv_hailo/bin/activate
+   pip install -r requirements.txt
    ```
 
-3. **Install server dependencies:**
+3. **Setup Server Component:**
    ```bash
    cd server
    npm install
    ```
 
-4. **Install edge dependencies:**
-   ```bash
-   cd edge/installation
-   ./install.sh
-   ```
-
-5. **Configure environment:**
+4. **Configure Environment:**
    ```bash
    cp env.template .env
    # Edit .env with your configuration
    ```
 
-6. **Setup database:**
+5. **Start Services:**
    ```bash
-   # Create database
-   createdb aicamera
+   # Start Edge (development)
+   cd edge && python src/app.py
    
-   # Apply schema
-   psql -d aicamera -f server/database/schema.sql
+   # Start Server (development)
+   cd server && npm run dev
    ```
 
-### Development
+### 📋 Requirements
 
-- **Start server:** `cd server && npm start`
-- **Start edge:** `cd edge && python src/app.py`
-- **Run tests:** `cd server && npm test` or `cd edge && python -m pytest`
+- **Edge**: Python 3.11+, Raspberry Pi 5, Hailo-8 AI Accelerator
+- **Server**: Node.js 18+, PostgreSQL 14+, Redis 6+
+- **Network**: Stable internet connection for communication
 
-## 🔧 Hardware Requirements
+### 🔧 Development
 
-### Edge Camera (Raspberry Pi 5)
-- Raspberry Pi 5 (8GB recommended)
-- Camera Module 3 or High-Quality Camera
-- Hailo-8 AI Accelerator
-- Active Cooler for Raspberry Pi 5
+- **Edge Development**: See [Edge Development Guide](docs/developer/edge-development.md)
+- **Server Development**: See [Server Development Guide](docs/developer/server-development.md)
+- **Testing**: See [Testing Guide](docs/developer/testing.md)
 
-### Server
-- Any Linux server with Node.js 18+
-- PostgreSQL 14+
-- Redis 6+
-- Sufficient storage for image storage
+### 📞 Support
 
-## 📡 API Documentation
+- **Documentation**: [Complete Documentation](docs/)
+- **Issues**: [GitHub Issues](https://github.com/popwandee/aicamera/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/popwandee/aicamera/discussions)
 
-### REST API
-- **Base URL:** `http://localhost:3000/api/v1`
-- **Specification:** `server/protocols/api-spec.json`
-- **Health Check:** `GET /health`
+### 📄 License
 
-### WebSocket Events
-- **Specification:** `server/protocols/socket-events.json`
-- **Events:** Camera registration, detection data, status updates
-
-### MQTT Topics
-- **Pattern:** `aicamera/{camera_id}/{event_type}`
-- **Events:** detection, status, alert
-
-## 🗄️ Database Schema
-
-The system uses PostgreSQL with the following main tables:
-- `cameras` - Edge camera devices
-- `detections` - License plate detection results
-- `analytics` - Aggregated analytics data
-- `camera_health` - Camera health monitoring
-- `system_events` - System events and logs
-
-See `server/database/schema.sql` for complete schema.
-
-## 🔐 Security
-
-- **Authentication:** JWT tokens for API access
-- **Image Transfer:** SSH key-based authentication for SFTP
-- **Network:** TLS/SSL encryption for all communications
-- **Rate Limiting:** API rate limiting to prevent abuse
-
-## 📊 Monitoring
-
-### Health Checks
-- Server: `GET /health`
-- Edge: `GET /health`
-- Database: `pg_isready`
-
-### Metrics
-- Connection status
-- Message latency
-- Success rates
-- Image transfer speed
-- Queue sizes
-
-## 🚀 Deployment
-
-### Development
-```bash
-npm run dev:server
-npm run dev:edge
-```
-
-### Production
-```bash
-# Using PM2 for Node.js
-cd server && npm start
-
-# Using systemd for Python
-sudo systemctl start aicamera-edge
-```
-
-### Docker
-```bash
-docker-compose up -d
-```
-
-## 📚 Documentation
-
-- [API Documentation](docs/api/)
-- [Deployment Guide](docs/deployment/)
-- [Development Guide](docs/development/)
-- [Hardware Setup](docs/hardware/)
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests
-5. Submit a pull request
-
-## 📄 License
-
-MIT License - see LICENSE file for details.
-
-## 🆘 Support
-
-- **Issues:** [GitHub Issues](https://github.com/popwandee/aicamera/issues)
-- **Documentation:** [docs/](docs/)
-- **Wiki:** [GitHub Wiki](https://github.com/popwandee/aicamera/wiki)
-
----
-
-**Built with ❤️ for edge AI applications**
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

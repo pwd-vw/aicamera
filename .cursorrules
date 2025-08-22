@@ -13,7 +13,9 @@ aicamera/
 ├── edge/                    # Python-based edge camera application
 │   ├── src/                # Edge application source code
 │   ├── requirements.txt    # Python dependencies
-│   └── tests/              # Python tests
+│   ├── scripts/           # Edge-specific scripts
+│   ├── systemd_service/   # Edge systemd service files
+│   └── tests/             # Python tests
 ├── server/                 # Node.js-based data ingestion server
 │   ├── src/                # Server source code
 │   │   ├── routes/         # API routes
@@ -24,9 +26,20 @@ aicamera/
 │   │   └── services/       # Business logic services
 │   ├── database/           # Database schema and migrations
 │   ├── protocols/          # Shared communication protocols
+│   ├── scripts/           # Server-specific scripts
+│   ├── systemd_service/   # Server systemd service files
 │   └── package.json        # Node.js dependencies
 ├── scripts/                # Build, test, and deployment scripts
 ├── docs/                   # Documentation
+│   ├── edge/              # Edge component documentation
+│   ├── server/            # Server component documentation
+│   ├── shared/            # Shared protocols and schemas
+│   ├── guides/            # User guides
+│   ├── admin/             # Administrator documentation
+│   ├── developer/         # Developer documentation
+│   ├── deployment/        # Deployment guides
+│   ├── project/           # Project management docs
+│   └── scripts/           # Script documentation
 ├── resources/              # AI models and configuration files
 └── captured_images/        # Local image storage (edge)
 ```
@@ -193,6 +206,26 @@ aicamera/
 - Handle hardware failures gracefully
 - Implement proper initialization sequences
 - Monitor hardware health
+
+## Documentation Organization
+- **All documentation files (.md) must be placed in docs/ directory**
+- **Never create .md files outside of docs/ directory**
+- **docs/edge/** - Edge component documentation
+- **docs/server/** - Server component documentation  
+- **docs/shared/** - Shared protocols, schemas, and APIs
+- **docs/guides/** - User guides and tutorials
+- **docs/admin/** - Administrator documentation
+- **docs/developer/** - Developer documentation
+- **docs/deployment/** - Deployment guides and CI/CD
+- **docs/project/** - Project management and architecture
+- **docs/scripts/** - Script documentation
+
+## Script Organization
+- **/scripts/** - Build, test, and deployment scripts (monorepo level)
+- **/edge/scripts/** - Edge-specific scripts and utilities
+- **/server/scripts/** - Server-specific scripts and utilities
+- **/edge/systemd_service/** - Edge systemd service files
+- **/server/systemd_service/** - Server systemd service files
 
 ## File Naming Conventions
 - Use kebab-case for files and directories
