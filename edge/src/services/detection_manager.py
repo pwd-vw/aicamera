@@ -18,11 +18,12 @@ import threading
 import time
 import queue
 import logging
+import os
 from datetime import datetime
 from typing import Dict, Any, Optional, List
 
 from edge.src.core.utils.logging_config import get_logger
-from edge.src.core.config import DETECTION_INTERVAL, AUTO_START_DETECTION, STARTUP_DELAY
+from edge.src.core.config import DETECTION_INTERVAL, AUTO_START_DETECTION, STARTUP_DELAY, IMAGE_SAVE_DIR
 from edge.src.core.dependency_container import get_service
 
 logger = get_logger(__name__)
@@ -341,6 +342,7 @@ class DetectionManager:
                 'plates_count': len(plate_boxes),
                 'ocr_results': ocr_results,
                 'annotated_image_path': annotated_path,
+                'image_path': f"edge/captured_images/{os.path.basename(annotated_path)}" if annotated_path else '',
                 'cropped_plates_paths': cropped_paths,
                 'vehicle_detections': vehicle_boxes,
                 'plate_detections': plate_boxes,

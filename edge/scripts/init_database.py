@@ -32,6 +32,7 @@ def main() -> int:
             plates_count INTEGER DEFAULT 0,
             ocr_results TEXT,
             annotated_image_path TEXT,
+            image_path TEXT,
             cropped_plates_paths TEXT,
             vehicle_detections TEXT,
             plate_detections TEXT,
@@ -39,7 +40,18 @@ def main() -> int:
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             sent_to_server BOOLEAN DEFAULT 0,
             sent_at DATETIME,
-            server_response TEXT
+            server_response TEXT,
+            hailo_ocr_results TEXT DEFAULT NULL,
+            easyocr_results TEXT DEFAULT NULL,
+            best_ocr_method TEXT DEFAULT NULL,
+            ocr_processing_time_ms REAL DEFAULT 0.0,
+            parallel_ocr_success BOOLEAN DEFAULT 0,
+            hailo_ocr_confidence REAL DEFAULT 0.0,
+            easyocr_confidence REAL DEFAULT 0.0,
+            hailo_processing_time_ms REAL DEFAULT 0.0,
+            easyocr_processing_time_ms REAL DEFAULT 0.0,
+            hailo_ocr_error TEXT DEFAULT NULL,
+            easyocr_error TEXT DEFAULT NULL
         )
         """
     )

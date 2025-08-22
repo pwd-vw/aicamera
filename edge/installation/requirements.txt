@@ -1,20 +1,60 @@
-numpy<2.0.0
-setproctitle
-opencv-python
-easyocr
-notebook
-ipykernel
-degirum
-degirum_tools
-degirum_cli
-picamera2
-pillow<11
-matplotlib
-Flask
-Flask-SocketIO
-websockets
-python-dotenv
-pandas<2.0.0
-requests
-eventlet
+# AI Camera v1.3 Dependencies - Installation Version
+
+# Core Framework
+Flask==2.3.3
+Flask-SocketIO==5.3.6
+python-socketio==5.9.0
+Werkzeug==2.3.7
+
+# Camera and Image Processing
+picamera2==0.3.12
+
+# Database
+SQLAlchemy==2.0.23
+alembic==1.12.1
+
+# Image Processing
+Pillow==10.0.1
+opencv-python==4.8.1.78
+numpy==1.24.3
+
+# Core Dependencies (install first)
+typing-extensions>=4.0.0
+setuptools>=65.0.0
+wheel>=0.40.0
+
+# AI and OCR
+easyocr>=1.7.0
+degirum>=0.18.2
+degirum-tools==0.19.1
+degirum-cli==0.2.0
+
+# WebSocket
+websockets==11.0.3
+
+# Database and Data Processing
+pandas==2.0.3
+
+# HTTP Requests
+requests==2.31.0
+
+# System Monitoring and Utilities
+psutil==7.0.0
+python-dotenv==1.0.0
+matplotlib==3.7.2
+setproctitle==1.3.2
+
+# Development and Testing
+notebook==7.0.2
+ipykernel==6.25.2
+pytest==7.4.3
+pytest-cov==4.1.0
+
+# WSGI Server
 gunicorn
+
+# Additional Dependencies
+eventlet
+
+# Experiment Dependencies
+scikit-image==0.21.0  # For image processing and blur detection

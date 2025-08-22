@@ -93,6 +93,7 @@ class DatabaseManager:
                     plates_count INTEGER DEFAULT 0,
                     ocr_results TEXT,
                     annotated_image_path TEXT,
+                    image_path TEXT,
                     cropped_plates_paths TEXT,
                     vehicle_detections TEXT,
                     plate_detections TEXT,
@@ -193,20 +194,21 @@ class DatabaseManager:
             cursor.execute("""
                 INSERT INTO detection_results (
                     timestamp, vehicles_count, plates_count, ocr_results,
-                    annotated_image_path, cropped_plates_paths,
+                    annotated_image_path, image_path, cropped_plates_paths,
                     vehicle_detections, plate_detections, processing_time_ms,
                     hailo_ocr_results, easyocr_results, best_ocr_method,
                     ocr_processing_time_ms, parallel_ocr_success,
                     hailo_ocr_confidence, easyocr_confidence,
                     hailo_processing_time_ms, easyocr_processing_time_ms,
                     hailo_ocr_error, easyocr_error
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 detection_data.get('timestamp'),
                 detection_data.get('vehicles_count', 0),
                 detection_data.get('plates_count', 0),
                 ocr_results_json,
                 detection_data.get('annotated_image_path', ''),
+                detection_data.get('image_path', ''),
                 cropped_paths_json,
                 vehicle_detections_json,
                 plate_detections_json,
@@ -266,6 +268,7 @@ class DatabaseManager:
                     'vehicles_count': row['vehicles_count'],
                     'plates_count': row['plates_count'],
                     'annotated_image_path': row['annotated_image_path'],
+                    'image_path': row.get('image_path', ''),
                     'processing_time_ms': row['processing_time_ms'],
                     'created_at': row['created_at']
                 }
@@ -406,6 +409,7 @@ class DatabaseManager:
                     'vehicles_count': row['vehicles_count'],
                     'plates_count': row['plates_count'],
                     'annotated_image_path': row['annotated_image_path'],
+                    'image_path': row.get('image_path', ''),
                     'processing_time_ms': row['processing_time_ms'],
                     'created_at': row['created_at']
                 }
@@ -467,6 +471,7 @@ class DatabaseManager:
                 'vehicles_count': row['vehicles_count'],
                 'plates_count': row['plates_count'],
                 'annotated_image_path': row['annotated_image_path'],
+                'image_path': row.get('image_path', ''),
                 'processing_time_ms': row['processing_time_ms'],
                 'created_at': row['created_at']
             }

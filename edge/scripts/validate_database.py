@@ -65,6 +65,33 @@ def validate_database_schema():
             return False
         
         print("✅ All required tables exist")
+        
+        # Check for required columns in detection_results table
+        cursor.execute("PRAGMA table_info(detection_results)")
+        columns = [column[1] for column in cursor.fetchall()]
+        
+        required_columns = [
+            'id', 'timestamp', 'vehicles_count', 'plates_count', 
+            'ocr_results', 'annotated_image_path', 'image_path',
+            'cropped_plates_paths', 'vehicle_detections', 'plate_detections',
+            'processing_time_ms', 'created_at', 'sent_to_server', 'sent_at', 
+            'server_response', 'hailo_ocr_results', 'easyocr_results', 
+            'best_ocr_method', 'ocr_processing_time_ms', 'parallel_ocr_success',
+            'hailo_ocr_confidence', 'easyocr_confidence', 'hailo_processing_time_ms',
+            'easyocr_processing_time_ms', 'hailo_ocr_error', 'easyocr_error'
+        ]
+        
+        missing_columns = []
+        for column in required_columns:
+            if column not in columns:
+                missing_columns.append(column)
+        
+        if missing_columns:
+            print(f"❌ Missing columns in detection_results table: {', '.join(missing_columns)}")
+            conn.close()
+            return False
+        
+        print("✅ All required columns exist in detection_results table")
         conn.close()
         return True
         
