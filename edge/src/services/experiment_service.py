@@ -75,6 +75,10 @@ class ExperimentService:
         # Initialize Hailo model for license plate detection
         self.lp_detection_model = None
         try:
+            # Configure HailoRT logging before importing degirum
+            from edge.config.hailort_logging import configure_hailort_logging
+            configure_hailort_logging()
+            
             import degirum as dg
             if LICENSE_PLATE_DETECTION_MODEL and HEF_MODEL_PATH:
                 self.lp_detection_model = dg.load_model(

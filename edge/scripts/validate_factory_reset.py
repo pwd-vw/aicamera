@@ -126,7 +126,7 @@ def check_project_files():
     project_root = Path.cwd()
     files_to_check = [
         "db/lpr_data.db",
-        ".env.production",
+        "edge/installation/.env.production",
         ".env",
         "captured_images",
         "logs"

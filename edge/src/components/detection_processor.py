@@ -98,6 +98,10 @@ class DetectionProcessor:
                 return False
             
             # Import degirum for Hailo model loading
+            # Configure HailoRT logging before importing degirum
+            from edge.config.hailort_logging import configure_hailort_logging
+            configure_hailort_logging()
+            
             try:
                 import degirum as dg
                 self.logger.info("✅ Degirum available for Hailo AI model loading")

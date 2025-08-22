@@ -29,9 +29,9 @@ else
     echo "📋 Expected location: edge/scripts/update_database_schema.py"
 fi
 
-# Check if .env.production exists
-if [[ ! -f ".env.production" ]]; then
-    echo "⚠️  .env.production file not found"
+# Check if .env.production exists in edge/installation
+if [[ ! -f "edge/installation/.env.production" ]]; then
+    echo "⚠️  .env.production file not found in edge/installation/"
     echo "📋 Please run the installation script first: ./install.sh"
 fi
 

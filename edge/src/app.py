@@ -19,7 +19,7 @@ from datetime import datetime
 # Load environment variables from .env.production first
 def load_env_file():
     """Load environment variables from .env.production file."""
-    env_file = Path(__file__).parent.parent / '.env.production'
+    env_file = Path(__file__).parent.parent / 'installation' / '.env.production'
     if env_file.exists():
         with open(env_file, 'r') as f:
             for line in f:

@@ -363,6 +363,10 @@ class HealthMonitor:
             
             # Fallback: Try to check models using degirum directly
             try:
+                # Configure HailoRT logging before importing degirum
+                from edge.config.hailort_logging import configure_hailort_logging
+                configure_hailort_logging()
+                
                 import degirum as dg
                 
                 models_loaded = 0

@@ -66,7 +66,10 @@ def validate_models(device_arch):
             print("⚠️  Warning: OCR model is for HAILO8L but device is HAILO8")
     
     # Check if model files exist
-    resources_dir = Path('resources')
+    # Use absolute path strategy like the rest of the project
+    current_file = Path(__file__)
+    project_root = current_file.parent.parent.parent  # Go up from scripts/edge/aicamera
+    resources_dir = project_root / 'resources'
     if resources_dir.exists():
         for model_name in [vehicle_model, lp_model, ocr_model]:
             if model_name:
@@ -171,13 +174,16 @@ def main():
     print("=" * 50)
     
     # Load environment variables
-    env_file = Path('.env.production')
+    # Use absolute path strategy like the rest of the project
+    current_file = Path(__file__)
+    project_root = current_file.parent.parent.parent  # Go up from scripts/edge/aicamera
+    env_file = project_root / 'edge' / 'installation' / '.env.production'
     if env_file.exists():
         print("📄 Loading environment from .env.production file...")
         from dotenv import load_dotenv
-        load_dotenv()
+        load_dotenv(env_file)
     else:
-        print("⚠️  No .env.production file found - using system environment variables")
+        print(f"⚠️  No .env.production file found at {env_file} - using system environment variables")
     
     print()
     
@@ -208,7 +214,7 @@ def main():
     print("✅ Configuration validation completed!")
     print("\n📝 Next steps:")
     print("   1. Review any warnings or errors above")
-    print("   2. Edit .env.production file if needed")
+    print(f"   2. Edit {env_file} file if needed")
     print("   3. Run ./install.sh to complete installation")
     print("   4. Start the service with: sudo systemctl start aicamera_v1.3.service")
 

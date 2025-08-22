@@ -1,3 +1,8 @@
+---
+alwaysApply: true
+description: "AI Camera Monorepo development rules and guidelines"
+---
+
 # AI Camera Monorepo - Cursor Rules
 
 ## Project Overview

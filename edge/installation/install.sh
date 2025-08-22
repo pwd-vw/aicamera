@@ -29,6 +29,78 @@ sudo apt-get update -y
 sudo apt-get upgrade -y
 echo "✅ System packages updated"
 
+# Camera cleanup and preparation (CRITICAL - prevents "Device or resource busy" errors)
+echo "📷 Preparing camera system for installation..."
+echo "🔧 Cleaning up any existing camera processes and services..."
+
+# Stop AI Camera service if running
+echo "�� Stopping AI Camera service if running..."
+sudo systemctl stop aicamera_v1.3.service 2>/dev/null || true
+sudo systemctl disable aicamera_v1.3.service 2>/dev/null || true
+
+# Stop any running camera-related processes
+echo "🛑 Stopping camera-related processes..."
+sudo pkill -f "picamera2" 2>/dev/null || true
+sudo pkill -f "libcamera" 2>/dev/null || true
+sudo pkill -f "gstreamer" 2>/dev/null || true
+sudo pkill -f "python.*camera" 2>/dev/null || true
+
+# Kill any processes using camera devices
+echo "🛑 Releasing camera device handles..."
+for device in /dev/video* /dev/media*; do
+    if [[ -e "$device" ]]; then
+        sudo fuser -k "$device" 2>/dev/null || true
+    fi
+done
+
+# Unload and reload camera modules
+echo "🔄 Reloading camera kernel modules..."
+sudo modprobe -r bcm2835-v4l2 2>/dev/null || true
+sudo modprobe -r v4l2_common 2>/dev/null || true
+sudo modprobe -r videodev 2>/dev/null || true
+sleep 2
+
+# Reload camera modules
+sudo modprobe videodev 2>/dev/null || true
+sudo modprobe v4l2_common 2>/dev/null || true
+sudo modprobe bcm2835-v4l2 2>/dev/null || true
+sleep 2
+
+# Reset camera hardware (if possible)
+echo "🔄 Resetting camera hardware..."
+if command -v v4l2-ctl >/dev/null 2>&1; then
+    for device in /dev/video*; do
+        if [[ -e "$device" ]]; then
+            sudo v4l2-ctl -d "$device" --all 2>/dev/null || true
+        fi
+    done
+fi
+
+# Check camera device status
+echo "🔍 Checking camera device status..."
+if ls /dev/video* >/dev/null 2>&1; then
+    echo "✅ Camera devices found:"
+    ls -la /dev/video*
+else
+    echo "⚠️  No camera devices found - this may be normal for headless systems"
+fi
+
+# Verify camera permissions
+echo "🔍 Verifying camera permissions..."
+if [[ -e "/dev/video0" ]]; then
+    sudo chmod 666 /dev/video0 2>/dev/null || true
+    sudo usermod -a -G video $USER 2>/dev/null || true
+    echo "✅ Camera permissions set"
+else
+    echo "⚠️  Camera device not found - permissions not set"
+fi
+
+# Wait for camera system to stabilize
+echo "⏳ Waiting for camera system to stabilize..."
+sleep 3
+
+echo "✅ Camera cleanup completed"
+
 # Install Hailo SDK and dependencies FIRST (before sourcing environment)
 echo "🚀 Installing Hailo SDK and dependencies..."
 echo "📦 Installing hailo-all package..."
@@ -102,7 +174,7 @@ sudo apt-get install -y libcap-dev rapidjson-dev
 
 # Camera stack required by picamera2 (Python module libcamera comes from system packages)
 echo "Installing libcamera stack for Picamera2..."
-sudo apt-get install -y python3-libcamera libcamera-tools libcamera-apps python3-libcamera-dev || true
+sudo apt-get install -y python3-libcamera libcamera-tools || true
 
 # Ensure libcamera is accessible in virtual environment
 echo "Ensuring libcamera is accessible in virtual environment..."
@@ -124,7 +196,7 @@ if python3 -c "import libcamera; print('libcamera available in system Python')" 
 else
     echo "❌ libcamera not available in system Python - attempting to install"
     sudo apt-get update -y
-    sudo apt-get install -y python3-libcamera python3-libcamera-dev libcamera-tools libcamera-apps || true
+    sudo apt-get install -y python3-libcamera libcamera-tools || true
     
     # Try again after installation
     if python3 -c "import libcamera; print('libcamera now available')" 2>/dev/null; then
@@ -299,18 +371,12 @@ else
     echo "❌ libcamera validation failed - attempting to fix..."
     # Try to fix libcamera installation
     sudo apt-get update -y
-    sudo apt-get install -y python3-libcamera python3-libcamera-dev libcamera-tools libcamera-apps || true
+    sudo apt-get install -y python3-libcamera libcamera-tools || true
     
     # Check for camera hardware issues
     echo "🔍 Checking camera hardware compatibility..."
-    if command -v libcamera-still >/dev/null 2>&1; then
-        echo "   Testing camera hardware with libcamera-still..."
-        if timeout 10s libcamera-still --help >/dev/null 2>&1; then
-            echo "   ✅ libcamera-still working"
-        else
-            echo "   ⚠️  libcamera-still has issues - camera hardware may be incompatible"
-        fi
-    fi
+    # Note: libcamera-still validation removed - not needed for core functionality
+    echo "   ✅ Camera hardware check skipped (libcamera-apps not installed)"
     
     # Check for specific camera pipeline issues
     echo "🔍 Checking camera pipeline configuration..."
@@ -452,11 +518,11 @@ touch edge/src/__init__.py
 
 # Setup environment configuration
 echo "Setting up environment configuration..."
-if [[ ! -f ".env.production" ]]; then
+if [[ ! -f "edge/installation/.env.production" ]]; then
     if [[ -f "edge/installation/env.template" ]]; then
-        cp edge/installation/env.template .env.production
+        cp edge/installation/env.template edge/installation/.env.production
         echo "✅ Created .env.production file from template"
-        echo "📝 Please edit .env.production file to customize your installation:"
+        echo "📝 Please edit edge/installation/.env.production file to customize your installation:"
         echo "   - Set AICAMERA_ID and CHECKPOINT_ID for unique identification"
         echo "   - Configure GPS coordinates (LOCATION_LAT, LOCATION_LON)"
         echo "   - Choose appropriate Hailo models for your device"
@@ -465,16 +531,16 @@ if [[ ! -f ".env.production" ]]; then
         echo "⚠️  edge/installation/env.template not found - please create .env.production file manually"
     fi
 else
-    echo "✅ .env.production file already exists"
+    echo "✅ .env.production file already exists in edge/installation/"
 fi
 
 # Load .env.production and prompt for key identifiers if needed
-if [[ -f ".env.production" ]]; then
+if [[ -f "edge/installation/.env.production" ]]; then
     echo "🔎 Verifying required identifiers in .env.production (AICAMERA_ID, CHECKPOINT_ID, CAMERA_LOCATION)..."
 
     # Export variables from .env.production into current shell
     set -a
-    source ./.env.production || true
+    source edge/installation/.env.production || true
     set +a
 
     # Helper to update or insert env var
@@ -484,10 +550,10 @@ if [[ -f ".env.production" ]]; then
         local replace_value="$value"
         # Escape '&' for sed replacement safety
         replace_value="${replace_value//&/\\&}"
-        if grep -q "^${key}=" .env.production; then
-            sed -i "s|^${key}=.*|${key}=${replace_value}|" .env.production
+        if grep -q "^${key}=" edge/installation/.env.production; then
+            sed -i "s|^${key}=.*|${key}=${replace_value}|" edge/installation/.env.production
         else
-            echo "${key}=${replace_value}" >> .env.production
+            echo "${key}=${replace_value}" >> edge/installation/.env.production
         fi
     }
 
@@ -517,7 +583,7 @@ if [[ -f ".env.production" ]]; then
 
     # Reload to ensure environment reflects latest values
     set -a
-    source ./.env.production || true
+    source edge/installation/.env.production || true
     set +a
 fi
 
@@ -549,6 +615,7 @@ fi
 
 # Install and configure nginx (before starting service)
 echo "🌐 Installing and configuring nginx..."
+echo "   📋 Note: This will automatically fix common nginx Unix socket proxy issues"
 if ! command -v nginx >/dev/null 2>&1; then
     echo "   Installing nginx..."
     sudo apt-get update -y
@@ -595,6 +662,25 @@ if [[ -f "edge/nginx.conf" ]]; then
         sudo systemctl enable nginx
         sudo systemctl restart nginx
         echo "   ✅ nginx started successfully"
+        
+        # Apply nginx configuration fixes for Unix socket proxy
+        echo "   🔧 Applying nginx configuration fixes for Unix socket proxy..."
+        
+        # Fix any incorrect proxy_pass directives that might have incorrect paths
+        if sudo sed -i 's|proxy_pass http://unix:/tmp/aicamera.sock/[^;]*;|proxy_pass http://unix:/tmp/aicamera.sock;|g' /etc/nginx/sites-available/aicamera; then
+            echo "   ✅ Fixed proxy_pass directives"
+            
+            # Test configuration again after fixes
+            if sudo nginx -t 2>/dev/null; then
+                echo "   ✅ Nginx configuration still valid after fixes"
+                sudo systemctl reload nginx
+                echo "   ✅ Nginx reloaded with fixes"
+            else
+                echo "   ⚠️  Nginx configuration invalid after fixes - manual check required"
+            fi
+        else
+            echo "   ⚠️  Failed to apply nginx configuration fixes"
+        fi
     else
         echo "   ⚠️  nginx configuration test failed - attempting to fix..."
         
@@ -690,6 +776,57 @@ fi
 
 echo "🎉 Installation completed successfully!"
 echo "🚀 Production environment is ready!"
+
+# Fix nginx configuration for Unix socket proxy
+echo ""
+echo "🔧 Fixing nginx configuration for Unix socket proxy..."
+if [[ -f "/etc/nginx/sites-available/aicamera" ]]; then
+    echo "   📋 Found nginx configuration file"
+    
+    # Fix proxy_pass directives to use correct Unix socket format
+    echo "   🔧 Fixing proxy_pass directives..."
+    
+    # Fix health endpoint
+    if sudo sed -i 's|proxy_pass http://unix:/tmp/aicamera.sock/health;|proxy_pass http://unix:/tmp/aicamera.sock;|g' /etc/nginx/sites-available/aicamera; then
+        echo "   ✅ Fixed health endpoint proxy_pass"
+    else
+        echo "   ⚠️  Failed to fix health endpoint proxy_pass"
+    fi
+    
+    # Fix API endpoints
+    if sudo sed -i 's|proxy_pass http://unix:/tmp/aicamera.sock/api/;|proxy_pass http://unix:/tmp/aicamera.sock;|g' /etc/nginx/sites-available/aicamera; then
+        echo "   ✅ Fixed API endpoints proxy_pass"
+    else
+        echo "   ⚠️  Failed to fix API endpoints proxy_pass"
+    fi
+    
+    # Fix video feed endpoint
+    if sudo sed -i 's|proxy_pass http://unix:/tmp/aicamera.sock/video_feed;|proxy_pass http://unix:/tmp/aicamera.sock;|g' /etc/nginx/sites-available/aicamera; then
+        echo "   ✅ Fixed video feed proxy_pass"
+    else
+        echo "   ⚠️  Failed to fix video feed proxy_pass"
+    fi
+    
+    # Test nginx configuration
+    echo "   🔍 Testing nginx configuration..."
+    if sudo nginx -t >/dev/null 2>&1; then
+        echo "   ✅ Nginx configuration is valid"
+        
+        # Reload nginx
+        echo "   🔄 Reloading nginx..."
+        if sudo systemctl reload nginx; then
+            echo "   ✅ Nginx reloaded successfully"
+        else
+            echo "   ⚠️  Failed to reload nginx - you may need to restart it manually"
+        fi
+    else
+        echo "   ❌ Nginx configuration is invalid"
+        echo "   📋 Please check the nginx configuration manually"
+    fi
+else
+    echo "   ⚠️  Nginx configuration file not found: /etc/nginx/sites-available/aicamera"
+    echo "   📋 Please ensure nginx is properly configured for the AI Camera application"
+fi
 
 # Run validation
 echo ""

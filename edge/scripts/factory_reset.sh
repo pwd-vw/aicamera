@@ -139,11 +139,11 @@ else
 fi
 
 # Remove environment files
-if [[ -f ".env.production" ]]; then
-    rm -f .env.production
-    echo "   ✅ Removed .env.production"
+if [[ -f "edge/installation/.env.production" ]]; then
+    rm -f edge/installation/.env.production
+    echo "   ✅ Removed edge/installation/.env.production"
 else
-    echo "   ⚪ .env.production not found"
+    echo "   ⚪ edge/installation/.env.production not found"
 fi
 
 if [[ -f ".env" ]]; then
@@ -322,7 +322,7 @@ echo "🚀 Ready for fresh installation!"
 # Run validation to ensure clean state
 echo ""
 echo "Running factory reset validation..."
-if python scripts/validate_factory_reset.py; then
+if python edge/scripts/validate_factory_reset.py; then
     echo "✅ Factory reset validation passed - system is ready for reinstallation"
 else
     echo "⚠️  Factory reset validation found issues"

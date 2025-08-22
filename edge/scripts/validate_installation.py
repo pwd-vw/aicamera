@@ -148,7 +148,7 @@ def check_configuration_files():
     print("🔍 Checking configuration files...")
     
     required_files = [
-        '.env.production',
+        'edge/installation/.env.production',
         'edge/nginx.conf',
         'edge/systemd_service/aicamera_v1.3.service',
         'edge/gunicorn_config.py'

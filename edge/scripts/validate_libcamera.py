@@ -165,51 +165,51 @@ def check_camera_controls():
     try:
         from libcamera import controls
         
-        # List all available control enums
-        print("📋 Available libcamera control enums:")
-        control_enums = [
+        # Define critical vs non-critical controls
+        critical_controls = [
             'AwbModeEnum', 'AfModeEnum', 'AeEnableEnum', 'AeMeteringModeEnum',
             'AeExposureModeEnum', 'AeConstraintModeEnum', 'AeFlickerModeEnum',
             'AfRangeEnum', 'AfSpeedEnum', 'AfMeteringEnum', 'AfTriggerEnum',
-            'AfPauseEnum', 'AwbEnableEnum', 'ColourGainsEnum', 'ColourTemperatureEnum',
-            'ScalerCrop', 'SensorExposureTime', 'AnalogueGain', 'DigitalGain',
-            'FrameDurationLimits', 'ScalerCrop', 'SensorBlackLevels', 'SensorTestPatternModeEnum'
+            'AfPauseEnum'
         ]
         
-        available_controls = []
-        for control_name in control_enums:
+        non_critical_controls = [
+            'AwbEnableEnum', 'ColourGainsEnum', 'ColourTemperatureEnum',
+            'ScalerCrop', 'SensorExposureTime', 'AnalogueGain', 'DigitalGain',
+            'FrameDurationLimits', 'SensorBlackLevels', 'SensorTestPatternModeEnum'
+        ]
+        
+        print("📋 Checking critical camera controls:")
+        critical_available = []
+        for control_name in critical_controls:
             if hasattr(controls, control_name):
-                control_enum = getattr(controls, control_name)
-                print(f"  ✅ {control_name} available")
-                available_controls.append(control_name)
                 
-                # Try to list some values for this enum
-                try:
-                    if hasattr(control_enum, '__members__'):
-                        values = list(control_enum.__members__.keys())[:3]  # Show first 3 values
-                        print(f"    Values: {', '.join(values)}...")
-                except Exception as e:
-                    print(f"    Could not list values: {e}")
+                print(f"  ✅ {control_name} available")
+                critical_available.append(control_name)
             else:
                 print(f"  ❌ {control_name} not available")
         
-        print(f"📊 Total available controls: {len(available_controls)}")
+        print(f"📊 Critical controls available: {len(critical_available)}/{len(critical_controls)}")
         
-        # Test if we can access some basic controls
-        try:
-            if hasattr(controls, 'AwbModeEnum'):
-                print("✅ libcamera.controls.AwbModeEnum available")
-            if hasattr(controls, 'AfModeEnum'):
-                print("✅ libcamera.controls.AfModeEnum available")
-            if hasattr(controls, 'AeEnableEnum'):
-                print("✅ libcamera.controls.AeEnableEnum available")
+        print("\n📋 Checking non-critical camera controls (optional):")
+        non_critical_available = []
+        for control_name in non_critical_controls:
+            if hasattr(controls, control_name):
+                print(f"  ✅ {control_name} available")
+                non_critical_available.append(control_name)
             else:
-                print("⚠️  libcamera.controls.AeEnableEnum not available")
-        except Exception as e:
-            print(f"⚠️  Error checking specific controls: {e}")
+                print(f"  ⚪ {control_name} not available (non-critical)")
         
-        print("✅ Camera controls listing completed")
-        return True
+        print(f"📊 Non-critical controls available: {len(non_critical_available)}/{len(non_critical_controls)}")
+        
+        # Determine if validation passes based on critical controls
+        critical_threshold = 3  # Need at least 3 critical controls
+        if len(critical_available) >= critical_threshold:
+            print(f"✅ Camera controls validation PASSED ({len(critical_available)} critical controls available)")
+            return True
+        else:
+            print(f"❌ Camera controls validation FAILED (only {len(critical_available)} critical controls available, need {critical_threshold})")
+            return False
         
     except Exception as e:
         print(f"❌ Camera controls test failed: {e}")
@@ -224,7 +224,7 @@ def check_installation_methods():
     try:
         import subprocess
         
-        packages = ['python3-libcamera', 'libcamera-tools', 'libcamera-apps']
+        packages = ['python3-libcamera', 'libcamera-tools']
         for package in packages:
             result = subprocess.run(['dpkg', '-l', package], capture_output=True, text=True)
             if result.returncode == 0 and 'ii' in result.stdout:
