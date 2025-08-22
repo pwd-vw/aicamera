@@ -186,12 +186,21 @@ class DatabaseManager:
             vehicle_detections_json = json.dumps(detection_data.get('vehicle_detections', []))
             plate_detections_json = json.dumps(detection_data.get('plate_detections', []))
             
+            # Enhanced OCR data extraction (v2 schema)
+            hailo_ocr_json = json.dumps(detection_data.get('hailo_ocr_results', []))
+            easyocr_json = json.dumps(detection_data.get('easyocr_results', []))
+            
             cursor.execute("""
                 INSERT INTO detection_results (
                     timestamp, vehicles_count, plates_count, ocr_results,
                     annotated_image_path, cropped_plates_paths,
-                    vehicle_detections, plate_detections, processing_time_ms
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    vehicle_detections, plate_detections, processing_time_ms,
+                    hailo_ocr_results, easyocr_results, best_ocr_method,
+                    ocr_processing_time_ms, parallel_ocr_success,
+                    hailo_ocr_confidence, easyocr_confidence,
+                    hailo_processing_time_ms, easyocr_processing_time_ms,
+                    hailo_ocr_error, easyocr_error
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 detection_data.get('timestamp'),
                 detection_data.get('vehicles_count', 0),
@@ -201,7 +210,18 @@ class DatabaseManager:
                 cropped_paths_json,
                 vehicle_detections_json,
                 plate_detections_json,
-                detection_data.get('processing_time_ms', 0.0)
+                detection_data.get('processing_time_ms', 0.0),
+                hailo_ocr_json,
+                easyocr_json,
+                detection_data.get('best_ocr_method', ''),
+                detection_data.get('ocr_processing_time_ms', 0.0),
+                detection_data.get('parallel_ocr_success', False),
+                detection_data.get('hailo_ocr_confidence', 0.0),
+                detection_data.get('easyocr_confidence', 0.0),
+                detection_data.get('hailo_processing_time_ms', 0.0),
+                detection_data.get('easyocr_processing_time_ms', 0.0),
+                detection_data.get('hailo_ocr_error', ''),
+                detection_data.get('easyocr_error', '')
             ))
             
             self.connection.commit()
@@ -256,12 +276,28 @@ class DatabaseManager:
                     result['cropped_plates_paths'] = json.loads(row['cropped_plates_paths'] or '[]')
                     result['vehicle_detections'] = json.loads(row['vehicle_detections'] or '[]')
                     result['plate_detections'] = json.loads(row['plate_detections'] or '[]')
+                    
+                    # Deserialize parallel OCR fields (v2 schema)
+                    result['hailo_ocr_results'] = json.loads(row.get('hailo_ocr_results') or '[]')
+                    result['easyocr_results'] = json.loads(row.get('easyocr_results') or '[]')
+                    result['best_ocr_method'] = row.get('best_ocr_method', '')
+                    result['ocr_processing_time_ms'] = row.get('ocr_processing_time_ms', 0.0)
+                    result['parallel_ocr_success'] = bool(row.get('parallel_ocr_success', False))
+                    result['hailo_ocr_confidence'] = row.get('hailo_ocr_confidence', 0.0)
+                    result['easyocr_confidence'] = row.get('easyocr_confidence', 0.0)
+                    result['hailo_processing_time_ms'] = row.get('hailo_processing_time_ms', 0.0)
+                    result['easyocr_processing_time_ms'] = row.get('easyocr_processing_time_ms', 0.0)
+                    result['hailo_ocr_error'] = row.get('hailo_ocr_error', '')
+                    result['easyocr_error'] = row.get('easyocr_error', '')
+                    
                 except json.JSONDecodeError as e:
                     self.logger.warning(f"Error deserializing JSON for record {row['id']}: {e}")
                     result['ocr_results'] = []
                     result['cropped_plates_paths'] = []
                     result['vehicle_detections'] = []
                     result['plate_detections'] = []
+                    result['hailo_ocr_results'] = []
+                    result['easyocr_results'] = []
                 
                 results.append(result)
             

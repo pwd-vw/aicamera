@@ -72,8 +72,8 @@ class StandaloneDatabaseManager:
     
     def __init__(self, db_path=None):
         if db_path is None:
-            # Correct database path
-            db_path = project_root / 'db' / 'lpr_data.db'
+            # Use the edge database path (where the actual schema migration was applied)
+            db_path = project_root / 'edge' / 'db' / 'lpr_data.db'
         
         self.db_path = Path(db_path)
         self.connection = None
@@ -88,8 +88,9 @@ class StandaloneDatabaseManager:
             self.connection = sqlite3.connect(str(self.db_path))
             self.connection.row_factory = sqlite3.Row
             
-            # Create tables if they don't exist
-            self._create_tables()
+            # Verify tables and schema
+            if not self._create_tables():
+                return False
             
             print(f"✅ Database initialized: {self.db_path}")
             return True
@@ -99,27 +100,40 @@ class StandaloneDatabaseManager:
             return False
     
     def _create_tables(self):
-        """Create detection_results table if it doesn't exist."""
+        """Check if detection_results table exists and has required columns."""
         cursor = self.connection.cursor()
         
+        # Check if table exists
         cursor.execute("""
-            CREATE TABLE IF NOT EXISTS detection_results (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                timestamp TEXT NOT NULL,
-                vehicles_count INTEGER DEFAULT 0,
-                plates_count INTEGER DEFAULT 0,
-                vehicle_detections TEXT,
-                plate_detections TEXT,
-                ocr_results TEXT,
-                annotated_image_path TEXT,
-                cropped_plates_paths TEXT,
-                processing_time_ms REAL DEFAULT 0.0,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
+            SELECT name FROM sqlite_master 
+            WHERE type='table' AND name='detection_results'
         """)
         
-        self.connection.commit()
-        print("✅ Database tables created/verified")
+        if not cursor.fetchone():
+            print("❌ detection_results table does not exist")
+            print("📋 Please run the database schema migration first:")
+            print("   python3 edge/src/database/schema_migration_v2.py")
+            return False
+        
+        # Check if table has the new parallel OCR columns
+        cursor.execute("PRAGMA table_info(detection_results)")
+        columns = [row[1] for row in cursor.fetchall()]
+        
+        required_columns = [
+            'hailo_ocr_results', 'easyocr_results', 'best_ocr_method',
+            'ocr_processing_time_ms', 'parallel_ocr_success'
+        ]
+        
+        missing_columns = [col for col in required_columns if col not in columns]
+        
+        if missing_columns:
+            print(f"❌ Missing required columns: {missing_columns}")
+            print("📋 Please run the database schema migration first:")
+            print("   python3 edge/src/database/schema_migration_v2.py")
+            return False
+        
+        print("✅ Database table verified with parallel OCR schema")
+        return True
     
     def insert_detection_result(self, record):
         """Insert a detection result record."""
@@ -130,8 +144,13 @@ class StandaloneDatabaseManager:
                 INSERT INTO detection_results (
                     timestamp, vehicles_count, plates_count, vehicle_detections,
                     plate_detections, ocr_results, annotated_image_path,
-                    cropped_plates_paths, processing_time_ms
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    cropped_plates_paths, processing_time_ms,
+                    hailo_ocr_results, easyocr_results, best_ocr_method,
+                    ocr_processing_time_ms, parallel_ocr_success,
+                    hailo_ocr_confidence, easyocr_confidence,
+                    hailo_processing_time_ms, easyocr_processing_time_ms,
+                    hailo_ocr_error, easyocr_error
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 record['timestamp'],
                 record['vehicles_count'],
@@ -141,7 +160,18 @@ class StandaloneDatabaseManager:
                 json.dumps(record['ocr_results']),
                 record['annotated_image_path'],
                 json.dumps(record['cropped_plates_paths']),
-                record['processing_time_ms']
+                record['processing_time_ms'],
+                json.dumps(record.get('hailo_ocr_results', [])),
+                json.dumps(record.get('easyocr_results', [])),
+                record.get('best_ocr_method', ''),
+                record.get('ocr_processing_time_ms', 0.0),
+                record.get('parallel_ocr_success', False),
+                record.get('hailo_ocr_confidence', 0.0),
+                record.get('easyocr_confidence', 0.0),
+                record.get('hailo_processing_time_ms', 0.0),
+                record.get('easyocr_processing_time_ms', 0.0),
+                record.get('hailo_ocr_error', ''),
+                record.get('easyocr_error', '')
             ))
             
             self.connection.commit()
@@ -307,6 +337,59 @@ def generate_sample_detection_record(record_id):
     sample_image = random.choice(SAMPLE_IMAGES)
     annotated_image_path = f"detection_results/{timestamp.strftime('%Y%m%d')}/annotated_{record_id}.jpg"
     
+    # Generate parallel OCR data
+    hailo_ocr_results = []
+    easyocr_results = []
+    best_ocr_method = 'hailo'  # Default
+    parallel_ocr_success = True
+    ocr_processing_time_ms = round(random.uniform(15.0, 50.0), 1)
+    hailo_ocr_confidence = 0.0
+    easyocr_confidence = 0.0
+    hailo_processing_time_ms = round(random.uniform(5.0, 20.0), 1)
+    easyocr_processing_time_ms = round(random.uniform(10.0, 30.0), 1)
+    hailo_ocr_error = ''
+    easyocr_error = ''
+    
+    # Generate parallel OCR results for each plate
+    for i, ocr_result in enumerate(ocr_results):
+        # Generate Hailo OCR result
+        hailo_text = ocr_result['text']
+        hailo_conf = random.uniform(0.6, 0.95)
+        hailo_ocr_results.append({
+            'text': hailo_text,
+            'confidence': hailo_conf,
+            'success': True,
+            'processing_time': hailo_processing_time_ms
+        })
+        
+        # Generate EasyOCR result (sometimes different for Thai plates)
+        if any(ord(c) > 127 for c in hailo_text):  # Thai characters
+            easyocr_text = hailo_text  # Same text for Thai
+            easyocr_conf = random.uniform(0.7, 0.98)  # Higher confidence for Thai
+            best_ocr_method = 'easyocr'  # Prefer EasyOCR for Thai
+        else:
+            easyocr_text = hailo_text  # Same text for English
+            easyocr_conf = random.uniform(0.5, 0.9)
+        
+        easyocr_results.append({
+            'text': easyocr_text,
+            'confidence': easyocr_conf,
+            'success': True,
+            'processing_time': easyocr_processing_time_ms
+        })
+        
+        # Update best confidence scores
+        hailo_ocr_confidence = max(hailo_ocr_confidence, hailo_conf)
+        easyocr_confidence = max(easyocr_confidence, easyocr_conf)
+    
+    # Determine best method based on confidence
+    if easyocr_confidence > hailo_ocr_confidence + 0.1:
+        best_ocr_method = 'easyocr'
+    elif hailo_ocr_confidence > easyocr_confidence + 0.1:
+        best_ocr_method = 'hailo'
+    else:
+        best_ocr_method = 'hailo'  # Default to Hailo for speed
+    
     return {
         'timestamp': timestamp.isoformat(),
         'vehicles_count': vehicles_count,
@@ -316,7 +399,18 @@ def generate_sample_detection_record(record_id):
         'ocr_results': ocr_results,
         'annotated_image_path': annotated_image_path,
         'cropped_plates_paths': cropped_plates_paths,
-        'processing_time_ms': processing_time_ms
+        'processing_time_ms': processing_time_ms,
+        'hailo_ocr_results': hailo_ocr_results,
+        'easyocr_results': easyocr_results,
+        'best_ocr_method': best_ocr_method,
+        'ocr_processing_time_ms': ocr_processing_time_ms,
+        'parallel_ocr_success': parallel_ocr_success,
+        'hailo_ocr_confidence': hailo_ocr_confidence,
+        'easyocr_confidence': easyocr_confidence,
+        'hailo_processing_time_ms': hailo_processing_time_ms,
+        'easyocr_processing_time_ms': easyocr_processing_time_ms,
+        'hailo_ocr_error': hailo_ocr_error,
+        'easyocr_error': easyocr_error
     }
 
 def insert_sample_data():
@@ -333,10 +427,10 @@ def insert_sample_data():
         print("✅ Database initialized successfully")
         
         # Generate and insert sample records
-        print("📊 Generating 20 sample detection records...")
+        print("📊 Generating 5 sample detection records...")
         
         inserted_count = 0
-        for i in range(1, 21):  # Generate 20 records
+        for i in range(1, 6):  # Generate 5 records
             try:
                 # Generate sample record
                 record = generate_sample_detection_record(i)
@@ -346,7 +440,7 @@ def insert_sample_data():
                 
                 if record_id:
                     inserted_count += 1
-                    print(f"✅ Inserted record {i}/20 - ID: {record_id}, "
+                    print(f"✅ Inserted record {i}/5 - ID: {record_id}, "
                           f"Vehicles: {record['vehicles_count']}, "
                           f"Plates: {record['plates_count']}, "
                           f"OCR: {len(record['ocr_results'])}")
@@ -356,7 +450,7 @@ def insert_sample_data():
             except Exception as e:
                 print(f"❌ Error inserting record {i}: {e}")
         
-        print(f"✅ Successfully inserted {inserted_count}/20 sample records")
+        print(f"✅ Successfully inserted {inserted_count}/5 sample records")
         
         # Display statistics
         stats = db_manager.get_detection_statistics()
@@ -421,10 +515,11 @@ def main():
             print("  http://localhost/detection/")
             print("")
             print("Sample data includes:")
-            print("  - 20 detection records")
+            print("  - 5 detection records")
             print("  - Mixed Thai and English license plates")
             print("  - Various vehicle types and counts")
             print("  - Realistic confidence scores and processing times")
+            print("  - Parallel OCR results (Hailo + EasyOCR)")
             print("  - Timestamps spread over the last 30 days")
         else:
             print("❌ Sample data insertion failed!")

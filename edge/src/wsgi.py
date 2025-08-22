@@ -26,8 +26,13 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 logger = setup_logging(level="INFO")
 
 # Import the application
+logger.info("📥 === ABOUT TO IMPORT create_app ===")
 from edge.src.app import create_app
+logger.info("✅ === create_app IMPORTED SUCCESSFULLY ===")
+logger.info("🚀 === ABOUT TO CALL create_app() ===")
 app, socketio = create_app()
+logger.info("✅ === create_app() COMPLETED SUCCESSFULLY ===")
+logger.info(f"📊 App type: {type(app)}, SocketIO type: {type(socketio)}")
 
 # Validate imports
 import_errors = validate_imports()

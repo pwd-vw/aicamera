@@ -148,9 +148,13 @@ def _initialize_services(logger):
     
     # Camera Manager
     try:
+        logger.info("🎥 === PHASE 2: Camera Manager Initialization ===")
         camera_manager = get_service('camera_manager')
+        logger.info("🎥 CameraManager service obtained, starting initialization...")
         if camera_manager:
+            logger.info("🎥 About to call camera_manager.initialize()...")
             success = camera_manager.initialize()
+            logger.info(f"🎥 Camera manager initialize() returned: {success}")
             if success:
                 logger.info("✅ Camera Manager initialized successfully")
                 init_results['core_modules']['camera_manager'] = True
@@ -164,41 +168,51 @@ def _initialize_services(logger):
             logger.error("❌ Camera Manager service not available")
             init_results['core_modules']['camera_manager'] = False
             init_results['errors'].append("Camera Manager service not available")
+        logger.info("🎥 Camera Manager phase completed")
     except Exception as e:
         logger.error(f"❌ Camera Manager error: {e}")
+        import traceback
+        logger.error(f"❌ Traceback: {traceback.format_exc()}")
         init_results['core_modules']['camera_manager'] = False
         init_results['errors'].append(f"Camera Manager: {e}")
     
     # Detection Manager
     try:
+        logger.info("🔍 === PHASE 3: Detection Manager Initialization ===")
         detection_manager = get_service('detection_manager')
         if detection_manager:
+            logger.info("🔍 DetectionManager service obtained, starting initialization...")
             success = detection_manager.initialize()
             if success:
                 logger.info("✅ Detection Manager initialized successfully")
                 init_results['core_modules']['detection_manager'] = True
                 if AUTO_START_DETECTION:
-                    logger.info("🔍 Detection auto-start enabled")
+                    logger.info("🔍 Detection auto-start enabled - will start in background")
             else:
                 logger.warning("⚠️ Detection Manager initialization failed")
                 init_results['core_modules']['detection_manager'] = False
         else:
             logger.warning("⚠️ Detection Manager service not available")
             init_results['core_modules']['detection_manager'] = False
+        logger.info("🔍 Detection Manager phase completed")
     except Exception as e:
-        logger.warning(f"⚠️ Detection Manager error: {e}")
+        logger.error(f"❌ Detection Manager error: {e}")
+        import traceback
+        logger.error(f"❌ Traceback: {traceback.format_exc()}")
         init_results['core_modules']['detection_manager'] = False
     
     # Health Service
     try:
+        logger.info("🏥 === PHASE 4: Health Service Initialization ===")
         health_service = get_service('health_service')
         if health_service:
+            logger.info("🏥 HealthService service obtained, starting initialization...")
             success = health_service.initialize()
             if success:
                 logger.info("✅ Health Service initialized successfully")
                 init_results['core_modules']['health_service'] = True
                 if AUTO_START_HEALTH_MONITOR:
-                    logger.info("🏥 Health Monitor auto-start enabled")
+                    logger.info("🏥 Health Monitor auto-start enabled - will start in background")
             else:
                 logger.error("❌ Health Service initialization failed")
                 init_results['core_modules']['health_service'] = False
@@ -207,8 +221,11 @@ def _initialize_services(logger):
             logger.error("❌ Health Service not available")
             init_results['core_modules']['health_service'] = False
             init_results['errors'].append("Health Service not available")
+        logger.info("🏥 Health Service phase completed")
     except Exception as e:
         logger.error(f"❌ Health Service error: {e}")
+        import traceback
+        logger.error(f"❌ Traceback: {traceback.format_exc()}")
         init_results['core_modules']['health_service'] = False
         init_results['errors'].append(f"Health Service: {e}")
     
@@ -343,6 +360,7 @@ def create_app():
     """Create and configure Flask application using absolute imports."""
     # Setup logging
     logger = setup_logging(level="INFO")
+    logger.info("🚀 === STARTING FLASK APP CREATION ===")
     logger.info("Creating Flask application...")
     
     # Validate imports
@@ -376,10 +394,14 @@ def create_app():
     register_blueprints(app, socketio)
     
     # Initialize services with auto-startup sequence
+    logger.info("🔧 === ABOUT TO INITIALIZE SERVICES ===")
     try:
         _initialize_services(logger)
+        logger.info("✅ === SERVICES INITIALIZATION COMPLETED ===")
     except Exception as e:
-        logger.error(f"Failed to initialize services: {e}")
+        logger.error(f"❌ Failed to initialize services: {e}")
+        import traceback
+        logger.error(f"❌ Traceback: {traceback.format_exc()}")
     
     @app.route('/api/health')
     def api_health():
@@ -421,7 +443,7 @@ def create_app():
     def internal_error(error):
         return render_template('errors/500.html'), 500
     
-    logger.info("Flask application created successfully")
+    logger.info("✅ === FLASK APPLICATION CREATED SUCCESSFULLY ===")
     return app, socketio
 
 

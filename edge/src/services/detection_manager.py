@@ -343,8 +343,76 @@ class DetectionManager:
                 'annotated_image_path': annotated_path,
                 'cropped_plates_paths': cropped_paths,
                 'vehicle_detections': vehicle_boxes,
-                'plate_detections': plate_boxes
+                'plate_detections': plate_boxes,
+                'processing_time_ms': processing_time * 1000.0  # Convert to milliseconds
             }
+            
+            # Extract parallel OCR data from OCR results
+            if ocr_results:
+                # Collect all Hailo and EasyOCR results
+                hailo_ocr_results = []
+                easyocr_results = []
+                best_ocr_method = 'none'
+                parallel_ocr_success = False
+                ocr_processing_time_ms = 0.0
+                hailo_ocr_confidence = 0.0
+                easyocr_confidence = 0.0
+                hailo_processing_time_ms = 0.0
+                easyocr_processing_time_ms = 0.0
+                hailo_ocr_error = ''
+                easyocr_error = ''
+                
+                for ocr_result in ocr_results:
+                    # Extract Hailo OCR data
+                    hailo_ocr = ocr_result.get('hailo_ocr', {})
+                    if hailo_ocr.get('success'):
+                        hailo_ocr_results.append({
+                            'text': hailo_ocr.get('text', ''),
+                            'confidence': hailo_ocr.get('confidence', 0.0),
+                            'success': True
+                        })
+                        hailo_ocr_confidence = max(hailo_ocr_confidence, hailo_ocr.get('confidence', 0.0))
+                    else:
+                        hailo_ocr_error = hailo_ocr.get('error', '')
+                    
+                    # Extract EasyOCR data
+                    easyocr = ocr_result.get('easyocr', {})
+                    if easyocr.get('success'):
+                        easyocr_results.append({
+                            'text': easyocr.get('text', ''),
+                            'confidence': easyocr.get('confidence', 0.0),
+                            'success': True
+                        })
+                        easyocr_confidence = max(easyocr_confidence, easyocr.get('confidence', 0.0))
+                    else:
+                        easyocr_error = easyocr.get('error', '')
+                    
+                    # Get best method and processing time from parallel processing metadata
+                    parallel_metadata = ocr_result.get('parallel_processing', {})
+                    if parallel_metadata:
+                        parallel_ocr_success = parallel_metadata.get('parallel_success', False)
+                        ocr_processing_time_ms = parallel_metadata.get('processing_time', 0.0) * 1000.0
+                        hailo_processing_time_ms = parallel_metadata.get('hailo_time', 0.0) * 1000.0
+                        easyocr_processing_time_ms = parallel_metadata.get('easyocr_time', 0.0) * 1000.0
+                        best_ocr_method = parallel_metadata.get('selection_reason', 'none')
+                    else:
+                        # Fallback to OCR method from result
+                        best_ocr_method = ocr_result.get('ocr_method', 'none')
+                
+                # Add parallel OCR data to detection record
+                detection_record.update({
+                    'hailo_ocr_results': hailo_ocr_results,
+                    'easyocr_results': easyocr_results,
+                    'best_ocr_method': best_ocr_method,
+                    'ocr_processing_time_ms': ocr_processing_time_ms,
+                    'parallel_ocr_success': parallel_ocr_success,
+                    'hailo_ocr_confidence': hailo_ocr_confidence,
+                    'easyocr_confidence': easyocr_confidence,
+                    'hailo_processing_time_ms': hailo_processing_time_ms,
+                    'easyocr_processing_time_ms': easyocr_processing_time_ms,
+                    'hailo_ocr_error': hailo_ocr_error,
+                    'easyocr_error': easyocr_error
+                })
             
             if self.database_manager:
                 self.database_manager.insert_detection_result(detection_record)

@@ -30,6 +30,8 @@ from edge.src.core.config import (
     HEF_MODEL_PATH, MODEL_ZOO_URL, EASYOCR_LANGUAGES,
     IMAGE_SAVE_DIR, DATABASE_PATH, CONFIDENCE_THRESHOLD, PLATE_CONFIDENCE_THRESHOLD
 )
+from edge.src.components.async_ocr_loader import AsyncOCRLoader
+from edge.src.components.parallel_ocr_processor import ParallelOCRProcessor
 
 logger = get_logger(__name__)
 
@@ -60,7 +62,13 @@ class DetectionProcessor:
         self.vehicle_model = None
         self.lp_detection_model = None
         self.lp_ocr_model = None
-        self.ocr_reader = None
+        self.ocr_reader = None  # Legacy - will be replaced by async_ocr_loader
+        
+        # Async OCR loader for non-blocking EasyOCR initialization
+        self.async_ocr_loader = AsyncOCRLoader(languages=EASYOCR_LANGUAGES, logger=self.logger)
+        
+        # Parallel OCR processor for simultaneous Hailo + EasyOCR
+        self.parallel_ocr_processor = None
         
         # State tracking
         self.models_loaded = False
@@ -156,14 +164,29 @@ class DetectionProcessor:
                 except Exception as e:
                     self.logger.warning(f"Failed to load OCR model (optional): {e}")
             
-            # Load EasyOCR as fallback
+            # Start asynchronous EasyOCR loading (non-blocking)
             try:
-                import easyocr
-                self.ocr_reader = easyocr.Reader(EASYOCR_LANGUAGES)
-                self.logger.info("✅ EasyOCR loaded as fallback")
-                models_loaded += 1
+                self.logger.info("🚀 Starting asynchronous EasyOCR loading...")
+                if self.async_ocr_loader.start_loading():
+                    self.logger.info("✅ EasyOCR loading started in background")
+                    # Don't increment models_loaded here - OCR will be available later
+                else:
+                    self.logger.warning("EasyOCR loading already in progress or failed to start")
             except Exception as e:
-                self.logger.warning(f"Failed to load EasyOCR: {e}")
+                self.logger.warning(f"Failed to start EasyOCR loading: {e}")
+            
+            # Initialize parallel OCR processor
+            try:
+                from edge.src.components.parallel_ocr_processor import ParallelOCRProcessor
+                self.parallel_ocr_processor = ParallelOCRProcessor(
+                    hailo_ocr_model=self.lp_ocr_model,
+                    async_ocr_loader=self.async_ocr_loader,
+                    logger=self.logger
+                )
+                self.logger.info("✅ Parallel OCR processor initialized")
+            except Exception as e:
+                self.logger.warning(f"Failed to initialize parallel OCR processor: {e}")
+                self.parallel_ocr_processor = None
             
             self.models_loaded = models_loaded >= 2  # At least vehicle + LP detection
             self.logger.info(f"Models loaded: {models_loaded}, Ready: {self.models_loaded}")
@@ -173,6 +196,42 @@ class DetectionProcessor:
         except Exception as e:
             self.logger.error(f"Error loading models: {e}")
             return False
+    
+    def get_ocr_status(self) -> Dict[str, Any]:
+        """
+        Get current OCR loading and usage status.
+        
+        Returns:
+            Dict containing OCR status information
+        """
+        return self.async_ocr_loader.get_loading_status()
+    
+    def wait_for_ocr_ready(self, timeout: float = 30.0) -> bool:
+        """
+        Wait for OCR to be ready with timeout.
+        
+        Args:
+            timeout: Maximum time to wait in seconds
+            
+        Returns:
+            bool: True if OCR is ready within timeout
+        """
+        return self.async_ocr_loader.wait_for_ready(timeout)
+    
+    def cleanup(self):
+        """
+        Clean up resources including async OCR loader.
+        """
+        try:
+            if hasattr(self, 'async_ocr_loader'):
+                self.async_ocr_loader.cleanup()
+            
+            if hasattr(self, 'parallel_ocr_processor') and self.parallel_ocr_processor:
+                self.parallel_ocr_processor.cleanup()
+                
+            self.logger.info("DetectionProcessor cleaned up")
+        except Exception as e:
+            self.logger.error(f"Error during DetectionProcessor cleanup: {e}")
     
     def validate_and_enhance_frame(self, frame: np.ndarray) -> Optional[np.ndarray]:
         """
@@ -370,22 +429,58 @@ class DetectionProcessor:
                     except Exception as e:
                         self.logger.debug(f"Hailo OCR failed for plate {i}: {e}")
                 
-                # Fallback to EasyOCR
-                easyocr_text = ""
-                easyocr_confidence = 0.0
-                easyocr_success = False
-                
-                if self.ocr_reader:
+                # Use parallel OCR processing (Hailo + EasyOCR simultaneously)
+                parallel_results = None
+                if self.parallel_ocr_processor:
                     try:
-                        easyocr_results = self.ocr_reader.readtext(plate_region)
-                        if easyocr_results:
-                            # Take the result with highest confidence
-                            best_result = max(easyocr_results, key=lambda x: x[2])
-                            easyocr_text = best_result[1]
-                            easyocr_confidence = best_result[2]
-                            easyocr_success = True
+                        parallel_results = self.parallel_ocr_processor.process_plate_parallel(
+                            plate_region, i, timeout=10.0
+                        )
                     except Exception as e:
-                        self.logger.debug(f"EasyOCR failed for plate {i}: {e}")
+                        self.logger.warning(f"Parallel OCR failed for plate {i}: {e}")
+                
+                # Extract results from parallel processing
+                if parallel_results:
+                    # Get best result
+                    best_result = parallel_results.get('best_result', {})
+                    if best_result and best_result.get('success'):
+                        final_ocr_text = best_result['text']
+                        final_ocr_confidence = best_result['confidence']
+                        ocr_method = best_result['method']
+                    
+                    # Extract individual results for database storage
+                    hailo_result = parallel_results.get('hailo', {})
+                    easyocr_result = parallel_results.get('easyocr', {})
+                    
+                    hailo_ocr_text = hailo_result.get('text', '') if hailo_result.get('success') else ''
+                    hailo_ocr_confidence = hailo_result.get('confidence', 0.0)
+                    hailo_ocr_success = hailo_result.get('success', False)
+                    
+                    easyocr_text = easyocr_result.get('text', '') if easyocr_result.get('success') else ''
+                    easyocr_confidence = easyocr_result.get('confidence', 0.0)
+                    easyocr_success = easyocr_result.get('success', False)
+                    
+                else:
+                    # Fallback to individual OCR methods if parallel processing failed
+                    easyocr_text = ""
+                    easyocr_confidence = 0.0
+                    easyocr_success = False
+                    
+                    if self.async_ocr_loader.is_ready():
+                        try:
+                            easyocr_results = self.async_ocr_loader.read_text(plate_region)
+                            if easyocr_results:
+                                # Take the result with highest confidence
+                                best_result = max(easyocr_results, key=lambda x: x[2])
+                                easyocr_text = best_result[1]
+                                easyocr_confidence = best_result[2]
+                                easyocr_success = True
+                        except Exception as e:
+                            self.logger.debug(f"Async EasyOCR failed for plate {i}: {e}")
+                    elif self.async_ocr_loader.is_loading():
+                        self.logger.debug(f"EasyOCR still loading - skipping OCR for plate {i}")
+                    else:
+                        self.logger.debug(f"EasyOCR not available - skipping OCR for plate {i}")
                 
                 # Determine final OCR result (prefer Hailo OCR if available)
                 final_ocr_text = hailo_ocr_text if hailo_ocr_success else easyocr_text
@@ -393,7 +488,8 @@ class DetectionProcessor:
                 ocr_method = "hailo" if hailo_ocr_success else "easyocr" if easyocr_success else "none"
                 
                 if final_ocr_text:
-                    ocr_results.append({
+                    # Enhanced OCR result with parallel processing metadata
+                    ocr_result = {
                         'plate_idx': i,
                         'bbox': plate_box['bbox'],
                         'text': final_ocr_text.strip(),
@@ -411,7 +507,19 @@ class DetectionProcessor:
                             'confidence': easyocr_confidence,
                             'success': easyocr_success
                         }
-                    })
+                    }
+                    
+                    # Add parallel processing metadata if available
+                    if parallel_results:
+                        ocr_result['parallel_processing'] = {
+                            'parallel_success': parallel_results.get('parallel_success', False),
+                            'processing_time': parallel_results.get('processing_time', 0.0),
+                            'hailo_time': parallel_results.get('hailo', {}).get('processing_time', 0.0),
+                            'easyocr_time': parallel_results.get('easyocr', {}).get('processing_time', 0.0),
+                            'selection_reason': parallel_results.get('best_result', {}).get('selection_reason', '')
+                        }
+                    
+                    ocr_results.append(ocr_result)
                     self.processing_stats['successful_ocr'] += 1
                 
             except Exception as e:

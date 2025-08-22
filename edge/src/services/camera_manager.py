@@ -132,6 +132,7 @@ class CameraManager:
                     else:
                         self.logger.warning("⚠️  Camera not streaming after auto-start")
                 
+                self.logger.info("🎯 === AUTO START CAMERA ABOUT TO RETURN TRUE ===")
                 return True
             else:
                 self.logger.error("❌ Failed to auto-start camera")
@@ -220,8 +221,8 @@ class CameraManager:
                 self.startup_time = datetime.now()
                 self.logger.info("Camera started successfully")
                 
-                # Capture initial metadata after camera starts (NEW)
-                self._update_metadata()
+                # Skip metadata update during initialization to prevent hanging
+                self.logger.info("📊 Skipping metadata update during initialization to prevent hang")
                 
                 return True
             else:
