@@ -1,19 +1,39 @@
-/* AI Camera v2.0.0 - Camera Dashboard Specific Styles */
+/* AI Camera v2.0.0 - Compact Camera Dashboard Styles */
 
-/* Video Container and Feed */
-.video-container {
-    position: relative;
-    background: #000;
-    border-radius: 8px;
-    overflow: hidden;
-    min-height: 400px;
+/* Compact Layout Overrides */
+.compact-card {
+    border-radius: 6px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 
-.video-feed {
+.compact-header {
+    padding: 0.5rem 0.75rem;
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+    font-size: 0.875rem;
+}
+
+.compact-body {
+    padding: 0.75rem;
+}
+
+/* Compact Video Container */
+.video-container-compact {
+    position: relative;
+    background: #000;
+    border-radius: 6px;
+    overflow: hidden;
+    min-height: 350px;
+    max-height: 70vh;
+}
+
+.video-feed-compact {
     width: 100%;
     height: auto;
     display: block;
-    min-height: 400px;
+    min-height: 350px;
+    max-height: 70vh;
+    object-fit: contain;
 }
 
 /* Video Status Overlay */
@@ -39,12 +59,12 @@
 .video-status-content {
     text-align: center;
     color: white;
-    font-size: 1.2rem;
+    font-size: 1rem;
 }
 
 .video-status-content i {
-    font-size: 2rem;
-    margin-bottom: 1rem;
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
     display: block;
 }
 
@@ -52,38 +72,165 @@
     display: block;
 }
 
-/* Camera Controls */
+/* Compact Camera Controls */
+.camera-controls-compact {
+    background: #f8f9fa;
+    border-radius: 6px;
+    padding: 0.5rem;
+    border: 1px solid #dee2e6;
+}
+
+.control-btn-compact {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    min-width: 50px;
+}
+
+/* Compact Status Content */
+.status-content-compact {
+    font-size: 0.8rem;
+}
+
+.status-content-compact .row {
+    margin-bottom: 0.5rem;
+}
+
+.status-content-compact .col-6 {
+    padding: 0.25rem;
+}
+
+.status-content-compact strong {
+    font-size: 0.85rem;
+}
+
+.status-content-compact .text-muted {
+    font-size: 0.75rem;
+}
+
+/* Compact Configuration Form */
+.config-form-compact {
+    font-size: 0.8rem;
+}
+
+.config-form-compact .form-label {
+    margin-bottom: 0.25rem;
+    font-weight: 500;
+}
+
+.config-form-compact .form-select-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+}
+
+.config-form-compact .form-range-sm {
+    height: 1.5rem;
+}
+
+.config-form-compact .form-text {
+    font-size: 0.7rem;
+    margin-top: 0.125rem;
+}
+
+/* Compact Log Container */
+.log-container-compact {
+    max-height: 200px;
+    overflow-y: auto;
+    font-size: 0.75rem;
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 0.5rem;
+}
+
+.log-container-compact .log-entry {
+    margin-bottom: 0.25rem;
+    padding: 0.125rem 0;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.log-container-compact .log-entry:last-child {
+    border-bottom: none;
+}
+
+/* Status Indicators */
+.status-indicator {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 0.25rem;
+}
+
+.status-online {
+    background-color: #28a745;
+    box-shadow: 0 0 4px rgba(40, 167, 69, 0.5);
+}
+
+.status-warning {
+    background-color: #ffc107;
+    box-shadow: 0 0 4px rgba(255, 193, 7, 0.5);
+}
+
+.status-offline {
+    background-color: #dc3545;
+    box-shadow: 0 0 4px rgba(220, 53, 69, 0.5);
+}
+
+/* Responsive Design for Compact Layout */
+@media (max-width: 1200px) {
+    .video-container-compact {
+        min-height: 300px;
+        max-height: 60vh;
+    }
+    
+    .video-feed-compact {
+        min-height: 300px;
+        max-height: 60vh;
+    }
+}
+
+@media (max-width: 768px) {
+    .video-container-compact {
+        min-height: 250px;
+        max-height: 50vh;
+    }
+    
+    .video-feed-compact {
+        min-height: 250px;
+        max-height: 50vh;
+    }
+    
+    .control-btn-compact {
+        min-width: 45px;
+        font-size: 0.7rem;
+        padding: 0.2rem 0.4rem;
+    }
+    
+    .compact-header {
+        padding: 0.375rem 0.5rem;
+        font-size: 0.8rem;
+    }
+    
+    .compact-body {
+        padding: 0.5rem;
+    }
+}
+
+/* Hide old styles */
 .camera-controls {
-    display: none; /* Hide old overlay controls */
+    display: none;
 }
 
 .camera-controls-above {
-    background: #f8f9fa;
-    border-radius: 8px 8px 0 0;
+    display: none;
 }
 
-/* Configuration Forms */
-.config-form {
-    background: #f8f9fa;
-    border-radius: 8px;
-    padding: 20px;
+.video-container {
+    display: none;
 }
 
-/* Camera specific responsive design */
-@media (max-width: 768px) {
-    .video-container {
-        border-radius: 4px;
-    }
-    
-    .camera-controls-above {
-        border-radius: 4px 4px 0 0;
-    }
-    
-    .control-btn {
-        min-width: 60px;
-        font-size: 0.75rem;
-        padding: 0.25rem 0.5rem;
-    }
+.video-feed {
+    display: none;
 }
 
 /* Metadata viewer styles */
@@ -91,9 +238,9 @@ pre {
     background-color: #f8f9fa;
     border: 1px solid #e9ecef;
     border-radius: 4px;
-    padding: 1rem;
-    font-size: 0.875rem;
-    max-height: 400px;
+    padding: 0.75rem;
+    font-size: 0.75rem;
+    max-height: 300px;
     overflow-y: auto;
 }
 
@@ -105,4 +252,25 @@ code {
 
 .card-body pre {
     margin-bottom: 0;
+}
+
+/* First Viewport Optimization */
+@media (min-height: 600px) {
+    .video-container-compact {
+        min-height: 400px;
+    }
+    
+    .video-feed-compact {
+        min-height: 400px;
+    }
+}
+
+@media (min-height: 800px) {
+    .video-container-compact {
+        min-height: 500px;
+    }
+    
+    .video-feed-compact {
+        min-height: 500px;
+    }
 }

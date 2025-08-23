@@ -253,6 +253,34 @@ else
     echo "   ⚪ Keeping system Python packages"
 fi
 
+# Remove desktop launcher (optional)
+if [[ -f "/home/camuser/Desktop/aicamera-browser.desktop" ]]; then
+    rm -f /home/camuser/Desktop/aicamera-browser.desktop
+    echo "   ✅ Removed desktop launcher (optional)"
+else
+    echo "   ⚪ Desktop launcher not found (optional)"
+fi
+
+# Restore original boot logo (optional)
+echo ""
+echo "Step 9.5: Restoring original boot logo..."
+if [[ -f "/usr/share/plymouth/themes/pix/splash.png.backup" ]]; then
+    echo "   🎨 Restoring original Raspberry Pi boot logo..."
+    sudo cp /usr/share/plymouth/themes/pix/splash.png.backup /usr/share/plymouth/themes/pix/splash.png
+    echo "   ✅ Original boot logo restored"
+    
+    # Update initramfs to apply changes
+    if command -v update-initramfs >/dev/null 2>&1; then
+        echo "   🔄 Updating initramfs..."
+        sudo update-initramfs -u -k all
+        echo "   ✅ Initramfs updated"
+    fi
+    
+    echo "   📋 Original Raspberry Pi logo will be displayed on next boot"
+else
+    echo "   ⚪ No boot logo backup found - skipping logo restoration"
+fi
+
 # Step 9: Clean up directories and files
 echo ""
 echo "Step 9: Cleaning up directories and files..."
@@ -261,14 +289,6 @@ for dir in db logs captured_images; do
         rmdir "$dir" 2>/dev/null && echo "   ✅ Removed empty directory: $dir" || echo "   ⚪ Directory not empty: $dir"
     fi
 done
-
-# Remove desktop launcher (optional)
-if [[ -f "/home/camuser/Desktop/aicamera-browser.desktop" ]]; then
-    rm -f /home/camuser/Desktop/aicamera-browser.desktop
-    echo "   ✅ Removed desktop launcher (optional)"
-else
-    echo "   ⚪ Desktop launcher not found (optional)"
-fi
 
 # Step 10: Reset git (optional)
 echo ""
@@ -307,6 +327,7 @@ echo "   - Virtual environment removed"
 echo "   - Python packages cleaned (virtual environment)"
 echo "   - System packages cleaned (optional)"
 echo "   - Desktop launcher removed (optional)"
+echo "   - Boot logo restored to original Raspberry Pi logo (optional)"
 echo "   - Python cache cleaned"
 echo ""
 echo "🔄 To reinstall, run:"

@@ -51,28 +51,38 @@ const CameraManager = {
         if (!this.socket) return;
 
         this.socket.on('connect', () => {
-            console.log('Connected to camera service');
+            console.log('✅ Connected to camera service');
             AICameraUtils.addLogMessage('log-container', 'Connected to camera service', 'success');
             this.socket.emit('camera_status_request');
         });
 
         this.socket.on('disconnect', () => {
-            console.log('Disconnected from camera service');
+            console.log('❌ Disconnected from camera service');
             AICameraUtils.addLogMessage('log-container', 'Disconnected from camera service', 'error');
         });
 
-        this.socket.on('camera_status_update', (status) => {
-            this.updateCameraStatus(status);
-            if (status.config) {
-                this.updateConfigForm(status.config);
+        this.socket.on('camera_status_update', (data) => {
+            console.log('📡 Received camera_status_update:', data);
+            if (data && data.success && data.status) {
+                console.log('✅ Status data received:', data.status);
+                this.updateCameraStatus(data.status);
+                if (data.config) {
+                    console.log('✅ Config data received:', data.config);
+                    this.updateConfigForm(data.config);
+                }
+            } else {
+                console.error('❌ Invalid status data received:', data);
+                AICameraUtils.addLogMessage('log-container', 'Invalid status data received', 'error');
             }
         });
 
         this.socket.on('camera_control_response', (response) => {
+            console.log('📡 Received camera_control_response:', response);
             this.handleControlResponse(response);
         });
 
         this.socket.on('camera_config_response', (response) => {
+            console.log('📡 Received camera_config_response:', response);
             this.handleConfigResponse(response);
         });
     },
@@ -111,14 +121,32 @@ const CameraManager = {
         if (videoFeed) {
             console.log('Setting up video feed event handlers');
             
+            // Improved error handling with timeout
+            let errorCount = 0;
+            const maxErrors = 3;
+            
             videoFeed.addEventListener('error', (e) => {
-                console.error('Video feed error:', e);
-                AICameraUtils.addLogMessage('log-container', 'Video feed error - camera may be offline', 'error');
-                this.updateVideoStatus('error', 'Video feed error - camera may be offline');
+                errorCount++;
+                console.warn(`Video feed error #${errorCount}:`, e);
+                
+                if (errorCount <= maxErrors) {
+                    AICameraUtils.addLogMessage('log-container', `Video feed error #${errorCount} - retrying...`, 'warning');
+                    this.updateVideoStatus('error', `Video feed error #${errorCount} - retrying...`);
+                    
+                    // Retry after a delay
+                    setTimeout(() => {
+                        this.refreshVideoFeed();
+                    }, 2000);
+                } else {
+                    console.error('Video feed error limit reached, camera may be offline');
+                    AICameraUtils.addLogMessage('log-container', 'Video feed error limit reached - camera may be offline', 'error');
+                    this.updateVideoStatus('error', 'Camera may be offline');
+                }
             });
 
             videoFeed.addEventListener('load', () => {
                 console.log('Video feed loaded successfully');
+                errorCount = 0; // Reset error count on successful load
                 AICameraUtils.addLogMessage('log-container', 'Video feed loaded successfully', 'success');
                 this.updateVideoStatus('hidden', '');
             });
@@ -128,10 +156,23 @@ const CameraManager = {
                 this.updateVideoStatus('loading', 'Loading video feed...');
             });
             
+            videoFeed.addEventListener('abort', () => {
+                console.warn('Video feed loading aborted');
+                AICameraUtils.addLogMessage('log-container', 'Video feed loading aborted', 'warning');
+            });
+            
+            videoFeed.addEventListener('stalled', () => {
+                console.warn('Video feed stalled');
+                AICameraUtils.addLogMessage('log-container', 'Video feed stalled - retrying...', 'warning');
+                setTimeout(() => {
+                    this.refreshVideoFeed();
+                }, 1000);
+            });
+            
             // Check if video feed is working after a delay
             setTimeout(() => {
                 this.checkVideoFeedStatus();
-            }, 3000);
+            }, 5000); // Increased delay to 5 seconds
         } else {
             console.error('Video feed element not found');
         }
@@ -224,7 +265,7 @@ const CameraManager = {
      */
     updateCameraStatus: function(status) {
         console.log('Updating camera status:', status);
-        
+
         // Update status indicator
         let statusClass = 'status-offline';
         let statusText = 'Offline';
@@ -237,11 +278,22 @@ const CameraManager = {
             statusText = 'Ready';
         }
 
-        const statusIndicator = document.getElementById('camera-status');
-        const statusTextElement = document.getElementById('camera-status-text');
+        const statusIndicator = document.getElementById('camera-status-main');
+        const statusTextElement = document.getElementById('camera-status-text-main');
         
-        if (statusIndicator) statusIndicator.className = `status-indicator ${statusClass}`;
-        if (statusTextElement) statusTextElement.textContent = statusText;
+        if (statusIndicator) {
+            statusIndicator.className = `status-indicator ${statusClass}`;
+            console.log('Status indicator updated:', statusClass);
+        } else {
+            console.warn('Status indicator element not found: camera-status-main');
+        }
+        
+        if (statusTextElement) {
+            statusTextElement.textContent = statusText;
+            console.log('Status text updated:', statusText);
+        } else {
+            console.warn('Status text element not found: camera-status-text-main');
+        }
 
         // Update video status based on camera status
         if (status.streaming) {
@@ -263,13 +315,23 @@ const CameraManager = {
      */
     updateStatusContent: function(status) {
         const statusContent = document.getElementById('status-content');
-        if (!statusContent) return;
+        if (!statusContent) {
+            console.warn('Status content element not found');
+            return;
+        }
 
         // Extract metadata information
         const metadata = status.metadata || {};
         const cameraProps = status.camera_handler?.camera_properties || {};
         const currentConfig = status.config || {};
         const mainConfig = currentConfig.main || {};
+        
+        console.log('Status update variables:', {
+            metadata: metadata,
+            cameraProps: cameraProps,
+            currentConfig: currentConfig,
+            mainConfig: mainConfig
+        });
         
         // Get resolution from metadata
         let resolution = 'Unknown';
@@ -284,61 +346,61 @@ const CameraManager = {
         // Get sensor model from metadata
         let sensorModel = 'Unknown';
         if (cameraProps && cameraProps.Model) {
-            sensorModel = cameraProps.Model;
+            sensorModel = `${cameraProps.Model}`;
         }
         
         // Get framerate from metadata
         let framerate = 'Unknown';
-        if (mainConfig.controls && mainConfig.controls.FrameDurationLimits) {
-            const frameDuration = mainConfig.controls.FrameDurationLimits[0];
-            framerate = `${Math.round(1000000 / frameDuration)} FPS`;
+        if (currentConfig.controls && currentConfig.controls.FrameDurationLimits) {
+            const frameDuration = currentConfig.controls.FrameDurationLimits[0];
+            framerate = `${Math.round(1000000 / frameDuration)} FPS`; // ✅ "30 FPS"
         } else if (status.config && status.config.framerate) {
             framerate = `${status.config.framerate} FPS`;
         }
 
+        console.log('Calculated values:', {
+            resolution: resolution,
+            sensorModel: sensorModel,
+            framerate: framerate,
+            uptime: status.uptime
+        });
+
+        // Compact status display
         const statusHtml = `
-            <div class="row">
+            <div class="row g-1">
                 <div class="col-6">
-                    <small class="text-muted">Initialized:</small><br>
-                    <strong>${status.initialized ? 'Yes' : 'No'}</strong>
+                    <small class="text-muted">Status:</small><br>
+                    <strong class="text-${status.streaming ? 'success' : status.initialized ? 'warning' : 'danger'}">
+                        ${status.streaming ? 'Online' : status.initialized ? 'Ready' : 'Offline'}
+                    </strong>
                 </div>
-                <div class="col-6">
-                    <small class="text-muted">Streaming:</small><br>
-                    <strong>${status.streaming ? 'Yes' : 'No'}</strong>
-                </div>
-            </div>
-            <hr>
-            <div class="row">
                 <div class="col-6">
                     <small class="text-muted">Resolution:</small><br>
                     <strong>${resolution}</strong>
                 </div>
+            </div>
+            <div class="row g-1 mt-1">
                 <div class="col-6">
                     <small class="text-muted">Frame Rate:</small><br>
                     <strong>${framerate}</strong>
                 </div>
+                <div class="col-6">
+                    <small class="text-muted">Sensor:</small><br>
+                    <strong>${sensorModel}</strong>
+                </div>
             </div>
             ${status.uptime ? `
-                <hr>
-                <div class="row">
+                <div class="row g-1 mt-1">
                     <div class="col-12">
                         <small class="text-muted">Uptime:</small><br>
                         <strong>${AICameraUtils.formatDuration(status.uptime)}</strong>
                     </div>
                 </div>
             ` : ''}
-            ${sensorModel !== 'Unknown' ? `
-                <hr>
-                <div class="row">
-                    <div class="col-12">
-                        <small class="text-muted">Sensor Model:</small><br>
-                        <strong>${sensorModel}</strong>
-                    </div>
-                </div>
-            ` : ''}
         `;
         
         statusContent.innerHTML = statusHtml;
+        console.log('Status content updated successfully');
     },
 
     /**
@@ -360,8 +422,22 @@ const CameraManager = {
 
         // Handle controls from configuration
         const controls = config.controls || {};
+        
+        // Calculate framerate from FrameDurationLimits
+        let framerate = 30; // Default
+        if (controls.FrameDurationLimits && Array.isArray(controls.FrameDurationLimits)) {
+            const frameDuration = controls.FrameDurationLimits[0];
+            framerate = Math.round(1000000 / frameDuration);
+        }
+        
+        // Update framerate slider and display
+        const framerateSlider = document.getElementById('framerate');
+        const framerateDisplay = document.getElementById('framerate-value');
+        if (framerateSlider) framerateSlider.value = framerate;
+        if (framerateDisplay) framerateDisplay.textContent = framerate;
+        
+        // Handle other controls
         const configMappings = [
-            { key: 'framerate', elementId: 'framerate', displayId: 'framerate-value' },
             { key: 'brightness', elementId: 'brightness', displayId: 'brightness-value' },
             { key: 'contrast', elementId: 'contrast', displayId: 'contrast-value' },
             { key: 'saturation', elementId: 'saturation', displayId: 'saturation-value' },
@@ -445,12 +521,31 @@ const CameraManager = {
             this.updateVideoStatus('loading', 'Refreshing video feed...');
             AICameraUtils.addLogMessage('log-container', 'Refreshing video feed...', 'info');
             
-            // Force reload the video feed
+            // Store current src
             const currentSrc = videoFeed.src;
+            
+            // Clear current src
             videoFeed.src = '';
+            
+            // Wait a moment then set new src with cache buster
             setTimeout(() => {
-                videoFeed.src = currentSrc + '?t=' + Date.now();
-                console.log('Video feed src updated:', videoFeed.src);
+                const newSrc = currentSrc.split('?')[0] + '?t=' + Date.now();
+                videoFeed.src = newSrc;
+                console.log('Video feed src updated:', newSrc);
+                
+                // Set a timeout to check if video loads successfully
+                const loadTimeout = setTimeout(() => {
+                    if (videoFeed.naturalWidth === 0 || videoFeed.naturalHeight === 0) {
+                        console.warn('Video feed refresh timeout - may still be loading');
+                        AICameraUtils.addLogMessage('log-container', 'Video feed refresh timeout - may still be loading', 'warning');
+                    }
+                }, 10000); // 10 second timeout
+                
+                // Clear timeout when video loads successfully
+                videoFeed.addEventListener('load', () => {
+                    clearTimeout(loadTimeout);
+                }, { once: true });
+                
             }, 100);
         } else {
             console.error('Video feed element not found');
@@ -468,12 +563,23 @@ const CameraManager = {
         console.log('Video feed src:', videoFeed.src);
         console.log('Video feed naturalWidth:', videoFeed.naturalWidth);
         console.log('Video feed naturalHeight:', videoFeed.naturalHeight);
+        console.log('Video feed readyState:', videoFeed.readyState);
+        console.log('Video feed networkState:', videoFeed.networkState);
         
         if (videoFeed.naturalWidth === 0 || videoFeed.naturalHeight === 0) {
             console.warn('Video feed appears to be empty or not loading');
             AICameraUtils.addLogMessage('log-container', 'Video feed appears to be empty - camera may not be streaming', 'warning');
+            
+            // Try to refresh if video is not loading
+            setTimeout(() => {
+                if (videoFeed.naturalWidth === 0 || videoFeed.naturalHeight === 0) {
+                    console.log('Video feed still empty, attempting refresh...');
+                    this.refreshVideoFeed();
+                }
+            }, 3000);
         } else {
             console.log('Video feed appears to be working');
+            AICameraUtils.addLogMessage('log-container', 'Video feed status check: OK', 'success');
         }
     },
     
@@ -560,6 +666,22 @@ const CameraManager = {
                 // Set default offline status
                 this.updateCameraStatus({streaming: false, initialized: false});
             });
+    },
+    
+    /**
+     * Start periodic video feed health check
+     */
+    startVideoHealthCheck: function() {
+        // Check video feed health every 30 seconds
+        setInterval(() => {
+            const videoFeed = document.getElementById('video-feed');
+            if (videoFeed && videoFeed.src) {
+                // Only check if video feed has a source
+                this.checkVideoFeedStatus();
+            }
+        }, 30000); // 30 seconds
+        
+        console.log('Video feed health check started (30s interval)');
     }
 };
 
@@ -575,6 +697,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Request initial status immediately
     CameraManager.requestStatusUpdate();
+    
+    // Start periodic health check
+    CameraManager.startVideoHealthCheck();
     
     console.log('Camera Dashboard JavaScript loaded');
 });

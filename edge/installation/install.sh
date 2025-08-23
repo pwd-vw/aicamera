@@ -913,3 +913,54 @@ else
 fi
 
 echo "   ✅ Kiosk browser setup completed (boot startup only - optional feature)"
+
+# Setup AI Camera boot logo (optional)
+echo ""
+echo "🎨 Setting up AI Camera boot logo..."
+echo "   ℹ️  This will replace the Raspberry Pi logo with AI Camera logo during boot"
+echo "   ℹ️  This is an optional feature - main installation will continue regardless of logo setup status"
+
+if [[ -f "assets/aicmaera_logo.jpg" ]]; then
+    echo "   📷 Found AI Camera logo: assets/aicmaera_logo.jpg"
+    
+    # Check if Plymouth is available
+    if command -v plymouth >/dev/null 2>&1; then
+        echo "   🔧 Setting up AI Camera boot logo..."
+        
+        # Backup original splash image if not already backed up
+        if [[ ! -f "/usr/share/plymouth/themes/pix/splash.png.backup" ]]; then
+            echo "   💾 Backing up original splash image..."
+            sudo cp /usr/share/plymouth/themes/pix/splash.png /usr/share/plymouth/themes/pix/splash.png.backup
+            echo "   ✅ Original splash image backed up"
+        else
+            echo "   ℹ️  Backup already exists"
+        fi
+        
+        # Install AI Camera logo
+        echo "   🎨 Installing AI Camera logo..."
+        sudo cp assets/aicmaera_logo.jpg /usr/share/plymouth/themes/pix/splash.png
+        echo "   ✅ AI Camera logo installed"
+        
+        # Set Plymouth theme
+        echo "   🎭 Setting Plymouth theme..."
+        sudo plymouth-set-default-theme pix
+        echo "   ✅ Plymouth theme set"
+        
+        # Update initramfs
+        echo "   🔄 Updating initramfs..."
+        sudo update-initramfs -u -k all
+        echo "   ✅ Initramfs updated"
+        
+        echo "   ✅ AI Camera boot logo setup completed"
+        echo "   📋 The AI Camera logo will be displayed on next boot"
+        echo "   📋 To restore original logo: sudo ./scripts/restore_boot_logo.sh"
+    else
+        echo "   ⚠️  Plymouth not available - boot logo setup skipped"
+        echo "   ℹ️  Main installation will continue - you can install Plymouth manually later"
+    fi
+else
+    echo "   ⚠️  AI Camera logo not found: assets/aicmaera_logo.jpg"
+    echo "   ℹ️  Boot logo setup skipped - main installation continues"
+fi
+
+echo "   ✅ Boot logo setup completed (optional feature)"

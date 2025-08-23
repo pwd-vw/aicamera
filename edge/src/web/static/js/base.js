@@ -316,6 +316,137 @@ const WebSocketManager = {
     }
 };
 
+// Fullscreen management
+const FullscreenManager = {
+    isFullscreen: true, // Default to fullscreen in kiosk mode
+    
+    /**
+     * Initialize fullscreen functionality
+     */
+    init: function() {
+        // Check if we're in kiosk mode
+        this.isFullscreen = window.navigator.standalone || 
+                           document.webkitIsFullScreen || 
+                           document.fullscreenElement !== null;
+        
+        // Setup exit button functionality
+        this.setupExitButton();
+        
+        // Setup keyboard shortcuts
+        this.setupKeyboardShortcuts();
+        
+        console.log('Fullscreen manager initialized. Current state:', this.isFullscreen ? 'Fullscreen' : 'Normal');
+    },
+    
+    /**
+     * Setup exit button functionality
+     */
+    setupExitButton: function() {
+        const exitBtn = document.getElementById('exit-browser-btn');
+        if (!exitBtn) return;
+        
+        // Update button text and icon based on current state
+        this.updateExitButton();
+        
+        // Add click event listener
+        exitBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            this.toggleFullscreen();
+        });
+    },
+    
+    /**
+     * Setup keyboard shortcuts
+     */
+    setupKeyboardShortcuts: function() {
+        document.addEventListener('keydown', (e) => {
+            // F11 to toggle fullscreen
+            if (e.key === 'F11') {
+                e.preventDefault();
+                this.toggleFullscreen();
+            }
+            
+            // Escape to exit fullscreen (only if in fullscreen)
+            if (e.key === 'Escape' && this.isFullscreen) {
+                e.preventDefault();
+                this.exitFullscreen();
+            }
+        });
+    },
+    
+    /**
+     * Toggle between fullscreen and normal mode
+     */
+    toggleFullscreen: function() {
+        if (this.isFullscreen) {
+            this.exitFullscreen();
+        } else {
+            this.enterFullscreen();
+        }
+    },
+    
+    /**
+     * Enter fullscreen mode
+     */
+    enterFullscreen: function() {
+        const elem = document.documentElement;
+        
+        if (elem.requestFullscreen) {
+            elem.requestFullscreen();
+        } else if (elem.webkitRequestFullscreen) {
+            elem.webkitRequestFullscreen();
+        } else if (elem.msRequestFullscreen) {
+            elem.msRequestFullscreen();
+        }
+        
+        this.isFullscreen = true;
+        this.updateExitButton();
+        AICameraUtils.showToast('Entered fullscreen mode', 'info');
+    },
+    
+    /**
+     * Exit fullscreen mode
+     */
+    exitFullscreen: function() {
+        if (document.exitFullscreen) {
+            document.exitFullscreen();
+        } else if (document.webkitExitFullscreen) {
+            document.webkitExitFullscreen();
+        } else if (document.msExitFullscreen) {
+            document.msExitFullscreen();
+        }
+        
+        this.isFullscreen = false;
+        this.updateExitButton();
+        AICameraUtils.showToast('Exited fullscreen mode', 'info');
+    },
+    
+    /**
+     * Update exit button appearance based on current state
+     */
+    updateExitButton: function() {
+        const exitBtn = document.getElementById('exit-browser-btn');
+        if (!exitBtn) return;
+        
+        const icon = exitBtn.querySelector('i');
+        const text = exitBtn.querySelector('span');
+        
+        if (this.isFullscreen) {
+            // Show exit fullscreen button
+            icon.className = 'fas fa-compress';
+            if (text) text.textContent = 'Exit Fullscreen';
+            exitBtn.className = 'btn btn-warning btn-sm';
+            exitBtn.title = 'Exit Full Screen Mode (F11)';
+        } else {
+            // Show enter fullscreen button
+            icon.className = 'fas fa-expand';
+            if (text) text.textContent = 'Fullscreen';
+            exitBtn.className = 'btn btn-primary btn-sm';
+            exitBtn.title = 'Enter Full Screen Mode (F11)';
+        }
+    }
+};
+
 // Initialize on DOM ready
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize tooltips
@@ -342,6 +473,9 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     });
+
+    // Initialize fullscreen manager
+    FullscreenManager.init();
 
     console.log('AI Camera v2.0.0 - Base JavaScript loaded');
 });

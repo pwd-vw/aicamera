@@ -90,6 +90,58 @@ body {
     z-index: 1030;
 }
 
+/* ===== FULLSCREEN TOGGLE BUTTON ===== */
+#exit-browser-btn {
+    transition: all var(--transition-normal);
+    border-radius: var(--border-radius);
+    font-weight: 500;
+    min-width: 120px;
+}
+
+#exit-browser-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+}
+
+#exit-browser-btn:active {
+    transform: translateY(0);
+}
+
+#exit-browser-btn.btn-warning {
+    background-color: var(--warning-color);
+    border-color: var(--warning-color);
+    color: var(--text-color-dark);
+}
+
+#exit-browser-btn.btn-warning:hover {
+    background-color: #e0a800;
+    border-color: #d39e00;
+}
+
+#exit-browser-btn.btn-primary {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+    color: var(--text-color-light);
+}
+
+#exit-browser-btn.btn-primary:hover {
+    background-color: var(--primary-dark-color);
+    border-color: var(--primary-dark-color);
+}
+
+/* Fullscreen mode adjustments */
+:fullscreen {
+    background-color: var(--background-light);
+}
+
+:-webkit-full-screen {
+    background-color: var(--background-light);
+}
+
+:-moz-full-screen {
+    background-color: var(--background-light);
+}
+
 /* ===== HERO SECTION SPACING ===== */
 .hero-section {
     margin-top: 2rem;
