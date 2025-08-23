@@ -225,22 +225,22 @@ const DetectionManager = {
     },
 
     /**
-     * Start periodic status updates
+     * Start periodic status updates - OPTIMIZED for reduced resource usage
      */
     startPeriodicUpdates: function() {
         // Update immediately
         this.requestStatusUpdate();
         
-        // Setup periodic updates every 5 seconds
+        // Setup periodic updates every 30 seconds (increased from 5 seconds for reduced resource usage)
         this.statusUpdateInterval = setInterval(() => {
             this.requestStatusUpdate();
-        }, 5000);
+        }, 30000);
         
-        // Load recent results after 1 second
-        setTimeout(() => this.loadRecentResults(), 1000);
+        // Load recent results after 2 seconds (increased from 1 second)
+        setTimeout(() => this.loadRecentResults(), 2000);
         
         // Add initial log message
-        this.addLogMessage('Detection dashboard initialized', 'info');
+        this.addLogMessage('Detection dashboard initialized (optimized)', 'info');
         this.addLogMessage('Connecting to detection service...', 'info');
     },
 

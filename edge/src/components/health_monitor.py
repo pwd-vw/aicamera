@@ -760,13 +760,14 @@ class HealthMonitor:
             self.logger.error(f"Error stopping health monitoring: {e}")
     
     def _monitor_loop(self, interval: int):
-        """Background monitoring loop."""
+        """Background monitoring loop - OPTIMIZED for reduced resource usage."""
         try:
+            self.logger.info(f"Health monitoring started with {interval}s interval (optimized for core components)")
             while not self.stop_event.is_set():
-                # Run health checks
+                # Run health checks (reduced frequency for non-essential monitoring)
                 health_result = self.run_all_checks()
                 
-                # Wait for next check
+                # Wait for next check (longer interval to reduce resource usage)
                 self.stop_event.wait(interval)
                 
         except Exception as e:

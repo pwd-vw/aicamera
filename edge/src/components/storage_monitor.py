@@ -322,18 +322,19 @@ class StorageMonitor:
             self.logger.error(f"Error stopping storage monitoring: {e}")
     
     def _monitor_loop(self):
-        """Main monitoring loop."""
+        """Main monitoring loop - OPTIMIZED for reduced resource usage."""
+        self.logger.info(f"Storage monitoring started with {self.monitor_interval}s interval (optimized for core components)")
         while not self.stop_event.is_set():
             try:
-                # Perform cleanup if needed
+                # Perform cleanup if needed (reduced frequency for non-essential monitoring)
                 self.cleanup_old_files()
                 
-                # Wait for next check
+                # Wait for next check (longer interval to reduce resource usage)
                 self.stop_event.wait(self.monitor_interval)
                 
             except Exception as e:
                 self.logger.error(f"Error in monitoring loop: {e}")
-                self.stop_event.wait(60)  # Wait 1 minute on error
+                self.stop_event.wait(300)  # Wait 5 minutes on error (increased from 1 minute)
     
     def update_configuration(self, config: Dict[str, any]) -> bool:
         """Update storage monitor configuration."""

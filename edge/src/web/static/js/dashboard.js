@@ -226,18 +226,18 @@ const DashboardManager = {
     },
 
     /**
-     * Set up periodic updates
+     * Set up periodic updates - OPTIMIZED for reduced resource usage
      */
     setupPeriodicUpdates: function() {
-        // Update core status every 10 seconds (reduced from 5 seconds)
+        // Update core status every 60 seconds (increased from 10 seconds for reduced resource usage)
         setInterval(() => {
             this.updateSystemStatusComprehensive();
-        }, 10000);
+        }, 60000);
         
-        // Update system info every 60 seconds (reduced from 30 seconds)
+        // Update system info every 300 seconds (increased from 60 seconds for reduced resource usage)
         setInterval(() => {
             this.updateSystemInfoFromAPI();
-        }, 60000);
+        }, 300000);
     },
 
     /**

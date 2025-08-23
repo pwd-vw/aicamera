@@ -651,8 +651,8 @@ class WebSocketSender:
             self.logger.error(f"Error stopping WebSocket sender: {e}")
     
     def _detection_sender_loop(self):
-        """Main loop for detection data sender thread."""
-        self.logger.info("Detection sender thread started")
+        """Main loop for detection data sender thread - OPTIMIZED for reduced resource usage."""
+        self.logger.info(f"Detection sender thread started with {SENDER_INTERVAL}s interval (optimized)")
         
         while self.running and not self.stop_event.is_set():
             try:
@@ -663,21 +663,21 @@ class WebSocketSender:
                     self.total_detections_sent += sent_count
                     self.logger.info(f"Sent {sent_count} detection records to server")
                 
-                # Wait for next interval or stop event
+                # Wait for next interval or stop event (longer interval to reduce resource usage)
                 if self.stop_event.wait(SENDER_INTERVAL):
                     break
                     
             except Exception as e:
                 self.logger.error(f"Error in detection sender loop: {e}")
-                # Wait before retrying
+                # Wait before retrying (longer interval to reduce resource usage)
                 if self.stop_event.wait(SENDER_INTERVAL):
                     break
         
         self.logger.info("Detection sender thread stopped")
     
     def _health_sender_loop(self):
-        """Main loop for health status sender thread."""
-        self.logger.info("Health sender thread started")
+        """Main loop for health status sender thread - OPTIMIZED for reduced resource usage."""
+        self.logger.info(f"Health sender thread started with {HEALTH_SENDER_INTERVAL}s interval (optimized)")
         
         while self.running and not self.stop_event.is_set():
             try:
@@ -688,13 +688,13 @@ class WebSocketSender:
                     self.total_health_sent += sent_count
                     self.logger.info(f"Sent {sent_count} health records to server")
                 
-                # Wait for next interval or stop event
+                # Wait for next interval or stop event (longer interval to reduce resource usage)
                 if self.stop_event.wait(HEALTH_SENDER_INTERVAL):
                     break
                     
             except Exception as e:
                 self.logger.error(f"Error in health sender loop: {e}")
-                # Wait before retrying
+                # Wait before retrying (longer interval to reduce resource usage)
                 if self.stop_event.wait(HEALTH_SENDER_INTERVAL):
                     break
         

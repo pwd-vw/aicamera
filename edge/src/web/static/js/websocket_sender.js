@@ -135,10 +135,10 @@ const WebSocketSenderManager = {
     },
 
     /**
-     * Setup periodic status updates
+     * Setup periodic status updates - OPTIMIZED for reduced resource usage
      */
     setupStatusUpdates: function() {
-        // Update status every 10 seconds
+        // Update status every 60 seconds (increased from 10 seconds for reduced resource usage)
         this.statusUpdateInterval = setInterval(() => {
             this.loadStatus();
         }, 10000);

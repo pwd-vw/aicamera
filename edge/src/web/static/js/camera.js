@@ -18,7 +18,7 @@ const CameraManager = {
     socket: null,
     statusUpdateInterval: null,
     lastStatusUpdate: 0,
-    statusUpdateThrottle: 5000, // Minimum 5 seconds between status updates
+    statusUpdateThrottle: 30000, // Increased to 30 seconds between status updates (was 5 seconds)
     cachedStatus: null,
     cachedConfig: null,
     cachedMetadata: null, // New: Cache for metadata
@@ -1004,7 +1004,7 @@ const CameraManager = {
             this.maxVideoErrorBackoff = 30000; // Max 30 seconds
             this.videoErrorState = false;
             this.lastVideoRefresh = 0;
-            this.videoRefreshCooldown = 5000; // 5 seconds between refreshes
+            this.videoRefreshCooldown = 15000; // Increased to 15 seconds between refreshes (was 5 seconds)
             
             videoFeed.addEventListener('error', (e) => {
                 this.handleVideoFeedError(e);
