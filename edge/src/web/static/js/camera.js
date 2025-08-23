@@ -687,7 +687,7 @@ const CameraManager = {
     },
 
     /**
-     * Update metadata display with loaded data
+     * Update metadata display with comprehensive table view and Thai descriptions
      */
     updateMetadataDisplay: function(metadata) {
         try {
@@ -696,48 +696,229 @@ const CameraManager = {
             if (metadataSection) {
                 const metadataContent = document.getElementById('metadata-content');
                 if (metadataContent) {
-                    // Format and display metadata
-                    let html = '<div class="metadata-grid">';
+                    // Format and display metadata in table format
+                    let html = '<div class="metadata-table-container">';
                     
-                    // Camera Properties
+                    // Metadata descriptions in Thai
+                    const thaiDescriptions = {
+                        // Camera Properties
+                        'Model': 'รุ่นของกล้อง',
+                        'Location': 'ตำแหน่งของกล้อง',
+                        'Revision': 'เวอร์ชันของฮาร์ดแวร์',
+                        'SerialNumber': 'หมายเลขซีเรียล',
+                        'LensModel': 'รุ่นของเลนส์',
+                        'LensLocation': 'ตำแหน่งของเลนส์',
+                        
+                        // Configuration
+                        'size': 'ขนาดภาพ (ความกว้าง x ความสูง)',
+                        'format': 'รูปแบบสีของภาพ',
+                        'framerate': 'อัตราเฟรมต่อวินาที',
+                        'brightness': 'ความสว่าง (-1 ถึง 1)',
+                        'contrast': 'ความคมชัด (0 ถึง 2)',
+                        'saturation': 'ความอิ่มตัวของสี (0 ถึง 2)',
+                        'sharpness': 'ความคมชัดของภาพ (0 ถึง 2)',
+                        'exposure_time': 'เวลาการเปิดรับแสง (ไมโครวินาที)',
+                        'analogue_gain': 'การขยายสัญญาณแอนะล็อก',
+                        'digital_gain': 'การขยายสัญญาณดิจิทัล',
+                        'awb_mode': 'โหมดสมดุลแสงขาว',
+                        'ae_enabled': 'เปิดใช้งานการเปิดรับแสงอัตโนมัติ',
+                        'awb_enabled': 'เปิดใช้งานสมดุลแสงขาวอัตโนมัติ',
+                        'af_enabled': 'เปิดใช้งานการโฟกัสอัตโนมัติ',
+                        
+                        // Status
+                        'initialized': 'สถานะการเริ่มต้นกล้อง',
+                        'streaming': 'สถานะการสตรีมวิดีโอ',
+                        'frame_count': 'จำนวนเฟรมที่ถ่ายได้',
+                        'uptime': 'เวลาทำงานของกล้อง',
+                        'temperature': 'อุณหภูมิของกล้อง',
+                        'error_count': 'จำนวนข้อผิดพลาด',
+                        'last_error': 'ข้อผิดพลาดล่าสุด',
+                        
+                        // Manager Status
+                        'auto_start_enabled': 'เปิดใช้งานการเริ่มต้นอัตโนมัติ',
+                        'auto_start_uptime': 'เวลาทำงานตั้งแต่เริ่มต้นอัตโนมัติ',
+                        'last_capture_time': 'เวลาถ่ายภาพล่าสุด',
+                        'total_captures': 'จำนวนภาพที่ถ่ายทั้งหมด',
+                        'memory_usage': 'การใช้หน่วยความจำ',
+                        'cpu_usage': 'การใช้ CPU'
+                    };
+                    
+                    // Helper function to format value
+                    const formatValue = (value) => {
+                        if (value === null || value === undefined) return 'ไม่ระบุ';
+                        if (typeof value === 'boolean') return value ? 'เปิดใช้งาน' : 'ปิดใช้งาน';
+                        if (typeof value === 'number') {
+                            if (value > 1000000) return value.toLocaleString();
+                            if (value > 1000) return value.toFixed(2);
+                            return value.toString();
+                        }
+                        if (typeof value === 'object') return JSON.stringify(value, null, 2);
+                        return value.toString();
+                    };
+                    
+                    // Helper function to get Thai description
+                    const getThaiDescription = (key) => {
+                        return thaiDescriptions[key] || 'ไม่มีการอธิบาย';
+                    };
+                    
+                    // Camera Properties Section
                     if (metadata.camera_properties) {
-                        html += '<div class="metadata-group">';
-                        html += '<h6 class="metadata-title">Camera Properties</h6>';
-                        for (const [key, value] of Object.entries(metadata.camera_properties)) {
-                            html += `<div class="metadata-item"><span class="metadata-label">${key}:</span><span class="metadata-value">${value}</span></div>`;
-                        }
-                        html += '</div>';
+                        html += `
+                            <div class="metadata-category">
+                                <h5 class="category-title">
+                                    <i class="fas fa-camera"></i> คุณสมบัติของกล้อง (Camera Properties)
+                                </h5>
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-striped metadata-table">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th width="25%">คีย์ (Key)</th>
+                                                <th width="35%">ค่า (Value)</th>
+                                                <th width="40%">คำอธิบาย (Description)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                        `;
+                        
+                        Object.entries(metadata.camera_properties).forEach(([key, value]) => {
+                            html += `
+                                <tr>
+                                    <td><code class="text-primary">${key}</code></td>
+                                    <td><span class="text-success">${formatValue(value)}</span></td>
+                                    <td><small class="text-muted">${getThaiDescription(key)}</small></td>
+                                </tr>
+                            `;
+                        });
+                        
+                        html += `
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        `;
                     }
                     
-                    // Current Configuration
+                    // Current Configuration Section
                     if (metadata.current_config) {
-                        html += '<div class="metadata-group">';
-                        html += '<h6 class="metadata-title">Current Configuration</h6>';
-                        for (const [key, value] of Object.entries(metadata.current_config)) {
-                            html += `<div class="metadata-item"><span class="metadata-label">${key}:</span><span class="metadata-value">${JSON.stringify(value)}</span></div>`;
-                        }
-                        html += '</div>';
+                        html += `
+                            <div class="metadata-category">
+                                <h5 class="category-title">
+                                    <i class="fas fa-cog"></i> การตั้งค่าปัจจุบัน (Current Configuration)
+                                </h5>
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-striped metadata-table">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th width="25%">คีย์ (Key)</th>
+                                                <th width="35%">ค่า (Value)</th>
+                                                <th width="40%">คำอธิบาย (Description)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                        `;
+                        
+                        Object.entries(metadata.current_config).forEach(([key, value]) => {
+                            html += `
+                                <tr>
+                                    <td><code class="text-primary">${key}</code></td>
+                                    <td><span class="text-success">${formatValue(value)}</span></td>
+                                    <td><small class="text-muted">${getThaiDescription(key)}</small></td>
+                                </tr>
+                            `;
+                        });
+                        
+                        html += `
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        `;
                     }
                     
-                    // Camera Status
+                    // Camera Status Section
                     if (metadata.camera_status) {
-                        html += '<div class="metadata-group">';
-                        html += '<h6 class="metadata-title">Camera Status</h6>';
-                        for (const [key, value] of Object.entries(metadata.camera_status)) {
-                            html += `<div class="metadata-item"><span class="metadata-label">${key}:</span><span class="metadata-value">${value}</span></div>`;
-                        }
-                        html += '</div>';
+                        html += `
+                            <div class="metadata-category">
+                                <h5 class="category-title">
+                                    <i class="fas fa-info-circle"></i> สถานะกล้อง (Camera Status)
+                                </h5>
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-striped metadata-table">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th width="25%">คีย์ (Key)</th>
+                                                <th width="35%">ค่า (Value)</th>
+                                                <th width="40%">คำอธิบาย (Description)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                        `;
+                        
+                        Object.entries(metadata.camera_status).forEach(([key, value]) => {
+                            const statusClass = key === 'initialized' || key === 'streaming' ? 
+                                (value ? 'text-success' : 'text-danger') : 'text-success';
+                            html += `
+                                <tr>
+                                    <td><code class="text-primary">${key}</code></td>
+                                    <td><span class="${statusClass}">${formatValue(value)}</span></td>
+                                    <td><small class="text-muted">${getThaiDescription(key)}</small></td>
+                                </tr>
+                            `;
+                        });
+                        
+                        html += `
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        `;
                     }
                     
-                    // Manager Status
+                    // Manager Status Section
                     if (metadata.manager_status) {
-                        html += '<div class="metadata-group">';
-                        html += '<h6 class="metadata-title">Manager Status</h6>';
-                        for (const [key, value] of Object.entries(metadata.manager_status)) {
-                            html += `<div class="metadata-item"><span class="metadata-label">${key}:</span><span class="metadata-value">${value}</span></div>`;
-                        }
-                        html += '</div>';
+                        html += `
+                            <div class="metadata-category">
+                                <h5 class="category-title">
+                                    <i class="fas fa-tasks"></i> สถานะผู้จัดการ (Manager Status)
+                                </h5>
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-striped metadata-table">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th width="25%">คีย์ (Key)</th>
+                                                <th width="35%">ค่า (Value)</th>
+                                                <th width="40%">คำอธิบาย (Description)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                        `;
+                        
+                        Object.entries(metadata.manager_status).forEach(([key, value]) => {
+                            html += `
+                                <tr>
+                                    <td><code class="text-primary">${key}</code></td>
+                                    <td><span class="text-success">${formatValue(value)}</span></td>
+                                    <td><small class="text-muted">${getThaiDescription(key)}</small></td>
+                                </tr>
+                            `;
+                        });
+                        
+                        html += `
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        `;
                     }
+                    
+                    // Timestamp
+                    html += `
+                        <div class="text-center mt-3">
+                            <small class="text-muted">
+                                <i class="fas fa-clock"></i> อัปเดตล่าสุด: ${new Date().toLocaleString('th-TH')}
+                            </small>
+                        </div>
+                    `;
                     
                     html += '</div>';
                     metadataContent.innerHTML = html;
