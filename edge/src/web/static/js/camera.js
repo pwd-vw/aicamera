@@ -666,18 +666,20 @@ const CameraManager = {
         // Load metadata from debug endpoint
         AICameraUtils.apiRequest('/camera/debug_metadata')
             .then(data => {
-                if (data && data.success) {
-                    console.log('Metadata loaded successfully:', data.metadata);
-                    this.cachedMetadata = data.metadata;
+                console.log('Raw metadata response:', data);
+                
+                if (data && data.success && data.debug_info) {
+                    console.log('Metadata loaded successfully:', data);
+                    this.cachedMetadata = data;
                     this.metadataLoaded = true;
                     
                     // Update metadata display
-                    this.updateMetadataDisplay(data.metadata);
+                    this.updateMetadataDisplay(data);
                     
                     AICameraUtils.addLogMessage('log-container', 'Camera metadata loaded successfully', 'success');
                 } else {
-                    console.error('Failed to load metadata:', data);
-                    AICameraUtils.addLogMessage('log-container', 'Failed to load metadata', 'error');
+                    console.error('Failed to load metadata - invalid response structure:', data);
+                    AICameraUtils.addLogMessage('log-container', 'Failed to load metadata - invalid response structure', 'error');
                 }
             })
             .catch(error => {
@@ -691,6 +693,13 @@ const CameraManager = {
      */
     updateMetadataDisplay: function(metadata) {
         try {
+            // Validate metadata object
+            if (!metadata) {
+                console.error('Metadata object is null or undefined');
+                AICameraUtils.addLogMessage('log-container', 'Error: Metadata object is null or undefined', 'error');
+                return;
+            }
+            
             // Update metadata section if it exists
             const metadataSection = document.getElementById('metadata-section');
             if (metadataSection) {

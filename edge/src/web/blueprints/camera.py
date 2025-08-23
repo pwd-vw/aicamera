@@ -464,8 +464,8 @@ def generate_frames():
                     time.sleep(RETRY_DELAY)
                     continue
                 
-                # Control frame rate
-                time.sleep(0.1)  # 10 FPS
+                # Control frame rate - IMPORTANT: This prevents CPU overload
+                time.sleep(0.033)  # ~30 FPS (1/30 = 0.033 seconds)
                 
             except Exception as frame_error:
                 consecutive_errors += 1
@@ -499,162 +499,6 @@ def generate_frames():
         yield _generate_error_placeholder("Critical streaming error")
     finally:
         logger.info("Video stream generation ended")
-
-
-def _generate_status_frame(manager_status, frame_count):
-    """
-    Generate a status frame showing camera information.
-    
-    Args:
-        manager_status: Camera manager status
-        frame_count: Current frame count
-    
-    Returns:
-        numpy.ndarray: Status frame image
-    """
-    try:
-        # Create a simple status display frame
-        width, height = 640, 480
-        frame = np.zeros((height, width, 3), dtype=np.uint8)
-        
-        # Fill with dark background
-        frame[:] = (20, 20, 20)
-        
-        # Add status information
-        font = cv2.FONT_HERSHEY_SIMPLEX
-        font_scale = 0.7
-        color = (255, 255, 255)
-        thickness = 2
-        
-        # Title
-        cv2.putText(frame, "AI Camera Status", (50, 50), font, 1.2, (0, 255, 0), 2)
-        
-        # Status information
-        y_position = 100
-        line_height = 35
-        
-        status_info = [
-            f"Camera Available: {manager_status.get('camera_available', 'Unknown')}",
-            f"Streaming: {manager_status.get('streaming', 'Unknown')}",
-            f"Initialized: {manager_status.get('initialized', 'Unknown')}",
-            f"Frame Count: {frame_count}",
-            f"Uptime: {manager_status.get('uptime', 'Unknown')}",
-            f"Auto Start: {manager_status.get('auto_start_enabled', 'Unknown')}",
-            f"Auto Streaming: {manager_status.get('auto_streaming_enabled', 'Unknown')}"
-        ]
-        
-        for info in status_info:
-            cv2.putText(frame, info, (50, y_position), font, font_scale, color, thickness)
-            y_position += line_height
-        
-        # Add timestamp
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        cv2.putText(frame, f"Last Update: {timestamp}", (50, height - 30), font, 0.6, (150, 150, 150), 1)
-        
-        return frame
-        
-    except Exception as e:
-        logger.error(f"Error generating status frame: {e}")
-        return None
-
-
-def _generate_error_placeholder(message):
-    """
-    Generate a placeholder image for error states with improved visual feedback.
-    
-    Args:
-        message (str): Error message to display
-        
-    Returns:
-        bytes: Placeholder frame data
-    """
-    try:
-        # Create a simple error placeholder image
-        import numpy as np
-        
-        # Create a 640x480 image with gradient background
-        img = np.zeros((480, 640, 3), dtype=np.uint8)
-        
-        # Create gradient background (dark to lighter)
-        for y in range(480):
-            intensity = int(20 + (y / 480) * 40)  # 20 to 60
-            img[y, :] = (intensity, intensity, intensity)
-        
-        # Add text to the image
-        font = cv2.FONT_HERSHEY_SIMPLEX
-        font_scale = 0.8
-        color = (255, 255, 255)  # White text
-        thickness = 2
-        
-        # Add error icon/indicator
-        cv2.circle(img, (320, 120), 40, (0, 0, 255), 3)  # Red circle
-        cv2.putText(img, "!", (310, 140), font, 1.5, (0, 0, 255), 3)  # Exclamation mark
-        
-        # Add title
-        cv2.putText(img, "Camera Error", (200, 200), font, 1.2, (0, 0, 255), 2)
-        
-        # Split message into lines for better readability
-        words = message.split()
-        lines = []
-        current_line = ""
-        
-        for word in words:
-            test_line = current_line + " " + word if current_line else word
-            # Estimate text width (rough calculation)
-            if len(test_line) > 30:  # Approximate character limit
-                lines.append(current_line)
-                current_line = word
-            else:
-                current_line = test_line
-        
-        if current_line:
-            lines.append(current_line)
-        
-        # Display message lines
-        y_position = 250
-        line_height = 35
-        
-        for line in lines:
-            # Get text size for centering
-            (text_width, text_height), baseline = cv2.getTextSize(line, font, font_scale, thickness)
-            x_position = (640 - text_width) // 2
-            cv2.putText(img, line, (x_position, y_position), font, font_scale, color, thickness)
-            y_position += line_height
-        
-        # Add timestamp
-        timestamp = datetime.now().strftime("%H:%M:%S")
-        cv2.putText(img, f"Time: {timestamp}", (50, 450), font, 0.6, (150, 150, 150), 1)
-        
-        # Add retry indicator
-        cv2.putText(img, "Retrying...", (500, 450), font, 0.6, (0, 255, 0), 1)
-        
-        # Encode to JPEG with good quality
-        ret, buffer = cv2.imencode('.jpg', img, [cv2.IMWRITE_JPEG_QUALITY, 85])
-        if ret:
-            frame_bytes = buffer.tobytes()
-            return (b'--frame\r\n'
-                   b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
-        else:
-            # Fallback to simple text response
-            return (b'--frame\r\n'
-                   b'Content-Type: text/plain\r\n\r\n' + message.encode() + b'\r\n')
-    except Exception as e:
-        logger.error(f"Error generating placeholder: {e}")
-        # Ultimate fallback - simple text response
-        return (b'--frame\r\n'
-               b'Content-Type: text/plain\r\n\r\nCamera Error: ' + message.encode() + b'\r\n')
-
-
-@camera_bp.route('/video_feed')
-def video_feed():
-    """
-    Video streaming endpoint - uses cached data to avoid singleton conflicts.
-    
-    Returns:
-        Response: Multipart video stream
-    """
-    return Response(generate_frames(),
-                    mimetype='multipart/x-mixed-replace; boundary=frame')
 
 
 def generate_lores_frames():
@@ -856,16 +700,331 @@ def generate_lores_frames():
         logger.info("Lores video stream generation ended")
 
 
-@camera_bp.route('/video_feed_lores')
-def video_feed_lores():
+def _generate_status_frame(manager_status, frame_count):
     """
-    Low resolution video streaming endpoint.
+    Generate a status frame showing camera information.
+    
+    Args:
+        manager_status: Camera manager status
+        frame_count: Current frame count
+    
+    Returns:
+        numpy.ndarray: Status frame image
+    """
+    try:
+        # Create a simple status display frame
+        width, height = 640, 480
+        frame = np.zeros((height, width, 3), dtype=np.uint8)
+        
+        # Fill with dark background
+        frame[:] = (20, 20, 20)
+        
+        # Add status information
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        font_scale = 0.7
+        color = (255, 255, 255)
+        thickness = 2
+        
+        # Title
+        cv2.putText(frame, "AI Camera Status", (50, 50), font, 1.2, (0, 255, 0), 2)
+        
+        # Status information
+        y_position = 100
+        line_height = 35
+        
+        status_info = [
+            f"Camera Available: {manager_status.get('camera_available', 'Unknown')}",
+            f"Streaming: {manager_status.get('streaming', 'Unknown')}",
+            f"Initialized: {manager_status.get('initialized', 'Unknown')}",
+            f"Frame Count: {frame_count}",
+            f"Uptime: {manager_status.get('uptime', 'Unknown')}",
+            f"Auto Start: {manager_status.get('auto_start_enabled', 'Unknown')}",
+            f"Auto Streaming: {manager_status.get('auto_streaming_enabled', 'Unknown')}"
+        ]
+        
+        for info in status_info:
+            cv2.putText(frame, info, (50, y_position), font, font_scale, color, thickness)
+            y_position += line_height
+        
+        # Add timestamp
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        cv2.putText(frame, f"Last Update: {timestamp}", (50, height - 30), font, 0.6, (150, 150, 150), 1)
+        
+        return frame
+        
+    except Exception as e:
+        logger.error(f"Error generating status frame: {e}")
+        return None
+
+
+def _generate_error_placeholder(message):
+    """
+    Generate a placeholder image for error states with improved visual feedback.
+    
+    Args:
+        message (str): Error message to display
+        
+    Returns:
+        bytes: Placeholder frame data
+    """
+    try:
+        # Create a simple error placeholder image
+        import numpy as np
+        
+        # Create a 640x480 image with gradient background
+        img = np.zeros((480, 640, 3), dtype=np.uint8)
+        
+        # Create gradient background (dark to lighter)
+        for y in range(480):
+            intensity = int(20 + (y / 480) * 40)  # 20 to 60
+            img[y, :] = (intensity, intensity, intensity)
+        
+        # Add text to the image
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        font_scale = 0.8
+        color = (255, 255, 255)  # White text
+        thickness = 2
+        
+        # Add error icon/indicator
+        cv2.circle(img, (320, 120), 40, (0, 0, 255), 3)  # Red circle
+        cv2.putText(img, "!", (310, 140), font, 1.5, (0, 0, 255), 3)  # Exclamation mark
+        
+        # Add title
+        cv2.putText(img, "Camera Error", (200, 200), font, 1.2, (0, 0, 255), 2)
+        
+        # Split message into lines for better readability
+        words = message.split()
+        lines = []
+        current_line = ""
+        
+        for word in words:
+            test_line = current_line + " " + word if current_line else word
+            # Estimate text width (rough calculation)
+            if len(test_line) > 30:  # Approximate character limit
+                lines.append(current_line)
+                current_line = word
+            else:
+                current_line = test_line
+        
+        if current_line:
+            lines.append(current_line)
+        
+        # Display message lines
+        y_position = 250
+        line_height = 35
+        
+        for line in lines:
+            # Get text size for centering
+            (text_width, text_height), baseline = cv2.getTextSize(line, font, font_scale, thickness)
+            x_position = (640 - text_width) // 2
+            cv2.putText(img, line, (x_position, y_position), font, font_scale, color, thickness)
+            y_position += line_height
+        
+        # Add timestamp
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        cv2.putText(img, f"Time: {timestamp}", (50, 450), font, 0.6, (150, 150, 150), 1)
+        
+        # Add retry indicator
+        cv2.putText(img, "Retrying...", (500, 450), font, 0.6, (0, 255, 0), 1)
+        
+        # Encode to JPEG with good quality
+        ret, buffer = cv2.imencode('.jpg', img, [cv2.IMWRITE_JPEG_QUALITY, 85])
+        if ret:
+            frame_bytes = buffer.tobytes()
+            return (b'--frame\r\n'
+                   b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+        else:
+            # Fallback to simple text response
+            return (b'--frame\r\n'
+                   b'Content-Type: text/plain\r\n\r\n' + message.encode() + b'\r\n')
+    except Exception as e:
+        logger.error(f"Error generating placeholder: {e}")
+        # Ultimate fallback - simple text response
+        return (b'--frame\r\n'
+               b'Content-Type: text/plain\r\n\r\nCamera Error: ' + message.encode() + b'\r\n')
+
+
+@camera_bp.route('/video_feed')
+def video_feed():
+    """
+    Video streaming endpoint with enhanced fallback mechanisms.
     
     Returns:
         Response: Multipart video stream
     """
-    return Response(generate_lores_frames(),
-                    mimetype='multipart/x-mixed-replace; boundary=frame')
+    try:
+        # Check if video streaming service is available
+        video_streaming = get_service('video_streaming')
+        if video_streaming:
+            # Use video streaming service if available
+            return Response(_generate_frames_from_service(video_streaming),
+                           mimetype='multipart/x-mixed-replace; boundary=frame')
+        else:
+            # Fallback to direct camera manager
+            logger.info("Video streaming service not available, using direct camera manager")
+            return Response(generate_frames(),
+                           mimetype='multipart/x-mixed-replace; boundary=frame')
+    except Exception as e:
+        logger.error(f"Error in video_feed endpoint: {e}")
+        return Response(_generate_error_stream("Video feed error"),
+                       mimetype='multipart/x-mixed-replace; boundary=frame')
+
+
+def _generate_frames_from_service(video_streaming):
+    """
+    Generate frames using video streaming service with fallback.
+    
+    Args:
+        video_streaming: Video streaming service instance
+        
+    Yields:
+        bytes: Frame data in multipart format
+    """
+    consecutive_errors = 0
+    max_errors = 5
+    error_delay = 1.0
+    
+    try:
+        # Start streaming if not already started
+        if not video_streaming.streaming:
+            video_streaming.start_streaming()
+            time.sleep(0.5)  # Wait for streaming to start
+        
+        while True:
+            try:
+                # Get frame from service
+                frame_data = video_streaming.get_frame(timeout=2.0)
+                
+                if frame_data and 'frame' in frame_data:
+                    # Decode base64 frame
+                    import base64
+                    frame_bytes = base64.b64decode(frame_data['frame'])
+                    
+                    # Reset error counter on success
+                    consecutive_errors = 0
+                    
+                    yield (b'--frame\r\n'
+                           b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+                else:
+                    consecutive_errors += 1
+                    if consecutive_errors > max_errors:
+                        yield _generate_error_placeholder("No frame data from streaming service")
+                        time.sleep(error_delay)
+                    else:
+                        time.sleep(0.1)
+                        
+            except Exception as e:
+                consecutive_errors += 1
+                logger.error(f"Error getting frame from streaming service: {e}")
+                
+                if consecutive_errors > max_errors:
+                    yield _generate_error_placeholder("Streaming service error")
+                    time.sleep(error_delay)
+                else:
+                    time.sleep(0.1)
+                    
+    except Exception as e:
+        logger.error(f"Critical error in _generate_frames_from_service: {e}")
+        yield _generate_error_placeholder("Critical streaming service error")
+
+
+def _generate_error_stream(message):
+    """
+    Generate a continuous error stream.
+    
+    Args:
+        message: Error message to display
+        
+    Yields:
+        bytes: Error frame data
+    """
+    while True:
+        yield _generate_error_placeholder(message)
+        time.sleep(2.0)  # Show error frame every 2 seconds
+
+
+@camera_bp.route('/video_feed_lores')
+def video_feed_lores():
+    """
+    Low resolution video streaming endpoint with enhanced fallback.
+    
+    Returns:
+        Response: Multipart video stream
+    """
+    try:
+        # Check if video streaming service is available
+        video_streaming = get_service('video_streaming')
+        if video_streaming:
+            # Use video streaming service if available
+            return Response(_generate_lores_frames_from_service(video_streaming),
+                           mimetype='multipart/x-mixed-replace; boundary=frame')
+        else:
+            # Fallback to direct camera manager
+            logger.info("Video streaming service not available, using direct camera manager for lores")
+            return Response(generate_lores_frames(),
+                           mimetype='multipart/x-mixed-replace; boundary=frame')
+    except Exception as e:
+        logger.error(f"Error in video_feed_lores endpoint: {e}")
+        return Response(_generate_error_stream("Lores video feed error"),
+                       mimetype='multipart/x-mixed-replace; boundary=frame')
+
+
+def _generate_lores_frames_from_service(video_streaming):
+    """
+    Generate lores frames using video streaming service with fallback.
+    
+    Args:
+        video_streaming: Video streaming service instance
+        
+    Yields:
+        bytes: Frame data in multipart format
+    """
+    consecutive_errors = 0
+    max_errors = 5
+    error_delay = 1.0
+    
+    try:
+        # Start streaming if not already started
+        if not video_streaming.streaming:
+            video_streaming.start_streaming()
+            time.sleep(0.5)  # Wait for streaming to start
+        
+        while True:
+            try:
+                # Get frame from service
+                frame_data = video_streaming.get_frame(timeout=2.0)
+                
+                if frame_data and 'frame' in frame_data:
+                    # Decode base64 frame
+                    import base64
+                    frame_bytes = base64.b64decode(frame_data['frame'])
+                    
+                    # Reset error counter on success
+                    consecutive_errors = 0
+                    
+                    yield (b'--frame\r\n'
+                           b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+                else:
+                    consecutive_errors += 1
+                    if consecutive_errors > max_errors:
+                        yield _generate_error_placeholder("No lores frame data from streaming service")
+                        time.sleep(error_delay)
+                    else:
+                        time.sleep(0.1)
+                        
+            except Exception as e:
+                consecutive_errors += 1
+                logger.error(f"Error getting lores frame from streaming service: {e}")
+                
+                if consecutive_errors > max_errors:
+                    yield _generate_error_placeholder("Lores streaming service error")
+                    time.sleep(error_delay)
+                else:
+                    time.sleep(0.1)
+                    
+    except Exception as e:
+        logger.error(f"Critical error in _generate_lores_frames_from_service: {e}")
+        yield _generate_error_placeholder("Critical lores streaming service error")
 
 
 @camera_bp.route('/ml_frame')
@@ -1442,42 +1601,139 @@ def test_camera():
 
 
 @camera_bp.route('/video_test')
-def test_video_feed():
+def video_test():
     """
-    ทดสอบการทำงานของ video feed
+    Video streaming test endpoint for end-to-end testing.
     
     Returns:
-        dict: JSON response with video test results
+        dict: JSON response with test results
     """
     try:
-        camera_manager = get_service('camera_manager')
-        if not camera_manager:
-            return jsonify({
-                'success': False,
-                'error': 'Camera manager not available',
-                'timestamp': datetime.now().isoformat()
-            }), 500
-        
-        # Test frame capture
-        frame_data = camera_manager.capture_lores_frame()
-        
-        video_test_results = {
-            'camera_initialized': camera_manager.camera_handler.initialized if camera_manager.camera_handler else False,
-            'camera_streaming': camera_manager.camera_handler.streaming if camera_manager.camera_handler else False,
-            'frame_capture_success': frame_data is not None,
-            'frame_shape': frame_data.shape if frame_data is not None else None,
-            'frame_error': None,
-            'video_feed_url': '/camera/video_feed',
-            'video_feed_lores_url': '/camera/video_feed_lores',
-            'timestamp': datetime.now().isoformat()
+        test_results = {
+            'timestamp': datetime.now().isoformat(),
+            'tests': {},
+            'overall_status': 'unknown'
         }
         
-        if frame_data is None:
-            video_test_results['frame_error'] = 'No frame data available'
+        # Test 1: Camera Manager Availability
+        try:
+            camera_manager = get_service('camera_manager')
+            test_results['tests']['camera_manager'] = {
+                'status': 'passed' if camera_manager else 'failed',
+                'message': 'Camera manager available' if camera_manager else 'Camera manager not available'
+            }
+        except Exception as e:
+            test_results['tests']['camera_manager'] = {
+                'status': 'error',
+                'message': f'Camera manager error: {str(e)}'
+            }
+        
+        # Test 2: Camera Handler Status
+        try:
+            if camera_manager and camera_manager.camera_handler:
+                camera_status = camera_manager.camera_handler.get_status()
+                test_results['tests']['camera_handler'] = {
+                    'status': 'passed' if camera_status.get('initialized', False) else 'failed',
+                    'message': f"Camera initialized: {camera_status.get('initialized', False)}, Streaming: {camera_status.get('streaming', False)}",
+                    'details': camera_status
+                }
+            else:
+                test_results['tests']['camera_handler'] = {
+                    'status': 'failed',
+                    'message': 'Camera handler not available'
+                }
+        except Exception as e:
+            test_results['tests']['camera_handler'] = {
+                'status': 'error',
+                'message': f'Camera handler error: {str(e)}'
+            }
+        
+        # Test 3: Frame Capture
+        try:
+            if camera_manager:
+                frame = camera_manager.capture_lores_frame()
+                test_results['tests']['frame_capture'] = {
+                    'status': 'passed' if frame is not None else 'failed',
+                    'message': f"Frame captured: {frame is not None}",
+                    'frame_shape': frame.shape if frame is not None else None
+                }
+            else:
+                test_results['tests']['frame_capture'] = {
+                    'status': 'failed',
+                    'message': 'Camera manager not available for frame capture'
+                }
+        except Exception as e:
+            test_results['tests']['frame_capture'] = {
+                'status': 'error',
+                'message': f'Frame capture error: {str(e)}'
+            }
+        
+        # Test 4: Video Streaming Service
+        try:
+            video_streaming = get_service('video_streaming')
+            if video_streaming:
+                streaming_status = video_streaming.get_status()
+                health_status = video_streaming.health_check()
+                test_results['tests']['video_streaming'] = {
+                    'status': 'passed' if health_status.get('healthy', False) else 'failed',
+                    'message': f"Streaming service healthy: {health_status.get('healthy', False)}",
+                    'details': {
+                        'streaming': streaming_status.get('streaming', False),
+                        'fallback_mode': streaming_status.get('fallback_mode', False),
+                        'source_distribution': streaming_status.get('source_distribution', {}),
+                        'health': health_status
+                    }
+                }
+            else:
+                test_results['tests']['video_streaming'] = {
+                    'status': 'failed',
+                    'message': 'Video streaming service not available'
+                }
+        except Exception as e:
+            test_results['tests']['video_streaming'] = {
+                'status': 'error',
+                'message': f'Video streaming error: {str(e)}'
+            }
+        
+        # Test 5: Frame Buffer
+        try:
+            if camera_manager and camera_manager.camera_handler:
+                buffer_ready = camera_manager.camera_handler.is_frame_buffer_ready()
+                test_results['tests']['frame_buffer'] = {
+                    'status': 'passed' if buffer_ready else 'failed',
+                    'message': f"Frame buffer ready: {buffer_ready}"
+                }
+            else:
+                test_results['tests']['frame_buffer'] = {
+                    'status': 'failed',
+                    'message': 'Camera handler not available for buffer test'
+                }
+        except Exception as e:
+            test_results['tests']['frame_buffer'] = {
+                'status': 'error',
+                'message': f'Frame buffer error: {str(e)}'
+            }
+        
+        # Calculate overall status
+        passed_tests = sum(1 for test in test_results['tests'].values() if test['status'] == 'passed')
+        total_tests = len(test_results['tests'])
+        
+        if passed_tests == total_tests:
+            test_results['overall_status'] = 'passed'
+        elif passed_tests > 0:
+            test_results['overall_status'] = 'partial'
+        else:
+            test_results['overall_status'] = 'failed'
+        
+        test_results['summary'] = {
+            'passed': passed_tests,
+            'total': total_tests,
+            'success_rate': round(passed_tests / total_tests * 100, 1) if total_tests > 0 else 0
+        }
         
         return jsonify({
             'success': True,
-            'video_test_results': video_test_results
+            'test_results': test_results
         })
         
     except Exception as e:
@@ -1485,94 +1741,79 @@ def test_video_feed():
         return jsonify({
             'success': False,
             'error': str(e),
-            'timestamp': datetime.now().isoformat()
+            'test_results': {
+                'timestamp': datetime.now().isoformat(),
+                'overall_status': 'error',
+                'error': str(e)
+            }
         }), 500
 
 
-@camera_bp.route('/video_feed_health')
-def video_feed_health():
+@camera_bp.route('/video_streaming_status')
+def video_streaming_status():
     """
-    Video feed health check endpoint.
+    Get detailed video streaming status with fallback information.
     
     Returns:
-        dict: JSON response with video feed health status
+        dict: JSON response with streaming status
     """
     try:
-        camera_manager = get_service('camera_manager')
-        if not camera_manager:
+        video_streaming = get_service('video_streaming')
+        if not video_streaming:
             return jsonify({
                 'success': False,
-                'error': 'Camera manager not available',
+                'error': 'Video streaming service not available',
                 'timestamp': datetime.now().isoformat()
             }), 500
         
-        # Get camera status
-        camera_status = camera_manager.get_status()
-        
-        # Check frame buffer status
-        frame_buffer_ready = False
-        frame_count = 0
-        last_frame_time = None
-        
-        try:
-            if camera_manager.camera_handler:
-                frame_buffer_ready = camera_manager.camera_handler.is_frame_buffer_ready()
-                frame_count = getattr(camera_manager.camera_handler, 'frame_count', 0)
-                last_frame_time = getattr(camera_manager.camera_handler, '_last_capture_time', None)
-        except Exception as e:
-            logger.warning(f"Error checking frame buffer: {e}")
-        
-        # Determine health status
-        health_status = 'healthy'
-        issues = []
-        
-        if not camera_status.get('initialized', False):
-            health_status = 'unhealthy'
-            issues.append('Camera not initialized')
-        
-        if not camera_status.get('streaming', False):
-            health_status = 'unhealthy'
-            issues.append('Camera not streaming')
-        
-        if not frame_buffer_ready:
-            health_status = 'degraded'
-            issues.append('Frame buffer not ready')
-        
-        # Check if frames are being captured recently
-        if last_frame_time:
-            time_since_last_frame = time.time() - last_frame_time
-            if time_since_last_frame > 5.0:  # More than 5 seconds since last frame
-                health_status = 'degraded'
-                issues.append(f'No recent frames (last: {time_since_last_frame:.1f}s ago)')
+        status = video_streaming.get_status()
+        health = video_streaming.health_check()
         
         return jsonify({
             'success': True,
-            'health_status': health_status,
-            'issues': issues,
-            'camera_status': {
-                'initialized': camera_status.get('initialized', False),
-                'streaming': camera_status.get('streaming', False),
-                'uptime': camera_status.get('uptime', 0)
-            },
-            'frame_buffer': {
-                'ready': frame_buffer_ready,
-                'frame_count': frame_count,
-                'last_frame_time': last_frame_time,
-                'time_since_last_frame': time.time() - last_frame_time if last_frame_time else None
-            },
-            'streaming_info': {
-                'video_feed_url': '/camera/video_feed',
-                'video_feed_lores_url': '/camera/video_feed_lores',
-                'health_check_url': '/camera/video_feed_health'
-            },
+            'status': status,
+            'health': health,
             'timestamp': datetime.now().isoformat()
         })
         
     except Exception as e:
-        logger.error(f"Error in video feed health check: {e}")
+        logger.error(f"Error getting video streaming status: {e}")
         return jsonify({
             'success': False,
             'error': str(e),
-            'health_status': 'error',
+            'timestamp': datetime.now().isoformat()
+        }), 500
+
+
+@camera_bp.route('/video_streaming_reset', methods=['POST'])
+def video_streaming_reset():
+    """
+    Reset video streaming service fallback mode.
+    
+    Returns:
+        dict: JSON response with reset result
+    """
+    try:
+        video_streaming = get_service('video_streaming')
+        if not video_streaming:
+            return jsonify({
+                'success': False,
+                'error': 'Video streaming service not available',
+                'timestamp': datetime.now().isoformat()
+            }), 500
+        
+        success = video_streaming.reset_fallback_mode()
+        
+        return jsonify({
+            'success': success,
+            'message': 'Fallback mode reset successfully' if success else 'Failed to reset fallback mode',
+            'timestamp': datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"Error resetting video streaming: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e),
             'timestamp': datetime.now().isoformat()
         }), 500
