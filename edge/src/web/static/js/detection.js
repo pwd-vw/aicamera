@@ -1,5 +1,5 @@
 /**
- * AI Camera v1.3 - Unified Detection Dashboard JavaScript
+ * AI Camera v2.0.0 - Unified Detection Dashboard JavaScript
  * Combined detection control, monitoring, and results functionality
  */
 

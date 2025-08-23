@@ -1,5 +1,5 @@
 /**
- * Health Dashboard JavaScript for AI Camera v1.3
+ * Health Dashboard JavaScript for AI Camera v2.0.0
  * 
  * This file contains JavaScript functionality for the health monitoring dashboard
  * including WebSocket communication, data visualization, and user interactions.

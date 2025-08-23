@@ -1,5 +1,5 @@
 /**
- * AI Camera v1.3 - Detection Results JavaScript
+ * AI Camera v2.0.0 - Detection Results JavaScript
  * 
  * Handles the detection results table with pagination, search, filter, sort,
  * and detail view functionality.

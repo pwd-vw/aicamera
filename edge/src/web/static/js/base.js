@@ -1,5 +1,5 @@
 /**
- * AI Camera v1.3 - Base JavaScript Functions
+ * AI Camera v2.0.0 - Base JavaScript Functions
  * Common utilities and functions shared across all dashboards
  */
 
@@ -343,5 +343,5 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    console.log('AI Camera v1.3 - Base JavaScript loaded');
+    console.log('AI Camera v2.0.0 - Base JavaScript loaded');
 });

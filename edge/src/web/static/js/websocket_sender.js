@@ -1,5 +1,5 @@
 /**
- * AI Camera v1.3 - WebSocket Sender Dashboard JavaScript
+ * AI Camera v2.0.0 - WebSocket Sender Dashboard JavaScript
  * WebSocket sender management and monitoring functionality
  */
 

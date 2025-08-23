@@ -1,5 +1,5 @@
 /**
- * AI Camera v1.3 - Storage Management JavaScript
+ * AI Camera v2.0.0 - Storage Management JavaScript
  * Handles storage monitoring, cleanup, and configuration management
  */
 

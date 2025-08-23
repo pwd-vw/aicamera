@@ -1,11 +1,11 @@
 /**
- * Health Dashboard CSS for AI Camera v1.3
+ * Health Dashboard CSS for AI Camera v2.0.0
  * 
  * This file contains styles for the health monitoring dashboard
  * including cards, status indicators, and responsive design.
  */
 
-/* Health Dashboard Container - Updated for progress bar spacing v1.3.4 */
+/* Health Dashboard Container - Updated for progress bar spacing v2.0.0.4 */
 .health-dashboard {
     padding: 20px;
     max-width: 1400px;

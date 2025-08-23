@@ -1,5 +1,5 @@
 /**
- * AI Camera v1.3 - Dashboard JavaScript
+ * AI Camera v2.0.0 - Dashboard JavaScript
  * Main dashboard specific functionality
  */
 
