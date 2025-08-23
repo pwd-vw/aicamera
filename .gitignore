@@ -220,8 +220,6 @@ resources/*.so
 pwd_library/
 hailo_apps_infra/__pycache__/
 community_projects
-doc
-docs/
 diagrams/
 
 # =============================================================================
