@@ -1,8 +1,8 @@
 [Unit]
 Description=AI Camera Kiosk Browser (Boot Startup)
-After=network.target aicamera_lpr.service
+After=network.target aicamera_lpr.service nginx.service
 Wants=network.target
-Requires=network.target
+Requires=network.target aicamera_lpr.service nginx.service
 
 [Service]
 Type=simple
@@ -12,9 +12,16 @@ Environment=DISPLAY=:0
 Environment=XAUTHORITY=/home/camuser/.Xauthority
 WorkingDirectory=/home/camuser/aicamera
 
-# Wait for the web service to be ready before starting browser (with longer timeout for boot)
-ExecStartPre=/bin/bash -c 'timeout 120 bash -c "until curl -s http://localhost/ >/dev/null 2>&1; do sleep 5; done" || echo "Web service not ready after 2 minutes, starting browser anyway"'
-ExecStart=/bin/bash -c 'sleep 10 && chromium-browser --kiosk --user-data-dir=/tmp/chromium-kiosk --disable-web-security --disable-features=VizDisplayCompositor --no-first-run --no-default-browser-check --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-renderer-backgrounding --disable-features=TranslateUI --disable-ipc-flooding-protection --disable-dev-shm-usage --disable-gpu --no-sandbox --autoplay-policy=no-user-gesture-required --disable-session-crashed-bubble --disable-infobars --disable-notifications --new-window http://localhost/'
+# Wait for the web service to be ready before starting browser
+# Check both nginx and the Flask app are responding
+ExecStartPre=/bin/bash -c 'echo "Waiting for nginx to be ready..."'
+ExecStartPre=/bin/bash -c 'timeout 30 bash -c "until systemctl is-active --quiet nginx; do sleep 2; done"'
+ExecStartPre=/bin/bash -c 'echo "Waiting for aicamera_lpr service to be ready..."'
+ExecStartPre=/bin/bash -c 'timeout 60 bash -c "until systemctl is-active --quiet aicamera_lpr.service; do sleep 3; done"'
+ExecStartPre=/bin/bash -c 'echo "Waiting for web service to respond..."'
+ExecStartPre=/bin/bash -c 'timeout 120 bash -c "until curl -s -f http://localhost/ >/dev/null 2>&1; do sleep 5; done"'
+ExecStartPre=/bin/bash -c 'echo "Web service is ready!"'
+ExecStart=/bin/bash -c 'echo "Starting kiosk browser..." && sleep 5 && chromium-browser --kiosk --user-data-dir=/tmp/chromium-kiosk --disable-web-security --disable-features=VizDisplayCompositor --no-first-run --no-default-browser-check --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-renderer-backgrounding --disable-features=TranslateUI --disable-ipc-flooding-protection --disable-dev-shm-usage --disable-gpu --no-sandbox --autoplay-policy=no-user-gesture-required --disable-session-crashed-bubble --disable-infobars --disable-notifications --new-window http://localhost/'
 
 # Restart policy - restart if browser exits
 Restart=always
