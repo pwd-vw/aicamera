@@ -31,6 +31,7 @@ const DetectionResultsManager = {
         this.setupEventHandlers();
         this.loadResults();
         this.loadStatistics();
+        console.log('DetectionResultsManager initialized');
     },
 
     /**
@@ -156,6 +157,7 @@ const DetectionResultsManager = {
                 }
             })
             .catch(error => {
+                console.error('Error loading detection results:', error);
                 this.showError('Network error occurred while loading results');
             })
             .finally(() => {
@@ -477,6 +479,7 @@ const DetectionResultsManager = {
                 }
             })
             .catch(error => {
+                console.error('Error loading detail:', error);
                 modalBody.innerHTML = `
                     <div class="alert alert-danger">
                         <i class="fas fa-exclamation-triangle me-2"></i>
@@ -672,6 +675,7 @@ const DetectionResultsManager = {
         const modal = bootstrap.Modal.getInstance(document.getElementById('export-modal'));
         modal.hide();
 
+        AICameraUtils.showToast('Export started', 'success');
     },
 
     /**
@@ -685,6 +689,7 @@ const DetectionResultsManager = {
                 }
             })
             .catch(error => {
+                console.error('Error loading statistics:', error);
             });
     },
 
@@ -702,4 +707,5 @@ const DetectionResultsManager = {
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', function() {
     DetectionResultsManager.init();
+    console.log('Detection Results JavaScript loaded');
 });

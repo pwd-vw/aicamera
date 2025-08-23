@@ -44,19 +44,63 @@ const AICameraUtils = {
     },
 
     /**
-     * Add log message to log container (silent version)
+     * Add log message to log container
      */
     addLogMessage: function(containerId, message, type = 'info') {
-        // Silent - no logging
-        return;
+        const container = document.getElementById(containerId);
+        if (!container) return;
+
+        const timestamp = new Date().toLocaleTimeString();
+        const logEntry = document.createElement('div');
+        logEntry.className = `log-entry log-${type}`;
+        logEntry.innerHTML = `[${timestamp}] ${message}`;
+        
+        container.appendChild(logEntry);
+        container.scrollTop = container.scrollHeight;
+        
+        // Keep only last 100 messages
+        while (container.children.length > 100) {
+            container.removeChild(container.firstChild);
+        }
     },
 
     /**
-     * Show toast notification (silent version)
+     * Show toast notification
      */
     showToast: function(message, type = 'info') {
-        // Silent - no notifications
-        return;
+        // Create toast if it doesn't exist
+        let toastContainer = document.getElementById('toast-container');
+        if (!toastContainer) {
+            toastContainer = document.createElement('div');
+            toastContainer.id = 'toast-container';
+            toastContainer.className = 'position-fixed top-0 end-0 p-3';
+            toastContainer.style.zIndex = '1050';
+            document.body.appendChild(toastContainer);
+        }
+
+        const toastId = 'toast-' + Date.now();
+        const toastHtml = `
+            <div class="toast" id="${toastId}" role="alert" aria-live="assertive" aria-atomic="true">
+                <div class="toast-header">
+                    <i class="fas fa-camera text-primary me-2"></i>
+                    <strong class="me-auto">AI Camera</strong>
+                    <small class="text-muted">${new Date().toLocaleTimeString()}</small>
+                    <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+                </div>
+                <div class="toast-body bg-${type === 'error' ? 'danger' : type === 'success' ? 'success' : 'info'} text-white">
+                    ${message}
+                </div>
+            </div>
+        `;
+
+        toastContainer.insertAdjacentHTML('beforeend', toastHtml);
+        const toast = new bootstrap.Toast(document.getElementById(toastId));
+        toast.show();
+
+        // Remove toast element after it's hidden
+        document.getElementById(toastId).addEventListener('hidden.bs.toast', function() {
+            this.remove();
+        });
     },
 
     /**
@@ -80,7 +124,7 @@ const AICameraUtils = {
                 return response.json();
             })
             .catch(error => {
-                // Silent error handling
+                console.error('API request failed:', error);
                 throw error;
             });
     },
@@ -129,14 +173,16 @@ const AICameraUtils = {
                         try {
                             return JSON.parse(text);
                         } catch (parseError) {
-                            // Silent error handling
+                            console.error('Response is not valid JSON:', text.substring(0, 200));
                             throw new Error('Invalid JSON response from server');
                         }
                     });
                 }
             })
             .catch(error => {
-                // Silent error handling
+                console.error('API request failed:', url, error);
+                // Don't show toast for every failed request to avoid spam
+                // this.showToast(`Request failed: ${error.message}`, 'error');
                 throw error;
             });
     }
@@ -154,6 +200,7 @@ const WebSocketManager = {
      */
     init: function(namespace = '/') {
         if (typeof io === 'undefined') {
+            console.warn('Socket.IO not loaded, WebSocket functionality disabled');
             return;
         }
 
@@ -177,6 +224,8 @@ const WebSocketManager = {
         if (!this.socket) return;
 
         this.socket.on('connect', () => {
+            console.log('WebSocket connected successfully');
+            AICameraUtils.showToast('Connected to server', 'success');
             this.reconnectAttempts = 0;
             
             // Update connection status in main dashboard
@@ -188,9 +237,15 @@ const WebSocketManager = {
             if (connectionText) {
                 connectionText.textContent = 'Connected';
             }
+            
+            // Add log message
+            AICameraUtils.addLogMessage('main-server-logs', 'WebSocket connection established', 'success');
         });
 
         this.socket.on('disconnect', (reason) => {
+            console.log('WebSocket disconnected:', reason);
+            AICameraUtils.showToast('Disconnected from server: ' + reason, 'warning');
+            
             // Update connection status in main dashboard
             const connectionElement = document.getElementById('main-server-connection-status');
             const connectionText = document.getElementById('main-server-connection-text');
@@ -200,9 +255,15 @@ const WebSocketManager = {
             if (connectionText) {
                 connectionText.textContent = 'Disconnected';
             }
+            
+            // Add log message
+            AICameraUtils.addLogMessage('main-server-logs', 'WebSocket disconnected: ' + reason, 'warning');
         });
 
         this.socket.on('connect_error', (error) => {
+            console.error('WebSocket connection error:', error);
+            AICameraUtils.showToast('Connection error: ' + error.message, 'error');
+            
             // Update connection status in main dashboard
             const connectionElement = document.getElementById('main-server-connection-status');
             const connectionText = document.getElementById('main-server-connection-text');
@@ -213,16 +274,21 @@ const WebSocketManager = {
                 connectionText.textContent = 'Connection Error';
             }
             
+            // Add log message
+            AICameraUtils.addLogMessage('main-server-logs', 'WebSocket connection error: ' + error.message, 'error');
+            
             this.handleReconnect();
         });
 
         this.socket.on('reconnect_attempt', (attemptNumber) => {
-            // Add log message
+            console.log(`WebSocket reconnection attempt ${attemptNumber}/${this.maxReconnectAttempts}`);
+            AICameraUtils.addLogMessage('main-server-logs', `Reconnection attempt ${attemptNumber}/${this.maxReconnectAttempts}`, 'info');
         });
 
         this.socket.on('reconnect_failed', () => {
-            // Show toast notification
-            // Add log message
+            console.error('WebSocket reconnection failed after all attempts');
+            AICameraUtils.showToast('Connection failed after all attempts. Please refresh the page.', 'error');
+            AICameraUtils.addLogMessage('main-server-logs', 'WebSocket reconnection failed after all attempts', 'error');
         });
     },
 
@@ -234,9 +300,11 @@ const WebSocketManager = {
         if (this.reconnectAttempts <= this.maxReconnectAttempts) {
             const delay = Math.pow(2, this.reconnectAttempts) * 1000; // Exponential backoff
             setTimeout(() => {
+                console.log(`Attempting to reconnect... (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
                 this.socket.connect();
             }, delay);
         } else {
+            AICameraUtils.showToast('Connection failed. Please refresh the page.', 'error');
         }
     },
 
@@ -247,7 +315,8 @@ const WebSocketManager = {
         if (this.socket && this.socket.connected) {
             this.socket.emit(event, data);
         } else {
-            // Silent warning
+            console.warn('WebSocket not connected, cannot emit event:', event);
+            AICameraUtils.showToast('Not connected to server', 'warning');
         }
     }
 };
@@ -274,6 +343,7 @@ const FullscreenManager = {
         // Auto-enter fullscreen on page load (for kiosk mode)
         this.autoEnterFullscreen();
         
+        console.log('Fullscreen manager initialized. Current state:', this.isFullscreen ? 'Fullscreen' : 'Normal');
     },
     
     /**
@@ -374,6 +444,7 @@ const FullscreenManager = {
         
         this.isFullscreen = true;
         this.updateExitButton();
+        AICameraUtils.showToast('Entered fullscreen mode', 'info');
     },
     
     /**
@@ -394,6 +465,7 @@ const FullscreenManager = {
                 
                 this.isFullscreen = false;
                 this.updateExitButton();
+                AICameraUtils.showToast('Exited fullscreen mode', 'info');
             }
         } else {
             // Normal browser mode
@@ -407,6 +479,7 @@ const FullscreenManager = {
             
             this.isFullscreen = false;
             this.updateExitButton();
+            AICameraUtils.showToast('Exited fullscreen mode', 'info');
         }
     },
     
@@ -466,4 +539,5 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize fullscreen manager
     FullscreenManager.init();
 
+    console.log('AI Camera v2.0 - Base JavaScript loaded');
 });

@@ -40,6 +40,7 @@ const DetectionManager = {
         this.startPeriodicUpdates();
         this.loadResults();
         this.loadStatistics();
+        console.log('Unified Detection Manager initialized');
     },
 
     /**
@@ -47,6 +48,7 @@ const DetectionManager = {
      */
     initializeWebSocket: function() {
         if (typeof io === 'undefined') {
+            console.warn('Socket.IO not available');
             return;
         }
 
@@ -61,32 +63,23 @@ const DetectionManager = {
         if (!this.socket) return;
 
         this.socket.on('connect', () => {
-            // Request initial status
-            this.socket.emit('detection_status_request');
+            console.log('Connected to server');
+            this.addLogMessage('Connected to server', 'info');
+            this.socket.emit('join_detection_room');
+            this.requestStatusUpdate();
         });
 
         this.socket.on('disconnect', () => {
-            // Silent disconnect handling
+            console.log('Disconnected from server');
+            this.addLogMessage('Disconnected from server', 'warning');
         });
 
-        this.socket.on('connect_error', (error) => {
-            // Silent error handling
-        });
-
-        this.socket.on('detection_status_update', (data) => {
-            if (data && data.success && data.status) {
-                this.updateDetectionStatus(data.status);
-            } else {
-                // Silent error handling
-            }
+        this.socket.on('detection_status_update', (status) => {
+            this.updateDetectionStatus(status);
         });
 
         this.socket.on('detection_control_response', (response) => {
             this.handleControlResponse(response);
-        });
-
-        this.socket.on('detection_config_response', (response) => {
-            this.handleConfigResponse(response);
         });
 
         this.socket.on('detection_statistics_update', (stats) => {
@@ -94,7 +87,7 @@ const DetectionManager = {
         });
 
         this.socket.on('detection_status_error', (error) => {
-            // Silent error handling
+            this.addLogMessage('Status error: ' + error.error, 'error');
         });
     },
 
@@ -247,6 +240,8 @@ const DetectionManager = {
         setTimeout(() => this.loadRecentResults(), 1000);
         
         // Add initial log message
+        this.addLogMessage('Detection dashboard initialized', 'info');
+        this.addLogMessage('Connecting to detection service...', 'info');
     },
 
     /**
@@ -257,11 +252,13 @@ const DetectionManager = {
         if (button) button.disabled = true;
         
         if (!this.socket || !this.socket.connected) {
+            AICameraUtils.showToast('Not connected to server', 'warning');
             if (button) button.disabled = false;
             return;
         }
         
         this.socket.emit('detection_control', { command: command });
+        this.addLogMessage(`Sending ${command} command...`, 'info');
     },
 
     /**
@@ -275,11 +272,13 @@ const DetectionManager = {
         }
         
         if (!this.socket || !this.socket.connected) {
+            AICameraUtils.showToast('Not connected to server', 'warning');
             this.resetProcessButton();
             return;
         }
         
         this.socket.emit('detection_control', { command: 'process_frame' });
+        this.addLogMessage('Processing single frame...', 'info');
         
         setTimeout(() => this.resetProcessButton(), 3000);
     },
@@ -302,7 +301,11 @@ const DetectionManager = {
         const { command, success, message, error } = response;
         
         if (success) {
+            this.addLogMessage(`${command} successful: ${message}`, 'success');
+            AICameraUtils.showToast(`${command} successful`, 'success');
         } else {
+            this.addLogMessage(`${command} failed: ${error || message}`, 'error');
+            AICameraUtils.showToast(`${command} failed: ${error || message}`, 'error');
         }
         
         // Re-enable buttons
@@ -339,6 +342,7 @@ const DetectionManager = {
                 }
             })
             .catch(error => {
+                console.warn('Detection status not available:', error.message);
                         // Set default status according to variable_management.md standards
         this.updateDetectionStatus({
             service_running: false,
@@ -361,6 +365,7 @@ const DetectionManager = {
                 }
             })
             .catch(error => {
+                console.warn('Detection statistics not available:', error.message);
                 // Set default statistics
                 this.updateStatistics({
                     total_frames_processed: 0,
@@ -495,6 +500,13 @@ const DetectionManager = {
     },
 
     /**
+     * Add log message
+     */
+    addLogMessage: function(message, type = 'info') {
+        AICameraUtils.addLogMessage('detection-log', message, type);
+    },
+
+    /**
      * Load recent detection results
      */
     loadRecentResults: function() {
@@ -507,6 +519,7 @@ const DetectionManager = {
                 }
             })
             .catch(error => {
+                this.addLogMessage('Failed to load recent results: ' + error.message, 'error');
             });
     },
 
@@ -560,6 +573,7 @@ const DetectionManager = {
                 }
             })
             .catch(error => {
+                console.error('Failed to load statistics:', error);
             });
     },
 
@@ -639,6 +653,7 @@ const DetectionManager = {
                 }
             })
             .catch(error => {
+                AICameraUtils.showToast('Failed to load detail: ' + error.message, 'error');
             });
     },
 
@@ -938,6 +953,7 @@ const DetectionManager = {
         const modal = bootstrap.Modal.getInstance(document.getElementById('export-modal'));
         modal.hide();
         
+        AICameraUtils.showToast('Export started', 'success');
     },
 
     /**
@@ -1175,24 +1191,16 @@ const DetectionManager = {
         })
         .then(data => {
             if (data.success) {
+                this.addLogMessage('Configuration updated successfully', 'success');
+                AICameraUtils.showToast('Configuration updated', 'success');
                 this.requestStatusUpdate();
             } else {
                 throw new Error(data.error || 'Configuration update failed');
             }
         })
         .catch(error => {
+            this.addLogMessage('Failed to update configuration: ' + error.message, 'error');
         });
-    },
-
-    /**
-     * Handle configuration response
-     */
-    handleConfigResponse: function(response) {
-        const { success, message, error } = response;
-        if (success) {
-            this.requestStatusUpdate();
-        } else {
-        }
     },
 
     /**
@@ -1214,4 +1222,5 @@ document.addEventListener('DOMContentLoaded', function() {
         DetectionManager.cleanup();
     });
     
+    console.log('Detection Dashboard JavaScript loaded');
 });

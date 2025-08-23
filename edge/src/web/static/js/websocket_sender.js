@@ -20,12 +20,14 @@ const WebSocketSenderManager = {
      * Initialize WebSocket sender dashboard
      */
     init: function() {
+        console.log('Initializing WebSocket Sender Dashboard...');
         
         this.setupWebSocket();
         this.setupEventHandlers();
         this.loadInitialData();
         this.setupStatusUpdates();
         
+        console.log('WebSocket Sender Dashboard initialized');
     },
 
     /**
@@ -36,6 +38,7 @@ const WebSocketSenderManager = {
             this.socket = io('/websocket_sender');
             this.setupSocketHandlers();
         } else {
+            console.warn('Socket.IO not available');
         }
     },
 
@@ -46,6 +49,7 @@ const WebSocketSenderManager = {
         if (!this.socket) return;
 
         this.socket.on('connect', () => {
+            console.log('Connected to WebSocket sender service');
             this.joinRoom();
         });
 
@@ -62,6 +66,7 @@ const WebSocketSenderManager = {
         });
 
         this.socket.on('disconnect', () => {
+            console.log('Disconnected from WebSocket sender service');
         });
     },
 
@@ -148,10 +153,12 @@ const WebSocketSenderManager = {
                 if (data.success) {
                     this.updateStatusDisplay(data.status);
                 } else {
+                    console.error('Failed to load status:', data.error);
                     this.showError('Failed to load WebSocket sender status');
                 }
             })
             .catch(error => {
+                console.error('Error loading status:', error);
                 this.showError('Error loading WebSocket sender status');
             });
     },
@@ -174,10 +181,12 @@ const WebSocketSenderManager = {
                 if (data.success) {
                     this.updateLogsTable(data);
                 } else {
+                    console.error('Failed to load logs:', data.error);
                     this.showError('Failed to load WebSocket sender logs');
                 }
             })
             .catch(error => {
+                console.error('Error loading logs:', error);
                 this.showError('Error loading WebSocket sender logs');
             });
     },
@@ -365,6 +374,7 @@ const WebSocketSenderManager = {
         })
         .catch(error => {
             this.hideLoading();
+            console.error('Error starting service:', error);
             this.showError('Error starting WebSocket sender service');
         });
     },
@@ -389,6 +399,7 @@ const WebSocketSenderManager = {
         })
         .catch(error => {
             this.hideLoading();
+            console.error('Error stopping service:', error);
             this.showError('Error stopping WebSocket sender service');
         });
     },
@@ -412,6 +423,7 @@ const WebSocketSenderManager = {
         })
         .catch(error => {
             this.hideLoading();
+            console.error('Error testing connection:', error);
             this.showError('Error testing WebSocket connection');
         });
     },
@@ -441,6 +453,7 @@ const WebSocketSenderManager = {
         })
         .catch(error => {
             this.hideLoading();
+            console.error('Error clearing logs:', error);
             this.showError('Error clearing logs');
         });
     },
@@ -470,6 +483,7 @@ const WebSocketSenderManager = {
      * Show loading state
      */
     showLoading: function(message) {
+        AICameraUtils.showToast(message, 'info');
     },
 
     /**
@@ -483,12 +497,14 @@ const WebSocketSenderManager = {
      * Show success message
      */
     showSuccess: function(message) {
+        AICameraUtils.showToast(message, 'success');
     },
 
     /**
      * Show error message
      */
     showError: function(message) {
+        AICameraUtils.showToast(message, 'error');
     },
 
     /**
@@ -514,4 +530,5 @@ document.addEventListener('DOMContentLoaded', function() {
         WebSocketSenderManager.cleanup();
     });
     
+    console.log('WebSocket Sender Dashboard JavaScript loaded');
 });

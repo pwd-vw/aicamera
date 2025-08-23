@@ -18,6 +18,8 @@ const DashboardManager = {
      * Initialize dashboard with modular architecture support
      */
     init: function() {
+        console.log('Initializing dashboard with modular architecture...');
+        
         // Initialize core functionality
         this.initCoreModules();
         
@@ -26,12 +28,16 @@ const DashboardManager = {
         
         // Set up periodic updates
         this.setupPeriodicUpdates();
+        
+        console.log('Dashboard initialization completed');
     },
 
     /**
      * Initialize core modules (always available)
      */
     initCoreModules: function() {
+        console.log('Initializing core modules...');
+        
         // Initialize WebSocket connection for core modules
         this.initWebSocket();
         
@@ -49,9 +55,12 @@ const DashboardManager = {
      * Initialize WebSocket connection for core dashboard functionality
      */
     initWebSocket: function() {
+        console.log('Initializing WebSocket connection for dashboard...');
+        
         // Check if WebSocket is configured/enabled
         // If running in offline mode or WebSocket not configured, skip gracefully
         if (typeof io === 'undefined') {
+            console.log('WebSocket not available - running in offline mode with polling updates');
             return;
         }
         
@@ -60,6 +69,7 @@ const DashboardManager = {
             this.socket = io('/dashboard');
             this.setupDashboardSocketHandlers();
         } catch (error) {
+            console.log('WebSocket connection failed - running in offline mode:', error.message);
             // Continue with polling-based updates
         }
     },
@@ -71,6 +81,7 @@ const DashboardManager = {
         if (!this.socket) return;
 
         this.socket.on('connect', () => {
+            console.log('Connected to dashboard WebSocket service');
             this.joinDashboardRoom();
         });
 
@@ -79,15 +90,15 @@ const DashboardManager = {
         });
 
         this.socket.on('dashboard_alert', (alert) => {
-            // Silent alert handling
+            AICameraUtils.showToast(alert.message, alert.type || 'info');
         });
 
         this.socket.on('disconnect', () => {
-            // Silent disconnect handling
+            console.log('Disconnected from dashboard WebSocket service - continuing with polling');
         });
 
         this.socket.on('connect_error', (error) => {
-            // Silent error handling
+            console.log('WebSocket connection error - running in offline mode with polling');
         });
     },
 
@@ -104,6 +115,7 @@ const DashboardManager = {
      * Check and initialize optional modules (DEPRECATED - using individual service updates)
      */
     checkOptionalModules: function() {
+        console.log('checkOptionalModules is deprecated - using individual service updates instead');
         // This function is deprecated to prevent conflicts with individual service updates
     },
 
@@ -111,28 +123,28 @@ const DashboardManager = {
      * Check if WebSocket Sender is available (DEPRECATED)
      */
     checkWebSocketSender: function() {
-        // This function is deprecated - using updateWebSocketSenderStatus instead
+        console.log('checkWebSocketSender is deprecated - using updateWebSocketSenderStatus instead');
     },
 
     /**
      * Check if Storage Manager is available (DEPRECATED)
      */
     checkStorageManager: function() {
-        // This function is deprecated - using updateStorageStatusFromAPI instead
+        console.log('checkStorageManager is deprecated - using updateStorageStatusFromAPI instead');
     },
 
     /**
      * Check if Health Monitor is available (DEPRECATED)
      */
     checkHealthMonitor: function() {
-        // This function is deprecated - using updateHealthStatus instead
+        console.log('checkHealthMonitor is deprecated - using updateHealthStatus instead');
     },
 
     /**
      * Check if Experiments is available (DEPRECATED)
      */
     checkExperiments: function() {
-        // This function is deprecated - using updateExperimentsStatusFromAPI instead
+        console.log('checkExperiments is deprecated - using updateExperimentsStatusFromAPI instead');
     },
 
     /**
@@ -245,6 +257,7 @@ const DashboardManager = {
                 }
             })
             .catch(error => {
+                console.log('System info update failed (optional):', error.message);
                 // Don't show error for optional system info updates
             });
     },
@@ -276,6 +289,7 @@ const DashboardManager = {
      * Setup WebSocket connection for real-time updates (DEPRECATED - using initWebSocket instead)
      */
     setupWebSocket: function() {
+        console.log('setupWebSocket is deprecated - using initWebSocket instead');
         // This function is deprecated to prevent conflicts with initWebSocket
     },
 
@@ -283,6 +297,7 @@ const DashboardManager = {
      * Setup periodic status updates (DEPRECATED - using setupPeriodicUpdates instead)
      */
     setupStatusUpdates: function() {
+        console.log('setupStatusUpdates is deprecated - using setupPeriodicUpdates instead');
         // This function is deprecated to prevent conflicts with setupPeriodicUpdates
     },
 
@@ -290,6 +305,7 @@ const DashboardManager = {
      * Load initial system status (DEPRECATED - using updateSystemStatusComprehensive instead)
      */
     loadInitialStatus: function() {
+        console.log('loadInitialStatus is deprecated - using updateSystemStatusComprehensive instead');
         // This function is deprecated to prevent conflicts with updateSystemStatusComprehensive
     },
 
@@ -297,6 +313,7 @@ const DashboardManager = {
      * Update system status (DEPRECATED - using updateSystemStatusComprehensive instead)
      */
     updateSystemStatus: function() {
+        console.log('updateSystemStatus is deprecated - using updateSystemStatusComprehensive instead');
         // This function is deprecated to prevent conflicts with updateSystemStatusComprehensive
     },
 
@@ -366,6 +383,7 @@ const DashboardManager = {
                 }
             })
             .catch(error => {
+                console.error('Failed to fetch server connection status:', error);
                 // Update status to show error
                 const connectionElement = document.getElementById('main-server-connection-status');
                 const connectionText = document.getElementById('main-server-connection-text');
@@ -379,17 +397,20 @@ const DashboardManager = {
      * Update camera status from API
      */
     updateCameraStatusFromAPI: function() {
+        console.log('Updating camera status from API...');
         
         AICameraUtils.apiRequest('/camera/status')
             .then(data => {
                 if (data.success) {
                     this.updateCameraStatus(data.status);
                 } else {
+                    console.log('Camera status not available');
                     // Update camera status to show offline
                     this.clearCameraStatus();
                 }
             })
             .catch(error => {
+                console.log('Failed to fetch camera status:', error.message);
                 // Update camera status to show offline
                 this.clearCameraStatus();
             });
@@ -398,6 +419,7 @@ const DashboardManager = {
      * Update system status (comprehensive) - Modular Architecture
      */
     updateSystemStatusComprehensive: function() {
+        console.log('Updating system status (modular architecture)...');
         
         // === CORE MODULES (Always Available) ===
         // Update health status (comprehensive) - CORE MODULE
@@ -408,6 +430,7 @@ const DashboardManager = {
                 }
             })
             .catch(error => {
+                console.log('Health service not available - running in offline mode:', error.message);
                 // Update system status to show offline mode instead of error
                 const systemStatusElement = document.getElementById('main-system-status');
                 const systemStatusText = document.getElementById('main-system-status-text');
@@ -441,16 +464,19 @@ const DashboardManager = {
      * Update detection status from API (Detection Service)
      */
     updateDetectionStatusFromAPI: function() {
+        console.log('Updating detection status from API...');
         
         AICameraUtils.apiRequest('/detection/status')
             .then(data => {
                 if (data.success) {
                     this.updateDetectionStatus(data.status);
                 } else {
+                    console.log('Detection status not available');
                     AICameraUtils.updateStatusIndicator('main-detection-status', false, 'Inactive');
                 }
             })
             .catch(error => {
+                console.log('Failed to fetch detection status:', error.message);
                 AICameraUtils.updateStatusIndicator('main-detection-status', false, 'Inactive');
             });
     },
@@ -459,16 +485,19 @@ const DashboardManager = {
      * Update storage status from API (Storage Service)
      */
     updateStorageStatusFromAPI: function() {
+        console.log('Updating storage status from API...');
         
         AICameraUtils.apiRequest('/storage/status')
             .then(data => {
                 if (data.success) {
                     this.updateOptionalServiceStatus('storage', 'online', 'Available');
                 } else {
+                    console.log('Storage service not available (optional module)');
                     this.updateOptionalServiceStatus('storage', 'offline', 'Offline');
                 }
             })
             .catch(error => {
+                console.log('Storage service not available (optional module):', error.message);
                 this.updateOptionalServiceStatus('storage', 'offline', 'Offline');
             });
     },
@@ -483,22 +512,27 @@ const DashboardManager = {
             return;
         }
         
+        console.log('Updating experiments status from API...');
+        
         AICameraUtils.apiRequest('/experiments/status')
             .then(data => {
                 if (data.success) {
                     this.updateOptionalServiceStatus('experiment', 'online', 'Available');
                 } else {
+                    console.log('Experiments service not available (optional module)');
                     this.updateOptionalServiceStatus('experiment', 'offline', 'Offline');
                 }
             })
             .catch(error => {
                 // Handle 404 gracefully - experiments service is optional
                 if (error.message && error.message.includes('404')) {
+                    console.log('Experiments service not available (optional module):', error.message);
                     // Hide experiments section if service is not available
                     if (experimentsSection) {
                         experimentsSection.style.display = 'none';
                     }
                 } else {
+                    console.log('Experiments service not available (optional module):', error.message);
                     this.updateOptionalServiceStatus('experiment', 'offline', 'Offline');
                 }
             });
@@ -508,6 +542,7 @@ const DashboardManager = {
      * Update WebSocket sender status (WebSocket Service)
      */
     updateWebSocketSenderStatus: function() {
+        console.log('Updating WebSocket sender status...');
         
         AICameraUtils.apiRequest('/websocket-sender/status')
             .then(data => {
@@ -515,10 +550,12 @@ const DashboardManager = {
                     this.updateOptionalServiceStatus('websocket', 'online', 'Available');
                     this.updateServerConnectionStatus(data.status);
                 } else {
+                    console.log('WebSocket sender not available (optional module)');
                     this.updateOptionalServiceStatus('websocket', 'offline', 'Offline');
                 }
             })
             .catch(error => {
+                console.log('WebSocket sender not available (optional module):', error.message);
                 this.updateOptionalServiceStatus('websocket', 'offline', 'Offline');
             });
     },
@@ -527,6 +564,7 @@ const DashboardManager = {
      * Update WebSocket status for different components
      */
     updateWebSocketStatus: function(component, status) {
+        console.log(`updateWebSocketStatus called for ${component}:`, status);
         
         switch (component) {
             case 'sender':
@@ -549,6 +587,7 @@ const DashboardManager = {
                         connectionText.textContent = 'Disconnected';
                     }
                 } else {
+                    console.warn('Server connection status elements not found');
                 }
                 break;
                 
@@ -569,18 +608,22 @@ const DashboardManager = {
                         dataSendingText.textContent = 'Inactive';
                     }
                 } else {
+                    console.warn('Data sending status elements not found');
                 }
                 break;
                 
             case 'health':
                 // Health status is handled by updateHealthStatus function
+                console.log('Health status update handled by updateHealthStatus');
                 return;
                 
             case 'database':
                 // Database status is handled by main dashboard status cards
+                console.log('Database status update handled by main dashboard');
                 return;
                 
             default:
+                console.log('Unknown WebSocket component:', component);
                 return; // Skip unknown components
         }
         
@@ -589,6 +632,7 @@ const DashboardManager = {
             const logMessage = status.connected ? 
                 'WebSocket sender connected to server' : 
                 (status.offline_mode ? 'WebSocket sender in offline mode' : 'WebSocket sender disconnected from server');
+            AICameraUtils.addLogMessage('main-server-logs', logMessage, status.connected ? 'success' : 'warning');
         }
     },
 
@@ -598,12 +642,14 @@ const DashboardManager = {
     updateWebSocketCommunicationStatus: function() {
         // This function is now handled by updateServerConnectionStatus()
         // No need for separate websocket-communication-status element
+        console.log('WebSocket communication status update handled by server connection status');
     },
 
     /**
      * Update streaming status (DEPRECATED - handled by camera service)
      */
     updateStreamingStatus: function() {
+        console.log('updateStreamingStatus is deprecated - handled by camera service');
         // This function is deprecated - streaming status is now handled by camera service
     },
 
@@ -626,6 +672,7 @@ const DashboardManager = {
      * Update camera status display
      */
     updateCameraStatus: function(status) {
+        console.log('updateCameraStatus called with:', status);
         
         // Store the last camera status to prevent health status from overriding
         this.lastCameraStatus = status;
@@ -636,11 +683,15 @@ const DashboardManager = {
         if (status && status.streaming) {
             cameraOnline = true;
             statusText = 'Online';
+            AICameraUtils.addLogMessage('main-system-log', 'Camera is streaming', 'success');
         } else if (status && status.initialized) {
             statusText = 'Ready';
+            AICameraUtils.addLogMessage('main-system-log', 'Camera initialized but not streaming', 'info');
         } else if (status && status.error) {
             statusText = 'Error';
+            AICameraUtils.addLogMessage('main-system-log', `Camera error: ${status.error}`, 'warning');
         } else {
+            AICameraUtils.addLogMessage('main-system-log', 'Camera not available', 'warning');
         }
 
         AICameraUtils.updateStatusIndicator('main-camera-status', cameraOnline, statusText);
@@ -650,48 +701,67 @@ const DashboardManager = {
         const featureFpsElement = document.getElementById('feature-camera-fps');
         const featureModelElement = document.getElementById('feature-camera-model');
         
+        console.log('Found elements:', {
+            resolution: featureResolutionElement,
+            fps: featureFpsElement,
+            model: featureModelElement
+        });
+        
         // Get resolution from camera_handler.current_config.main.size or config
         let resolution = null;
+        
+        console.log('Camera handler config:', status?.camera_handler?.current_config);
         
         // Try to get from current_config first (most accurate)
         if (status && status.camera_handler && status.camera_handler.current_config && status.camera_handler.current_config.main && status.camera_handler.current_config.main.size) {
             const size = status.camera_handler.current_config.main.size;
             resolution = `${size[0]}x${size[1]}`;
+            console.log('Resolution from current_config:', resolution);
         }
         // Fallback to config object
         else if (status && status.config && status.config.resolution) {
             resolution = `${status.config.resolution[0]}x${status.config.resolution[1]}`;
+            console.log('Resolution from config:', resolution);
         }
         
         // Update feature section
         if (featureResolutionElement) {
             featureResolutionElement.textContent = resolution || 'Unknown';
+            console.log('Updated resolution element with:', resolution || 'Unknown');
         }
 
         // Get FPS from camera_handler.current_config.controls.FrameDurationLimits or config
         let fps = null;
         
+        console.log('Camera controls:', status?.camera_handler?.current_config?.controls);
+        
         // Try to get from current_config first (most accurate)
         if (status && status.camera_handler && status.camera_handler.current_config && status.camera_handler.current_config.controls && status.camera_handler.current_config.controls.FrameDurationLimits) {
             const frameDuration = status.camera_handler.current_config.controls.FrameDurationLimits[0];
             fps = `${Math.round(1000000 / frameDuration)} FPS`; // Convert microseconds to FPS
+            console.log('FPS from current_config:', fps);
         }
         // Fallback to config object
         else if (status && status.config && status.config.framerate) {
             fps = `${status.config.framerate} FPS`;
+            console.log('FPS from config:', fps);
         }
         
         // Update feature section
         if (featureFpsElement) {
             featureFpsElement.textContent = fps || 'Unknown';
+            console.log('Updated FPS element with:', fps || 'Unknown');
         }
 
         // Update camera model with fallback
         const cameraModel = (status && status.camera_handler && status.camera_handler.camera_properties && status.camera_handler.camera_properties.Model) || 'Unknown';
         
+        console.log('Camera model:', cameraModel);
+        
         // Update feature section
         if (featureModelElement) {
             featureModelElement.textContent = cameraModel;
+            console.log('Updated model element with:', cameraModel);
         }
 
 
@@ -729,7 +799,9 @@ const DashboardManager = {
         
         // Add log message for detection status
         if (detectionActive) {
+            AICameraUtils.addLogMessage('main-system-log', 'AI Detection service is running', 'success');
         } else {
+            AICameraUtils.addLogMessage('main-system-log', 'AI Detection service is stopped', 'info');
         }
     },
 
@@ -737,8 +809,10 @@ const DashboardManager = {
      * Update health status display
      */
     updateHealthStatus: function(data) {
+        console.log('updateHealthStatus called with:', data);
         
         if (!data || !data.data) {
+            console.warn('Invalid health data received');
             return;
         }
         
@@ -840,8 +914,9 @@ const DashboardManager = {
         }
         
         // Add health status log
+        AICameraUtils.addLogMessage('main-system-log', 
             `Health check completed: ${healthData.overall_status}`, 
-            healthData.overall_status === 'healthy' ? 'success' : 'warning';
+            healthData.overall_status === 'healthy' ? 'success' : 'warning');
     },
 
     /**
@@ -896,8 +971,10 @@ const DashboardManager = {
      * Update system information display
      */
     updateSystemInfo: function(data) {
+        console.log('Updating system info with data:', data);
         
         if (!data || !data.success) {
+            console.warn('Invalid system info data received');
             return;
         }
         
@@ -1010,6 +1087,7 @@ const DashboardManager = {
                 }
             })
             .catch(error => {
+                console.warn('WebSocket sender status not available:', error.message);
                 this.updateServerConnectionDisplay(null);
             });
 
@@ -1021,6 +1099,7 @@ const DashboardManager = {
                 }
             })
             .catch(error => {
+                console.warn('WebSocket sender logs not available:', error.message);
             });
     },
 
@@ -1097,6 +1176,7 @@ const DashboardManager = {
                 }
             })
             .catch(error => {
+                console.log('WebSocket sender logs not available (optional module)');
                 // Show message that logs are not available
                 const logsContainer = document.getElementById('main-server-logs');
                 if (logsContainer) {
@@ -1111,6 +1191,7 @@ const DashboardManager = {
     updateServerLogs: function(logs) {
         const logsContainer = document.getElementById('main-server-logs');
         if (!logsContainer) {
+            console.warn('Server logs container not found');
             return;
         }
 
@@ -1176,6 +1257,7 @@ function handleQuickAction(action) {
             window.location.href = '/detection';
             break;
         default:
+            console.warn('Unknown quick action:', action);
     }
 }
 
@@ -1193,11 +1275,13 @@ function captureImage() {
     AICameraUtils.apiRequest('/camera/capture', { method: 'POST' })
         .then(data => {
             if (data.success) {
+                AICameraUtils.showToast('Image captured successfully!', 'success');
             } else {
                 throw new Error(data.error || 'Capture failed');
             }
         })
         .catch(error => {
+            AICameraUtils.showToast(`Capture failed: ${error.message}`, 'error');
         })
         .finally(() => {
             // Restore button state
@@ -1208,6 +1292,7 @@ function captureImage() {
 
 // Initialize dashboard when DOM is ready
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('Dashboard JavaScript: DOM loaded, initializing...');
     
     DashboardManager.init();
     
@@ -1216,4 +1301,5 @@ document.addEventListener('DOMContentLoaded', function() {
         DashboardManager.cleanup();
     });
     
+    console.log('Dashboard JavaScript: Initialization complete');
 });

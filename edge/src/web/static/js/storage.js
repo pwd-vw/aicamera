@@ -22,6 +22,7 @@ const StorageManager = {
         this.initializeWebSocket();
         this.setupEventHandlers();
         this.loadInitialStatus();
+        console.log('StorageManager initialized');
     },
 
     /**
@@ -29,20 +30,28 @@ const StorageManager = {
      */
     initializeWebSocket: function() {
         if (typeof io === 'undefined') {
+            console.warn('Socket.IO not available');
             return;
         }
         
+        console.log('Initializing WebSocket connection to main namespace');
         this.socket = io();  // Use main namespace instead of /storage
         this.setupSocketHandlers();
         
         // Test connection
         this.socket.on('connect', () => {
+            console.log('Storage WebSocket connected successfully');
+            AICameraUtils.showToast('Storage service connected', 'success');
         });
         
         this.socket.on('disconnect', () => {
+            console.log('Storage WebSocket disconnected');
+            AICameraUtils.showToast('Storage service disconnected', 'warning');
         });
         
         this.socket.on('connect_error', (error) => {
+            console.error('Storage WebSocket connection error:', error);
+            AICameraUtils.showToast('Storage service connection failed', 'error');
         });
     },
 
@@ -53,6 +62,8 @@ const StorageManager = {
         if (!this.socket) return;
 
         this.socket.on('connect', () => {
+            console.log('Connected to storage service');
+            AICameraUtils.addLogMessage('alerts-container', 'Connected to storage service', 'success');
         });
 
         this.socket.on('storage_status_response', (data) => {
@@ -80,9 +91,11 @@ const StorageManager = {
         });
 
         this.socket.on('storage_room_joined', (data) => {
+            console.log('Joined storage monitoring room');
         });
 
         this.socket.on('storage_room_left', (data) => {
+            console.log('Left storage monitoring room');
         });
     },
 
@@ -144,6 +157,7 @@ const StorageManager = {
      * Load initial storage status
      */
     loadInitialStatus: function() {
+        console.log('Loading initial storage status...');
         
         // Add loading indicators
         this.showLoadingIndicators();
@@ -184,12 +198,15 @@ const StorageManager = {
         
         this.requestStorageStatus()
             .catch(error => {
+                console.error(`Storage status request failed (attempt ${retryCount + 1}):`, error);
                 
                 if (retryCount < maxRetries) {
+                    console.log(`Retrying in 2 seconds... (${retryCount + 1}/${maxRetries})`);
                     setTimeout(() => {
                         this.requestStorageStatusWithRetry(retryCount + 1);
                     }, 2000);
                 } else {
+                    console.error('Max retries reached, showing error state');
                     this.showErrorState();
                 }
             });
@@ -218,6 +235,7 @@ const StorageManager = {
             }
         });
         
+        AICameraUtils.showToast('Failed to load storage status', 'error');
     },
 
     /**
@@ -265,6 +283,8 @@ const StorageManager = {
                 return data;
             })
             .catch(error => {
+                console.error('Failed to load storage status:', error);
+                AICameraUtils.addLogMessage('alerts-container', 'Failed to load storage status: ' + error.message, 'error');
                 throw error;
             });
     },
@@ -273,14 +293,18 @@ const StorageManager = {
      * Update storage status display
      */
     updateStorageStatus: function(data) {
+        console.log('Updating storage status with data:', data);
         
         if (!data || !data.success) {
+            console.warn('Invalid storage status data:', data);
+            AICameraUtils.showToast('Failed to load storage status: ' + (data?.error || 'Unknown error'), 'error');
             return;
         }
 
         this.currentStatus = data.data;
         const status = data.data;
         
+        console.log('Processing status data:', status);
 
         // Update disk usage
         this.updateDiskUsage(status.disk_usage);
@@ -308,8 +332,10 @@ const StorageManager = {
      * Update disk usage display
      */
     updateDiskUsage: function(diskUsage) {
+        console.log('Updating disk usage with:', diskUsage);
         
         if (!diskUsage) {
+            console.warn('No disk usage data provided');
             return;
         }
 
@@ -318,6 +344,7 @@ const StorageManager = {
         const freeSpaceElement = document.getElementById('free-space-gb');
         
         if (!progressBar || !usageText || !freeSpaceElement) {
+            console.warn('Required disk usage elements not found');
             return;
         }
 
@@ -349,8 +376,10 @@ const StorageManager = {
      * Update file counts display
      */
     updateFileCounts: function(fileCounts) {
+        console.log('Updating file counts with:', fileCounts);
         
         if (!fileCounts) {
+            console.warn('No file counts data provided');
             return;
         }
 
@@ -359,6 +388,7 @@ const StorageManager = {
         const totalFilesElement = document.getElementById('total-files');
         
         if (!sentFilesElement || !unsentFilesElement || !totalFilesElement) {
+            console.warn('Required file count elements not found');
             return;
         }
 
@@ -437,8 +467,10 @@ const StorageManager = {
      * Update monitoring status display
      */
     updateMonitoringStatus: function(status) {
+        console.log('Updating monitoring status with:', status);
         
         if (!status) {
+            console.warn('No monitoring status provided');
             return;
         }
 
@@ -447,21 +479,25 @@ const StorageManager = {
         const toggleBtn = document.getElementById('toggle-monitoring-btn');
 
         this.isMonitoring = status.running || false;
+        console.log('Monitoring status:', this.isMonitoring);
 
         if (monitoringStatus) {
             const statusDot = monitoringStatus.querySelector('.status-dot');
             if (statusDot) {
                 statusDot.className = this.isMonitoring ? 'status-dot status-online' : 'status-dot status-offline';
+                console.log('Updated status dot class:', statusDot.className);
             }
         }
 
         if (monitoringText) {
             monitoringText.textContent = this.isMonitoring ? 'Running' : 'Stopped';
+            console.log('Updated monitoring text:', monitoringText.textContent);
         }
 
         if (toggleBtn) {
             toggleBtn.textContent = this.isMonitoring ? 'Stop Monitoring' : 'Start Monitoring';
             toggleBtn.className = this.isMonitoring ? 'btn btn-sm btn-outline-danger mt-2' : 'btn btn-sm btn-outline-primary mt-2';
+            console.log('Updated toggle button:', toggleBtn.textContent);
         }
     },
 
@@ -547,6 +583,8 @@ const StorageManager = {
                 this.handleMonitorResponse(data);
             })
             .catch(error => {
+                console.error('Failed to start monitoring:', error);
+                AICameraUtils.showToast('Failed to start monitoring: ' + error.message, 'error');
             });
         }
     },
@@ -565,6 +603,8 @@ const StorageManager = {
                 this.handleMonitorResponse(data);
             })
             .catch(error => {
+                console.error('Failed to stop monitoring:', error);
+                AICameraUtils.showToast('Failed to stop monitoring: ' + error.message, 'error');
             });
         }
     },
@@ -589,6 +629,8 @@ const StorageManager = {
                 this.handleCleanupResponse(data);
             })
             .catch(error => {
+                console.error('Failed to perform cleanup:', error);
+                AICameraUtils.showToast('Failed to perform cleanup: ' + error.message, 'error');
                 this.resetCleanupButton();
             });
         }
@@ -610,6 +652,7 @@ const StorageManager = {
      */
     refreshStatus: function() {
         this.requestStorageStatus();
+        AICameraUtils.showToast('Storage status refreshed', 'info');
     },
 
     /**
@@ -624,6 +667,8 @@ const StorageManager = {
                     this.updateAnalytics(data);
                 })
                 .catch(error => {
+                    console.error('Failed to get analytics:', error);
+                    AICameraUtils.showToast('Failed to get analytics: ' + error.message, 'error');
                 });
         }
     },
@@ -633,13 +678,16 @@ const StorageManager = {
      */
     updateAnalytics: function(data) {
         if (!data || !data.success) {
+            console.warn('Invalid analytics data:', data);
             return;
         }
 
         // Update analytics display
         const analytics = data.data;
+        console.log('Storage analytics:', analytics);
         
         // You can add more analytics display logic here
+        AICameraUtils.showToast('Analytics updated', 'success');
     },
 
     /**
@@ -664,6 +712,8 @@ const StorageManager = {
                 this.handleConfigResponse(data);
             })
             .catch(error => {
+                console.error('Failed to update configuration:', error);
+                AICameraUtils.showToast('Failed to update configuration: ' + error.message, 'error');
             });
         }
     },
@@ -680,6 +730,7 @@ const StorageManager = {
                     this.updateAlerts(data);
                 })
                 .catch(error => {
+                    console.error('Failed to get alerts:', error);
                 });
         }
     },
@@ -689,6 +740,7 @@ const StorageManager = {
      */
     updateAlerts: function(data) {
         if (!data || !data.success) {
+            console.warn('Invalid alerts data:', data);
             return;
         }
 
@@ -731,6 +783,8 @@ const StorageManager = {
                 this.updateAlerts(data);
             })
             .catch(error => {
+                console.error('Failed to clear alerts:', error);
+                AICameraUtils.showToast('Failed to clear alerts: ' + error.message, 'error');
             });
         }
     },
@@ -742,8 +796,10 @@ const StorageManager = {
         this.resetCleanupButton();
         
         if (data && data.success) {
+            AICameraUtils.showToast(data.message || 'Cleanup completed successfully', 'success');
             this.requestStorageStatus(); // Refresh status
         } else {
+            AICameraUtils.showToast(data?.error || 'Cleanup failed', 'error');
         }
     },
 
@@ -752,7 +808,9 @@ const StorageManager = {
      */
     handleConfigResponse: function(data) {
         if (data && data.success) {
+            AICameraUtils.showToast(data.message || 'Configuration updated successfully', 'success');
         } else {
+            AICameraUtils.showToast(data?.error || 'Configuration update failed', 'error');
         }
     },
 
@@ -761,8 +819,10 @@ const StorageManager = {
      */
     handleMonitorResponse: function(data) {
         if (data && data.success) {
+            AICameraUtils.showToast(data.message || 'Monitoring operation completed', 'success');
             this.requestStorageStatus(); // Refresh status
         } else {
+            AICameraUtils.showToast(data?.error || 'Monitoring operation failed', 'error');
         }
     },
 
@@ -788,4 +848,5 @@ document.addEventListener('DOMContentLoaded', function() {
         StorageManager.cleanup();
     });
     
+    console.log('Storage JavaScript loaded');
 });

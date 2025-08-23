@@ -8,6 +8,11 @@
  * @since 2025-08-23
  */
 
+// Force cache refresh for development
+console.log('AI Camera Dashboard JavaScript loaded - Cache busted at:', new Date().toISOString());
+
+
+
 // Camera dashboard state management
 const CameraManager = {
     socket: null,
@@ -23,6 +28,8 @@ const CameraManager = {
      * Initialize Camera Manager
      */
     init: function() {
+        console.log('Initializing Camera Manager (cached data mode)...');
+        
         // Initialize cached data storage
         this.cachedStatus = null;
         this.cachedConfig = null;
@@ -39,6 +46,8 @@ const CameraManager = {
         
         // Load metadata once when dashboard loads
         this.loadMetadataOnce();
+        
+        console.log('Camera Manager initialized successfully (cached data mode)');
     },
 
     /**
@@ -46,6 +55,8 @@ const CameraManager = {
      */
     initializeWebSocket: function() {
         if (typeof io === 'undefined') {
+            console.log('Socket.IO not available, using HTTP API only');
+            AICameraUtils.addLogMessage('log-container', 'Socket.IO not available, using HTTP API', 'info');
             return;
         }
 
@@ -57,8 +68,10 @@ const CameraManager = {
                 reconnectionDelay: 2000
             });
             this.setupSocketHandlers();
+            console.log('WebSocket connection initialized');
         } catch (error) {
-            // Silent error handling
+            console.error('Error initializing WebSocket:', error);
+            AICameraUtils.addLogMessage('log-container', `WebSocket error: ${error.message}`, 'warning');
         }
     },
 
@@ -69,36 +82,46 @@ const CameraManager = {
         if (!this.socket) return;
 
         this.socket.on('connect', () => {
+            console.log('✅ Connected to camera service');
+            AICameraUtils.addLogMessage('log-container', 'Connected to camera service', 'success');
             // Request initial status
             this.socket.emit('camera_status_request');
         });
 
         this.socket.on('disconnect', () => {
-            // Silent disconnect handling
+            console.log('❌ Disconnected from camera service');
+            AICameraUtils.addLogMessage('log-container', 'Disconnected from camera service', 'warning');
         });
 
         this.socket.on('connect_error', (error) => {
-            // Silent error handling
+            console.log('WebSocket connection error:', error.message);
+            AICameraUtils.addLogMessage('log-container', 'WebSocket connection failed, using cached data', 'warning');
         });
 
         this.socket.on('camera_status_update', (data) => {
+            console.log('📡 Received camera_status_update:', data);
             if (data && data.success && data.status) {
+                console.log('✅ Status data received:', data.status);
                 this.cachedStatus = data.status; // Cache status
                 this.updateCameraStatus(data.status);
                 if (data.config) {
+                    console.log('✅ Config data received:', data.config);
                     this.cachedConfig = data.config; // Cache config
                     this.updateConfigForm(data.config);
                 }
             } else {
-                // Silent error handling
+                console.error('❌ Invalid status data received:', data);
+                AICameraUtils.addLogMessage('log-container', 'Invalid status data received', 'error');
             }
         });
 
         this.socket.on('camera_control_response', (response) => {
+            console.log('📡 Received camera_control_response:', response);
             this.handleControlResponse(response);
         });
 
         this.socket.on('camera_config_response', (response) => {
+            console.log('📡 Received camera_config_response:', response);
             this.handleConfigResponse(response);
         });
     },
@@ -176,10 +199,12 @@ const CameraManager = {
      */
     sendCommand: function(command) {
         if (!this.socket || !this.socket.connected) {
+            AICameraUtils.showToast('Not connected to camera service', 'warning');
             return;
         }
 
         this.socket.emit('camera_control', { command: command });
+        AICameraUtils.addLogMessage('log-container', `Sending ${command} command...`, 'info');
     },
 
     /**
@@ -190,7 +215,14 @@ const CameraManager = {
             (response.message || 'Command executed successfully') :
             (response.error || response.message || 'Command failed');
         
-        // Silent error handling
+        AICameraUtils.addLogMessage('log-container', `Camera control: ${message}`, 
+            response.success ? 'success' : 'error');
+        
+        if (response.success) {
+            AICameraUtils.showToast(message, 'success');
+        } else {
+            AICameraUtils.showToast(message, 'error');
+        }
     },
 
     /**
@@ -201,13 +233,18 @@ const CameraManager = {
             (response.message || 'Configuration updated successfully') :
             (response.error || 'Configuration update failed');
         
-        // Silent error handling
+        AICameraUtils.addLogMessage('log-container', `Configuration: ${message}`, 
+            response.success ? 'success' : 'error');
+        
+        AICameraUtils.showToast(message, response.success ? 'success' : 'error');
     },
 
     /**
      * Update camera status display
      */
     updateCameraStatus: function(status) {
+        console.log('Updating camera status:', status);
+
         // Update status indicator
         let statusClass = 'status-offline';
         let statusText = 'Offline';
@@ -225,14 +262,16 @@ const CameraManager = {
         
         if (statusIndicator) {
             statusIndicator.className = `status-indicator ${statusClass}`;
+            console.log('Status indicator updated:', statusClass);
         } else {
-            // Silent warning
+            console.warn('Status indicator element not found: camera-status-main');
         }
         
         if (statusTextElement) {
             statusTextElement.textContent = statusText;
+            console.log('Status text updated:', statusText);
         } else {
-            // Silent warning
+            console.warn('Status text element not found: camera-status-text-main');
         }
 
         // Update video status based on camera status
@@ -256,7 +295,7 @@ const CameraManager = {
     updateStatusContent: function(status) {
         const statusContent = document.getElementById('status-content');
         if (!statusContent) {
-            // Silent warning
+            console.warn('Status content element not found');
             return;
         }
 
@@ -265,6 +304,13 @@ const CameraManager = {
         const cameraProps = status.camera_handler?.camera_properties || {};
         const currentConfig = status.config || {};
         const mainConfig = currentConfig.main || {};
+        
+        console.log('Status update variables:', {
+            metadata: metadata,
+            cameraProps: cameraProps,
+            currentConfig: currentConfig,
+            mainConfig: mainConfig
+        });
         
         // Get resolution from metadata
         let resolution = 'Unknown';
@@ -290,6 +336,13 @@ const CameraManager = {
         } else if (status.config && status.config.framerate) {
             framerate = `${status.config.framerate} FPS`;
         }
+
+        console.log('Calculated values:', {
+            resolution: resolution,
+            sensorModel: sensorModel,
+            framerate: framerate,
+            uptime: status.uptime
+        });
 
         // Compact status display
         const statusHtml = `
@@ -326,6 +379,7 @@ const CameraManager = {
         `;
         
         statusContent.innerHTML = statusHtml;
+        console.log('Status content updated successfully');
     },
 
     /**
@@ -399,6 +453,7 @@ const CameraManager = {
         e.preventDefault();
         
         if (!this.socket || !this.socket.connected) {
+            AICameraUtils.showToast('Not connected to camera service', 'warning');
             return;
         }
 
@@ -420,6 +475,7 @@ const CameraManager = {
         }
         
         this.socket.emit('camera_config_update', { config: config });
+        AICameraUtils.addLogMessage('log-container', 'Updating camera configuration...', 'info');
     },
 
     /**
@@ -429,12 +485,16 @@ const CameraManager = {
         const videoFeed = document.getElementById('video-feed');
         if (!videoFeed) return;
         
+        console.log('Refreshing video feed...');
+        
         // Simple refresh without cache buster to avoid conflicts
         const currentSrc = videoFeed.src;
         videoFeed.src = '';
         setTimeout(() => {
             videoFeed.src = currentSrc;
         }, 100);
+        
+        AICameraUtils.addLogMessage('log-container', 'Video feed refreshed', 'info');
     },
 
     /**
@@ -444,10 +504,16 @@ const CameraManager = {
         const videoFeed = document.getElementById('video-feed');
         if (!videoFeed) return;
         
-        // Check if video feed is loading properly
+        console.log('Checking video feed status...');
+        console.log('Video feed src:', videoFeed.src);
+        console.log('Video feed naturalWidth:', videoFeed.naturalWidth);
+        console.log('Video feed naturalHeight:', videoFeed.naturalHeight);
+        
         if (videoFeed.complete && videoFeed.naturalWidth > 0) {
+            console.log('Video feed appears to be working');
             this.updateVideoStatus('online', 'Video feed active');
         } else {
+            console.log('Video feed not working properly');
             this.updateVideoStatus('offline', 'Video feed not available');
         }
     },
@@ -457,8 +523,12 @@ const CameraManager = {
      * Test video feed functionality
      */
     testVideoFeed: function() {
+        console.log('Testing video feed...');
+        AICameraUtils.addLogMessage('log-container', 'Testing video feed...', 'info');
+        
         AICameraUtils.apiRequest('/camera/video_test')
             .then(data => {
+                console.log('Video test response:', data);
                 if (data && data.success) {
                     const results = data.video_test_results;
                     const message = `Video Test Results:
@@ -468,10 +538,17 @@ const CameraManager = {
                         Frame Shape: ${results.frame_shape || 'N/A'}
                         Frame Error: ${results.frame_error || 'None'}`;
                     
+                    AICameraUtils.addLogMessage('log-container', message, 'success');
+                    AICameraUtils.showToast('Video test completed - check logs', 'success');
                 } else {
+                    AICameraUtils.addLogMessage('log-container', 'Video test failed', 'error');
+                    AICameraUtils.showToast('Video test failed', 'error');
                 }
             })
             .catch(error => {
+                console.error('Video test error:', error);
+                AICameraUtils.addLogMessage('log-container', `Video test error: ${error.message}`, 'error');
+                AICameraUtils.showToast('Video test error', 'error');
             });
     },
     
@@ -543,25 +620,33 @@ const CameraManager = {
      */
     loadMetadataOnce: function() {
         if (this.metadataLoaded) {
+            console.log('Metadata already loaded, skipping...');
             return;
         }
+        
+        console.log('Loading camera metadata once...');
+        AICameraUtils.addLogMessage('log-container', 'Loading camera metadata...', 'info');
         
         // Load metadata from debug endpoint
         AICameraUtils.apiRequest('/camera/debug_metadata')
             .then(data => {
                 if (data && data.success) {
+                    console.log('Metadata loaded successfully:', data.metadata);
                     this.cachedMetadata = data.metadata;
                     this.metadataLoaded = true;
                     
                     // Update metadata display
                     this.updateMetadataDisplay(data.metadata);
                     
+                    AICameraUtils.addLogMessage('log-container', 'Camera metadata loaded successfully', 'success');
                 } else {
-                    // Silent error handling
+                    console.error('Failed to load metadata:', data);
+                    AICameraUtils.addLogMessage('log-container', 'Failed to load metadata', 'error');
                 }
             })
             .catch(error => {
-                // Silent error handling
+                console.error('Metadata load error:', error);
+                AICameraUtils.addLogMessage('log-container', `Metadata load error: ${error.message}`, 'error');
             });
     },
 
@@ -623,7 +708,7 @@ const CameraManager = {
                 }
             }
         } catch (error) {
-            // Silent error handling
+            console.error('Error updating metadata display:', error);
         }
     },
 
@@ -635,14 +720,18 @@ const CameraManager = {
         const videoStatus = document.getElementById('video-status');
         
         if (videoFeed) {
+            console.log('Setting up video feed event handlers');
+            
             // Improved error handling with timeout
             let errorCount = 0;
             const maxErrors = 3;
             
             videoFeed.addEventListener('error', (e) => {
                 errorCount++;
+                console.warn(`Video feed error #${errorCount}:`, e);
                 
                 if (errorCount <= maxErrors) {
+                    AICameraUtils.addLogMessage('log-container', `Video feed error #${errorCount} - retrying...`, 'warning');
                     this.updateVideoStatus('error', `Video feed error #${errorCount} - retrying...`);
                     
                     // Retry after a delay
@@ -650,25 +739,32 @@ const CameraManager = {
                         this.refreshVideoFeed();
                     }, 2000);
                 } else {
-                    // Silent error handling
+                    console.error('Video feed error limit reached, camera may be offline');
+                    AICameraUtils.addLogMessage('log-container', 'Video feed error limit reached - camera may be offline', 'error');
+                    this.updateVideoStatus('error', 'Camera may be offline');
                 }
             });
 
             videoFeed.addEventListener('load', () => {
+                console.log('Video feed loaded successfully');
                 errorCount = 0; // Reset error count on successful load
+                AICameraUtils.addLogMessage('log-container', 'Video feed loaded successfully', 'success');
                 this.updateVideoStatus('hidden', '');
             });
             
             videoFeed.addEventListener('loadstart', () => {
+                console.log('Video feed loading started');
                 this.updateVideoStatus('loading', 'Loading video feed...');
             });
             
             videoFeed.addEventListener('abort', () => {
-                // Silent warning
+                console.warn('Video feed loading aborted');
+                AICameraUtils.addLogMessage('log-container', 'Video feed loading aborted', 'warning');
             });
             
             videoFeed.addEventListener('stalled', () => {
-                // Silent warning
+                console.warn('Video feed stalled');
+                AICameraUtils.addLogMessage('log-container', 'Video feed stalled - retrying...', 'warning');
                 setTimeout(() => {
                     this.refreshVideoFeed();
                 }, 1000);
@@ -679,15 +775,20 @@ const CameraManager = {
                 this.updateVideoFeedStatus(); // Use cached status
             }, 5000); // Increased delay to 5 seconds
         } else {
-            // Silent error handling
+            console.error('Video feed element not found');
         }
     },
 };
 
 // Initialize camera manager when DOM is ready
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded, initializing Camera Manager...');
+    
+    // Initial log message
+    AICameraUtils.addLogMessage('log-container', 'Camera dashboard loaded', 'info');
     
     // Initialize camera manager
     CameraManager.init();
     
+    console.log('Camera Dashboard JavaScript loaded');
 });
