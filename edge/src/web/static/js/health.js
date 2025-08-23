@@ -84,8 +84,6 @@ const HealthUtils = {
      * Show notification toast
      */
     showNotification: function(message, type = 'info') {
-        if (typeof AICameraUtils !== 'undefined' && AICameraUtils.showToast) {
-            AICameraUtils.showToast(message, type);
         } else {
             // Fallback notification
             this.showFallbackNotification(message, type);
@@ -474,8 +472,6 @@ document.addEventListener('DOMContentLoaded', function() {
         - Ctrl/Cmd + H: Run health check
     `;
     
-    console.log('Health Dashboard JavaScript loaded');
-    console.log(helpText);
 });
 
 // Export utilities for global access
