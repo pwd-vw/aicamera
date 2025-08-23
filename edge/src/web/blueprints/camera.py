@@ -319,10 +319,23 @@ def camera_health():
 def generate_frames():
     """
     Generate video frames for streaming using camera manager data.
+    Implements comprehensive error handling with retry mechanisms and graceful degradation.
     
     Yields:
         bytes: Frame data in multipart format
     """
+    # Error handling configuration
+    MAX_RETRY_ATTEMPTS = 3
+    RETRY_DELAY = 1.0  # seconds
+    ERROR_FRAME_INTERVAL = 2.0  # seconds between error frames
+    HEALTH_CHECK_INTERVAL = 30  # seconds between health checks
+    
+    retry_count = 0
+    last_error_time = 0
+    last_health_check = 0
+    consecutive_errors = 0
+    frame_count = 0
+    
     try:
         camera_manager = get_service('camera_manager')
         if not camera_manager:
@@ -330,16 +343,13 @@ def generate_frames():
             yield _generate_error_placeholder("Camera manager not available")
             return
         
-        # Get status from camera manager
+        # Initial health check
         manager_status = camera_manager.get_status()
-        
-        # Check if camera manager reports camera as available
         if not manager_status.get('initialized', False):
             logger.warning("Camera not initialized according to manager")
             yield _generate_error_placeholder("Camera not initialized")
             return
         
-        # Check if camera is streaming according to manager
         if not manager_status.get('streaming', False):
             logger.warning("Camera not streaming according to manager")
             yield _generate_error_placeholder("Camera not streaming")
@@ -347,68 +357,148 @@ def generate_frames():
         
         logger.info("Starting video stream generation using camera manager")
         
-        frame_count = 0
         while True:
             try:
-                # Get lores frame from camera manager (optimized for web streaming)
-                logger.debug(f"Attempting to capture lores frame {frame_count + 1}")
+                current_time = time.time()
+                
+                # Periodic health check
+                if current_time - last_health_check > HEALTH_CHECK_INTERVAL:
+                    try:
+                        manager_status = camera_manager.get_status()
+                        if not manager_status.get('initialized', False):
+                            logger.warning("Camera lost initialization during streaming")
+                            yield _generate_error_placeholder("Camera lost initialization")
+                            time.sleep(RETRY_DELAY)
+                            continue
+                        
+                        if not manager_status.get('streaming', False):
+                            logger.warning("Camera stopped streaming during operation")
+                            yield _generate_error_placeholder("Camera stopped streaming")
+                            time.sleep(RETRY_DELAY)
+                            continue
+                        
+                        last_health_check = current_time
+                        consecutive_errors = 0  # Reset error counter on successful health check
+                        
+                    except Exception as health_error:
+                        logger.error(f"Health check failed: {health_error}")
+                        consecutive_errors += 1
+                
+                # Get lores frame from camera manager
                 frame_data = camera_manager.capture_lores_frame()
                 
                 if frame_data is None:
-                    logger.warning("No lores frame data from camera manager")
-                    yield _generate_error_placeholder("No lores frame data")
-                    time.sleep(0.1)
+                    consecutive_errors += 1
+                    if consecutive_errors > MAX_RETRY_ATTEMPTS:
+                        logger.error(f"Too many consecutive errors ({consecutive_errors}), sending error frame")
+                        yield _generate_error_placeholder("Camera temporarily unavailable")
+                        time.sleep(ERROR_FRAME_INTERVAL)
+                    else:
+                        logger.warning(f"No lores frame data (attempt {consecutive_errors}/{MAX_RETRY_ATTEMPTS})")
+                        yield _generate_error_placeholder("No frame data available")
+                        time.sleep(RETRY_DELAY)
                     continue
                 
-                # Debug: Log frame data type and structure
-                logger.debug(f"Lores frame data type: {type(frame_data)}")
-                if isinstance(frame_data, dict):
-                    logger.debug(f"Lores frame data keys: {list(frame_data.keys())}")
-                
-                # Handle different frame data formats
+                # Handle different frame data formats with validation
+                frame = None
                 if isinstance(frame_data, dict) and 'frame' in frame_data:
                     frame = frame_data['frame']
-                    logger.debug(f"Extracted lores frame from dict, shape: {frame.shape if hasattr(frame, 'shape') else 'No shape'}")
                 elif isinstance(frame_data, np.ndarray):
                     frame = frame_data
-                    logger.debug(f"Lores frame is numpy array, shape: {frame.shape}")
                 else:
-                    logger.warning(f"Unexpected lores frame data format: {type(frame_data)}")
-                    yield _generate_error_placeholder("Invalid lores frame format")
-                    time.sleep(0.1)
+                    consecutive_errors += 1
+                    logger.warning(f"Invalid frame data format: {type(frame_data)}")
+                    yield _generate_error_placeholder("Invalid frame format")
+                    time.sleep(RETRY_DELAY)
                     continue
                 
-                if frame is not None and frame.size > 0:
-                    logger.debug(f"Encoding lores frame {frame_count + 1} with shape {frame.shape}")
-                    ret, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
-                    if ret:
-                        frame_bytes = buffer.tobytes()
-                        logger.debug(f"Successfully encoded lores frame {frame_count + 1}, size: {len(frame_bytes)} bytes")
-                        yield (b'--frame\r\n'
-                               b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
-                        frame_count += 1
-                        
-                        # Log success every 100 frames
-                        if frame_count % 100 == 0:
-                            logger.info(f"Successfully generated {frame_count} lores frames")
-                    else:
-                        logger.warning("Failed to encode lores frame")
-                        yield _generate_error_placeholder("Lores frame encoding failed")
-                else:
-                    logger.warning("Empty lores frame received")
-                    yield _generate_error_placeholder("Empty lores frame")
+                # Validate frame data
+                if frame is None or not isinstance(frame, np.ndarray):
+                    consecutive_errors += 1
+                    logger.warning("Frame is None or not a numpy array")
+                    yield _generate_error_placeholder("Invalid frame data")
+                    time.sleep(RETRY_DELAY)
+                    continue
                 
-                # Sleep to control frame rate
+                if frame.size == 0 or len(frame.shape) != 3:
+                    consecutive_errors += 1
+                    logger.warning(f"Invalid frame shape: {frame.shape}")
+                    yield _generate_error_placeholder("Invalid frame dimensions")
+                    time.sleep(RETRY_DELAY)
+                    continue
+                
+                # Encode frame with error handling
+                try:
+                    ret, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
+                    if not ret or buffer is None:
+                        consecutive_errors += 1
+                        logger.warning("Frame encoding failed")
+                        yield _generate_error_placeholder("Frame encoding failed")
+                        time.sleep(RETRY_DELAY)
+                        continue
+                    
+                    frame_bytes = buffer.tobytes()
+                    if len(frame_bytes) == 0:
+                        consecutive_errors += 1
+                        logger.warning("Encoded frame is empty")
+                        yield _generate_error_placeholder("Empty encoded frame")
+                        time.sleep(RETRY_DELAY)
+                        continue
+                    
+                    # Success - reset error counters
+                    consecutive_errors = 0
+                    retry_count = 0
+                    frame_count += 1
+                    
+                    # Log progress every 100 frames
+                    if frame_count % 100 == 0:
+                        logger.info(f"Successfully generated {frame_count} frames")
+                    
+                    yield (b'--frame\r\n'
+                           b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+                    
+                except Exception as encode_error:
+                    consecutive_errors += 1
+                    logger.error(f"Frame encoding error: {encode_error}")
+                    yield _generate_error_placeholder("Frame encoding error")
+                    time.sleep(RETRY_DELAY)
+                    continue
+                
+                # Control frame rate
                 time.sleep(0.1)  # 10 FPS
                 
-            except Exception as e:
-                logger.error(f"Error generating lores frame: {e}")
-                yield _generate_error_placeholder(f"Lores frame generation error: {str(e)}")
-                time.sleep(1)  # Wait before retrying
+            except Exception as frame_error:
+                consecutive_errors += 1
+                current_time = time.time()
                 
-    except Exception as e:
-        logger.error(f"Error in generate_frames: {e}")
-        yield _generate_error_placeholder(f"Streaming error: {str(e)}")
+                # Rate limit error logging
+                if current_time - last_error_time > 5.0:  # Log errors at most every 5 seconds
+                    logger.error(f"Error generating frame: {frame_error}")
+                    last_error_time = current_time
+                
+                # Handle different types of errors
+                if "camera" in str(frame_error).lower():
+                    error_message = "Camera hardware error"
+                elif "memory" in str(frame_error).lower():
+                    error_message = "Memory allocation error"
+                elif "timeout" in str(frame_error).lower():
+                    error_message = "Camera timeout"
+                else:
+                    error_message = "Frame generation error"
+                
+                yield _generate_error_placeholder(error_message)
+                
+                # Adaptive retry delay based on error frequency
+                if consecutive_errors > MAX_RETRY_ATTEMPTS:
+                    time.sleep(ERROR_FRAME_INTERVAL)
+                else:
+                    time.sleep(RETRY_DELAY)
+                
+    except Exception as stream_error:
+        logger.error(f"Critical error in generate_frames: {stream_error}")
+        yield _generate_error_placeholder("Critical streaming error")
+    finally:
+        logger.info("Video stream generation ended")
 
 
 def _generate_status_frame(manager_status, frame_count):
@@ -470,7 +560,7 @@ def _generate_status_frame(manager_status, frame_count):
 
 def _generate_error_placeholder(message):
     """
-    Generate a placeholder image for error states.
+    Generate a placeholder image for error states with improved visual feedback.
     
     Args:
         message (str): Error message to display
@@ -482,34 +572,63 @@ def _generate_error_placeholder(message):
         # Create a simple error placeholder image
         import numpy as np
         
-        # Create a 640x480 black image with white text
+        # Create a 640x480 image with gradient background
         img = np.zeros((480, 640, 3), dtype=np.uint8)
+        
+        # Create gradient background (dark to lighter)
+        for y in range(480):
+            intensity = int(20 + (y / 480) * 40)  # 20 to 60
+            img[y, :] = (intensity, intensity, intensity)
         
         # Add text to the image
         font = cv2.FONT_HERSHEY_SIMPLEX
-        font_scale = 1
+        font_scale = 0.8
         color = (255, 255, 255)  # White text
         thickness = 2
         
-        # Split message into lines
-        lines = message.split('\n')
-        y_position = 200
+        # Add error icon/indicator
+        cv2.circle(img, (320, 120), 40, (0, 0, 255), 3)  # Red circle
+        cv2.putText(img, "!", (310, 140), font, 1.5, (0, 0, 255), 3)  # Exclamation mark
+        
+        # Add title
+        cv2.putText(img, "Camera Error", (200, 200), font, 1.2, (0, 0, 255), 2)
+        
+        # Split message into lines for better readability
+        words = message.split()
+        lines = []
+        current_line = ""
+        
+        for word in words:
+            test_line = current_line + " " + word if current_line else word
+            # Estimate text width (rough calculation)
+            if len(test_line) > 30:  # Approximate character limit
+                lines.append(current_line)
+                current_line = word
+            else:
+                current_line = test_line
+        
+        if current_line:
+            lines.append(current_line)
+        
+        # Display message lines
+        y_position = 250
+        line_height = 35
         
         for line in lines:
-            # Get text size
+            # Get text size for centering
             (text_width, text_height), baseline = cv2.getTextSize(line, font, font_scale, thickness)
-            
-            # Calculate x position to center text
             x_position = (640 - text_width) // 2
-            
-            # Draw text
             cv2.putText(img, line, (x_position, y_position), font, font_scale, color, thickness)
-            y_position += text_height + 20
+            y_position += line_height
         
-        # Add "Camera Offline" text
-        cv2.putText(img, "Camera Offline", (200, 400), font, 1.5, (255, 0, 0), 3)
+        # Add timestamp
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        cv2.putText(img, f"Time: {timestamp}", (50, 450), font, 0.6, (150, 150, 150), 1)
         
-        # Encode to JPEG
+        # Add retry indicator
+        cv2.putText(img, "Retrying...", (500, 450), font, 0.6, (0, 255, 0), 1)
+        
+        # Encode to JPEG with good quality
         ret, buffer = cv2.imencode('.jpg', img, [cv2.IMWRITE_JPEG_QUALITY, 85])
         if ret:
             frame_bytes = buffer.tobytes()
@@ -521,9 +640,9 @@ def _generate_error_placeholder(message):
                    b'Content-Type: text/plain\r\n\r\n' + message.encode() + b'\r\n')
     except Exception as e:
         logger.error(f"Error generating placeholder: {e}")
-        # Ultimate fallback
+        # Ultimate fallback - simple text response
         return (b'--frame\r\n'
-               b'Content-Type: text/plain\r\n\r\nCamera Error\r\n')
+               b'Content-Type: text/plain\r\n\r\nCamera Error: ' + message.encode() + b'\r\n')
 
 
 @camera_bp.route('/video_feed')
@@ -541,10 +660,23 @@ def video_feed():
 def generate_lores_frames():
     """
     Generate low resolution video frames for streaming.
+    Implements comprehensive error handling with retry mechanisms and graceful degradation.
     
     Yields:
         bytes: Frame data in multipart format
     """
+    # Error handling configuration
+    MAX_RETRY_ATTEMPTS = 3
+    RETRY_DELAY = 1.0  # seconds
+    ERROR_FRAME_INTERVAL = 2.0  # seconds between error frames
+    HEALTH_CHECK_INTERVAL = 30  # seconds between health checks
+    
+    retry_count = 0
+    last_error_time = 0
+    last_health_check = 0
+    consecutive_errors = 0
+    frame_count = 0
+    
     try:
         camera_manager = get_service('camera_manager')
         if not camera_manager or not camera_manager.camera_handler:
@@ -554,14 +686,13 @@ def generate_lores_frames():
         
         camera_handler = camera_manager.camera_handler
         
-        # Check if camera is initialized
+        # Initial health check
         camera_status = camera_handler.get_status()
         if not camera_status.get('initialized', False):
             logger.warning("Camera not initialized for lores streaming")
             yield _generate_error_placeholder("Camera not initialized")
             return
         
-        # Check if camera is streaming
         if not camera_status.get('streaming', False):
             logger.warning("Camera not streaming for lores, attempting to start...")
             # Try to start the camera if it's not streaming
@@ -584,40 +715,145 @@ def generate_lores_frames():
         
         while True:
             try:
+                current_time = time.time()
+                
+                # Periodic health check
+                if current_time - last_health_check > HEALTH_CHECK_INTERVAL:
+                    try:
+                        camera_status = camera_handler.get_status()
+                        if not camera_status.get('initialized', False):
+                            logger.warning("Camera lost initialization during lores streaming")
+                            yield _generate_error_placeholder("Camera lost initialization")
+                            time.sleep(RETRY_DELAY)
+                            continue
+                        
+                        if not camera_status.get('streaming', False):
+                            logger.warning("Camera stopped streaming during lores operation")
+                            yield _generate_error_placeholder("Camera stopped streaming")
+                            time.sleep(RETRY_DELAY)
+                            continue
+                        
+                        last_health_check = current_time
+                        consecutive_errors = 0  # Reset error counter on successful health check
+                        
+                    except Exception as health_error:
+                        logger.error(f"Lores health check failed: {health_error}")
+                        consecutive_errors += 1
+                
                 # Use camera manager to capture lores frame
                 frame_data = camera_manager.capture_lores_frame()
                 
-                if frame_data and 'frame' in frame_data:
-                    frame = frame_data['frame']
-                    if frame is not None and frame.size > 0:
-                        ret, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
-                        if ret:
-                            frame_bytes = buffer.tobytes()
-                            yield (b'--frame\r\n'
-                                   b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
-                        else:
-                            logger.warning("Failed to encode lores frame")
-                            yield _generate_error_placeholder("Lores frame encoding failed")
+                if frame_data is None:
+                    consecutive_errors += 1
+                    if consecutive_errors > MAX_RETRY_ATTEMPTS:
+                        logger.error(f"Too many consecutive lores errors ({consecutive_errors}), sending error frame")
+                        yield _generate_error_placeholder("Camera temporarily unavailable")
+                        time.sleep(ERROR_FRAME_INTERVAL)
                     else:
-                        logger.warning("Empty lores frame received")
-                        yield _generate_error_placeholder("Empty lores frame")
+                        logger.warning(f"No lores frame data (attempt {consecutive_errors}/{MAX_RETRY_ATTEMPTS})")
+                        yield _generate_error_placeholder("No lores frame data")
+                        time.sleep(RETRY_DELAY)
+                    continue
+                
+                # Handle different frame data formats with validation
+                frame = None
+                if isinstance(frame_data, dict) and 'frame' in frame_data:
+                    frame = frame_data['frame']
+                elif isinstance(frame_data, np.ndarray):
+                    frame = frame_data
                 else:
-                    # Send a placeholder frame or wait
-                    logger.debug("No lores frame data available")
-                    yield _generate_error_placeholder("No lores frame data")
-                    time.sleep(0.1)
+                    consecutive_errors += 1
+                    logger.warning(f"Invalid lores frame data format: {type(frame_data)}")
+                    yield _generate_error_placeholder("Invalid lores frame format")
+                    time.sleep(RETRY_DELAY)
+                    continue
+                
+                # Validate frame data
+                if frame is None or not isinstance(frame, np.ndarray):
+                    consecutive_errors += 1
+                    logger.warning("Lores frame is None or not a numpy array")
+                    yield _generate_error_placeholder("Invalid lores frame data")
+                    time.sleep(RETRY_DELAY)
+                    continue
+                
+                if frame.size == 0 or len(frame.shape) != 3:
+                    consecutive_errors += 1
+                    logger.warning(f"Invalid lores frame shape: {frame.shape}")
+                    yield _generate_error_placeholder("Invalid lores frame dimensions")
+                    time.sleep(RETRY_DELAY)
+                    continue
+                
+                # Encode frame with error handling
+                try:
+                    ret, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
+                    if not ret or buffer is None:
+                        consecutive_errors += 1
+                        logger.warning("Lores frame encoding failed")
+                        yield _generate_error_placeholder("Lores frame encoding failed")
+                        time.sleep(RETRY_DELAY)
+                        continue
+                    
+                    frame_bytes = buffer.tobytes()
+                    if len(frame_bytes) == 0:
+                        consecutive_errors += 1
+                        logger.warning("Encoded lores frame is empty")
+                        yield _generate_error_placeholder("Empty encoded lores frame")
+                        time.sleep(RETRY_DELAY)
+                        continue
+                    
+                    # Success - reset error counters
+                    consecutive_errors = 0
+                    retry_count = 0
+                    frame_count += 1
+                    
+                    # Log progress every 100 frames
+                    if frame_count % 100 == 0:
+                        logger.info(f"Successfully generated {frame_count} lores frames")
+                    
+                    yield (b'--frame\r\n'
+                           b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+                    
+                except Exception as encode_error:
+                    consecutive_errors += 1
+                    logger.error(f"Lores frame encoding error: {encode_error}")
+                    yield _generate_error_placeholder("Lores frame encoding error")
+                    time.sleep(RETRY_DELAY)
                     continue
                 
                 time.sleep(0.1)  # ~10 FPS for lores
                 
-            except Exception as e:
-                logger.error(f"Error generating lores frame: {e}")
-                yield _generate_error_placeholder(f"Lores frame error: {str(e)}")
-                time.sleep(0.1)  # Reduced wait time
+            except Exception as frame_error:
+                consecutive_errors += 1
+                current_time = time.time()
+                
+                # Rate limit error logging
+                if current_time - last_error_time > 5.0:  # Log errors at most every 5 seconds
+                    logger.error(f"Error generating lores frame: {frame_error}")
+                    last_error_time = current_time
+                
+                # Handle different types of errors
+                if "camera" in str(frame_error).lower():
+                    error_message = "Camera hardware error"
+                elif "memory" in str(frame_error).lower():
+                    error_message = "Memory allocation error"
+                elif "timeout" in str(frame_error).lower():
+                    error_message = "Camera timeout"
+                else:
+                    error_message = "Lores frame generation error"
+                
+                yield _generate_error_placeholder(error_message)
+                
+                # Adaptive retry delay based on error frequency
+                if consecutive_errors > MAX_RETRY_ATTEMPTS:
+                    time.sleep(ERROR_FRAME_INTERVAL)
+                else:
+                    time.sleep(RETRY_DELAY)
                 
     except Exception as e:
-        logger.error(f"Error in generate_lores_frames: {e}")
-        yield _generate_error_placeholder(f"Lores stream error: {str(e)}")
+        logger.error(f"Critical error in generate_lores_frames: {e}")
+        yield _generate_error_placeholder(f"Critical lores stream error: {str(e)}")
+    finally:
+        logger.info("Lores video stream generation ended")
 
 
 @camera_bp.route('/video_feed_lores')
@@ -1249,5 +1485,94 @@ def test_video_feed():
         return jsonify({
             'success': False,
             'error': str(e),
+            'timestamp': datetime.now().isoformat()
+        }), 500
+
+
+@camera_bp.route('/video_feed_health')
+def video_feed_health():
+    """
+    Video feed health check endpoint.
+    
+    Returns:
+        dict: JSON response with video feed health status
+    """
+    try:
+        camera_manager = get_service('camera_manager')
+        if not camera_manager:
+            return jsonify({
+                'success': False,
+                'error': 'Camera manager not available',
+                'timestamp': datetime.now().isoformat()
+            }), 500
+        
+        # Get camera status
+        camera_status = camera_manager.get_status()
+        
+        # Check frame buffer status
+        frame_buffer_ready = False
+        frame_count = 0
+        last_frame_time = None
+        
+        try:
+            if camera_manager.camera_handler:
+                frame_buffer_ready = camera_manager.camera_handler.is_frame_buffer_ready()
+                frame_count = getattr(camera_manager.camera_handler, 'frame_count', 0)
+                last_frame_time = getattr(camera_manager.camera_handler, '_last_capture_time', None)
+        except Exception as e:
+            logger.warning(f"Error checking frame buffer: {e}")
+        
+        # Determine health status
+        health_status = 'healthy'
+        issues = []
+        
+        if not camera_status.get('initialized', False):
+            health_status = 'unhealthy'
+            issues.append('Camera not initialized')
+        
+        if not camera_status.get('streaming', False):
+            health_status = 'unhealthy'
+            issues.append('Camera not streaming')
+        
+        if not frame_buffer_ready:
+            health_status = 'degraded'
+            issues.append('Frame buffer not ready')
+        
+        # Check if frames are being captured recently
+        if last_frame_time:
+            time_since_last_frame = time.time() - last_frame_time
+            if time_since_last_frame > 5.0:  # More than 5 seconds since last frame
+                health_status = 'degraded'
+                issues.append(f'No recent frames (last: {time_since_last_frame:.1f}s ago)')
+        
+        return jsonify({
+            'success': True,
+            'health_status': health_status,
+            'issues': issues,
+            'camera_status': {
+                'initialized': camera_status.get('initialized', False),
+                'streaming': camera_status.get('streaming', False),
+                'uptime': camera_status.get('uptime', 0)
+            },
+            'frame_buffer': {
+                'ready': frame_buffer_ready,
+                'frame_count': frame_count,
+                'last_frame_time': last_frame_time,
+                'time_since_last_frame': time.time() - last_frame_time if last_frame_time else None
+            },
+            'streaming_info': {
+                'video_feed_url': '/camera/video_feed',
+                'video_feed_lores_url': '/camera/video_feed_lores',
+                'health_check_url': '/camera/video_feed_health'
+            },
+            'timestamp': datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in video feed health check: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'health_status': 'error',
             'timestamp': datetime.now().isoformat()
         }), 500

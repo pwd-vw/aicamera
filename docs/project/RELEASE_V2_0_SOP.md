@@ -32,8 +32,8 @@
 
 ### **Phase 2: Video Streaming Fixes (2-3 days)**
 - [x] **TASK-UI-02**: Debug Flask application request handling
-- [ ] **TASK-UI-02**: Fix Unix socket communication issues
-- [ ] **TASK-UI-02**: Implement proper error handling for video feed
+- [x] **TASK-UI-02**: Fix Unix socket communication issues
+- [x] **TASK-UI-02**: Implement proper error handling for video feed
 - [ ] **TASK-UI-02**: Add fallback mechanisms for video streaming
 - [ ] **TASK-UI-02**: Test video feed functionality end-to-end
 
