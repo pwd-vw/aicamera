@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Camera Blueprint for AI Camera v1.3
+Camera Blueprint for AI Camera v2.0.0
 
 This blueprint provides camera control and video streaming functionality:
 - Video streaming endpoints
@@ -10,8 +10,8 @@ This blueprint provides camera control and video streaming functionality:
 - Auto-start status display
 
 Author: AI Camera Team
-Version: 1.3
-Date: August 7, 2025
+Version: 2.0.0
+Date: August 23, 2025
 """
 
 import cv2
@@ -218,7 +218,7 @@ def camera_config():
         
         if request.method == 'GET':
             # Get current configuration
-            config = camera_manager.get_available_settings()
+            config = camera_manager.get_configuration()
             
             return jsonify({
                 'success': True,
@@ -325,21 +325,44 @@ def generate_frames():
         camera_manager = get_service('camera_manager')
         if not camera_manager or not camera_manager.camera_handler:
             logger.error("Camera manager or handler not available for streaming")
+            # Send error placeholder
+            yield _generate_error_placeholder("Camera manager not available")
             return
         
         camera_handler = camera_manager.camera_handler
         
-        # Check if camera is initialized and streaming
+        # Check if camera is initialized
         camera_status = camera_handler.get_status()
         if not camera_status.get('initialized', False):
-            logger.warning("Camera not initialized, waiting...")
-            time.sleep(1)
+            logger.warning("Camera not initialized, sending placeholder")
+            yield _generate_error_placeholder("Camera not initialized")
             return
+        
+        # Check if camera is streaming
+        if not camera_status.get('streaming', False):
+            logger.warning("Camera not streaming, attempting to start...")
+            # Try to start the camera if it's not streaming
+            try:
+                # Use camera manager to ensure camera is streaming
+                if camera_manager.ensure_camera_streaming():
+                    logger.info("Camera streaming started successfully")
+                    # Get updated status
+                    camera_status = camera_handler.get_status()
+                else:
+                    logger.warning("Failed to start camera streaming, sending placeholder")
+                    yield _generate_error_placeholder("Camera not streaming - failed to start")
+                    return
+            except Exception as e:
+                logger.error(f"Error starting camera: {e}")
+                yield _generate_error_placeholder(f"Camera start error: {str(e)}")
+                return
+        
+        logger.info("Starting video stream generation")
         
         while True:
             try:
-                # Call capture_frame directly without timeout parameter
-                frame_data = camera_handler.capture_frame()
+                # Use camera manager to capture frame
+                frame_data = camera_manager.capture_frame()
                 
                 if frame_data and 'frame' in frame_data:
                     # Convert frame to JPEG
@@ -352,11 +375,14 @@ def generate_frames():
                                    b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
                         else:
                             logger.warning("Failed to encode frame")
+                            yield _generate_error_placeholder("Frame encoding failed")
                     else:
                         logger.warning("Empty frame received")
+                        yield _generate_error_placeholder("Empty frame")
                 else:
                     # Send a placeholder frame or wait
-                    logger.debug("No frame data available, waiting...")
+                    logger.debug("No frame data available, sending placeholder")
+                    yield _generate_error_placeholder("No frame data")
                     time.sleep(0.1)
                     continue
                 
@@ -364,10 +390,70 @@ def generate_frames():
                 
             except Exception as e:
                 logger.error(f"Error generating frame: {e}")
+                yield _generate_error_placeholder(f"Frame error: {str(e)}")
                 time.sleep(0.1)  # Reduced wait time
                 
     except Exception as e:
         logger.error(f"Error in generate_frames: {e}")
+        yield _generate_error_placeholder(f"Stream error: {str(e)}")
+
+
+def _generate_error_placeholder(message):
+    """
+    Generate a placeholder image for error states.
+    
+    Args:
+        message (str): Error message to display
+        
+    Returns:
+        bytes: Placeholder frame data
+    """
+    try:
+        # Create a simple error placeholder image
+        import numpy as np
+        
+        # Create a 640x480 black image with white text
+        img = np.zeros((480, 640, 3), dtype=np.uint8)
+        
+        # Add text to the image
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        font_scale = 1
+        color = (255, 255, 255)  # White text
+        thickness = 2
+        
+        # Split message into lines
+        lines = message.split('\n')
+        y_position = 200
+        
+        for line in lines:
+            # Get text size
+            (text_width, text_height), baseline = cv2.getTextSize(line, font, font_scale, thickness)
+            
+            # Calculate x position to center text
+            x_position = (640 - text_width) // 2
+            
+            # Draw text
+            cv2.putText(img, line, (x_position, y_position), font, font_scale, color, thickness)
+            y_position += text_height + 20
+        
+        # Add "Camera Offline" text
+        cv2.putText(img, "Camera Offline", (200, 400), font, 1.5, (255, 0, 0), 3)
+        
+        # Encode to JPEG
+        ret, buffer = cv2.imencode('.jpg', img, [cv2.IMWRITE_JPEG_QUALITY, 85])
+        if ret:
+            frame_bytes = buffer.tobytes()
+            return (b'--frame\r\n'
+                   b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+        else:
+            # Fallback to simple text response
+            return (b'--frame\r\n'
+                   b'Content-Type: text/plain\r\n\r\n' + message.encode() + b'\r\n')
+    except Exception as e:
+        logger.error(f"Error generating placeholder: {e}")
+        # Ultimate fallback
+        return (b'--frame\r\n'
+               b'Content-Type: text/plain\r\n\r\nCamera Error\r\n')
 
 
 @camera_bp.route('/video_feed')
@@ -393,21 +479,43 @@ def generate_lores_frames():
         camera_manager = get_service('camera_manager')
         if not camera_manager or not camera_manager.camera_handler:
             logger.error("Camera manager or handler not available for lores streaming")
+            yield _generate_error_placeholder("Camera manager not available")
             return
         
         camera_handler = camera_manager.camera_handler
         
-        # Check if camera is initialized and streaming
+        # Check if camera is initialized
         camera_status = camera_handler.get_status()
         if not camera_status.get('initialized', False):
-            logger.warning("Camera not initialized for lores streaming, waiting...")
-            time.sleep(1)
+            logger.warning("Camera not initialized for lores streaming")
+            yield _generate_error_placeholder("Camera not initialized")
             return
+        
+        # Check if camera is streaming
+        if not camera_status.get('streaming', False):
+            logger.warning("Camera not streaming for lores, attempting to start...")
+            # Try to start the camera if it's not streaming
+            try:
+                # Use camera manager to ensure camera is streaming
+                if camera_manager.ensure_camera_streaming():
+                    logger.info("Camera streaming started successfully for lores")
+                    # Get updated status
+                    camera_status = camera_handler.get_status()
+                else:
+                    logger.warning("Failed to start camera streaming for lores, sending placeholder")
+                    yield _generate_error_placeholder("Camera not streaming - failed to start")
+                    return
+            except Exception as e:
+                logger.error(f"Error starting camera for lores: {e}")
+                yield _generate_error_placeholder(f"Camera start error: {str(e)}")
+                return
+        
+        logger.info("Starting low-resolution video stream generation")
         
         while True:
             try:
-                # Call capture_lores_frame directly without timeout parameter
-                frame_data = camera_handler.capture_lores_frame()
+                # Use camera manager to capture lores frame
+                frame_data = camera_manager.capture_lores_frame()
                 
                 if frame_data and 'frame' in frame_data:
                     frame = frame_data['frame']
@@ -419,11 +527,14 @@ def generate_lores_frames():
                                    b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
                         else:
                             logger.warning("Failed to encode lores frame")
+                            yield _generate_error_placeholder("Lores frame encoding failed")
                     else:
                         logger.warning("Empty lores frame received")
+                        yield _generate_error_placeholder("Empty lores frame")
                 else:
                     # Send a placeholder frame or wait
-                    logger.debug("No lores frame data available, waiting...")
+                    logger.debug("No lores frame data available")
+                    yield _generate_error_placeholder("No lores frame data")
                     time.sleep(0.1)
                     continue
                 
@@ -431,10 +542,12 @@ def generate_lores_frames():
                 
             except Exception as e:
                 logger.error(f"Error generating lores frame: {e}")
+                yield _generate_error_placeholder(f"Lores frame error: {str(e)}")
                 time.sleep(0.1)  # Reduced wait time
                 
     except Exception as e:
         logger.error(f"Error in generate_lores_frames: {e}")
+        yield _generate_error_placeholder(f"Lores stream error: {str(e)}")
 
 
 @camera_bp.route('/video_feed_lores')
@@ -513,54 +626,71 @@ def register_camera_events(socketio):
     Args:
         socketio: Flask-SocketIO instance
     """
+    logger = get_logger(__name__)
     
     @socketio.on('connect', namespace='/camera')
     def handle_camera_connect():
+        """Handle camera namespace connection."""
         logger.info("Client connected to camera namespace")
-        emit('camera_connected', {'status': 'Connected to camera service'})
+        emit('camera_connected', {
+            'success': True,
+            'message': 'Connected to camera service',
+            'timestamp': datetime.now().isoformat()
+        })
     
     @socketio.on('disconnect', namespace='/camera')
     def handle_camera_disconnect():
+        """Handle camera namespace disconnection."""
         logger.info("Client disconnected from camera namespace")
-    
-    @socketio.on('join_camera_room', namespace='/camera')
-    def handle_join_camera_room(data):
-        room = data.get('room', 'camera_room')
-        join_room(room)
-        emit('joined_room', {'room': room})
     
     @socketio.on('camera_status_request', namespace='/camera')
     def handle_camera_status_request():
+        """Handle camera status request."""
         try:
             camera_manager = get_service('camera_manager')
-            if camera_manager:
-                status = camera_manager.get_status()
-                # Add auto-start information to status
-                status['auto_start'] = {
-                    'enabled': status.get('auto_start_enabled', False),
-                    'uptime': status.get('uptime', 0)
-                }
-                emit('camera_status_update', status)
-            else:
-                emit('camera_status_update', {'error': 'Camera manager not available'})
-        except Exception as e:
-            logger.error(f"Error in camera status request: {e}")
-            emit('camera_status_update', {'error': str(e)})
-    
-    @socketio.on('camera_control', namespace='/camera')
-    def handle_camera_control(data):
-        try:
-            command = data.get('command')
-            camera_manager = get_service('camera_manager')
-            
             if not camera_manager:
-                emit('camera_control_response', {
-                    'command': command,
+                emit('camera_status_update', {
                     'success': False,
                     'error': 'Camera manager not available'
                 })
                 return
             
+            status = camera_manager.get_status()
+            config = camera_manager.get_configuration()
+            
+            emit('camera_status_update', {
+                'success': True,
+                'status': status,
+                'config': config
+            })
+        except Exception as e:
+            logger.error(f"Error handling camera status request: {e}")
+            emit('camera_status_update', {
+                'success': False,
+                'error': str(e)
+            })
+    
+    @socketio.on('camera_control', namespace='/camera')
+    def handle_camera_control(data):
+        """Handle camera control commands."""
+        try:
+            command = data.get('command')
+            if not command:
+                emit('camera_control_response', {
+                    'success': False,
+                    'error': 'No command specified'
+                })
+                return
+            
+            camera_manager = get_service('camera_manager')
+            if not camera_manager:
+                emit('camera_control_response', {
+                    'success': False,
+                    'error': 'Camera manager not available'
+                })
+                return
+            
+            # Execute command based on type
             if command == 'start':
                 success = camera_manager.start()
                 message = 'Camera started successfully' if success else 'Failed to start camera'
@@ -570,64 +700,88 @@ def register_camera_events(socketio):
             elif command == 'restart':
                 success = camera_manager.restart()
                 message = 'Camera restarted successfully' if success else 'Failed to restart camera'
+            elif command == 'capture':
+                image_data = camera_manager.capture_image()
+                if image_data:
+                    success = True
+                    message = 'Image captured successfully'
+                else:
+                    success = False
+                    message = 'Failed to capture image'
             else:
                 success = False
-                message = f"Unknown command: {command}"
+                message = f'Unknown command: {command}'
             
             emit('camera_control_response', {
-                'command': command,
                 'success': success,
                 'message': message,
-                'error': None if success else message
+                'command': command
             })
+            
+            # Send updated status after command
+            if success:
+                status = camera_manager.get_status()
+                config = camera_manager.get_configuration()
+                emit('camera_status_update', {
+                    'success': True,
+                    'status': status,
+                    'config': config
+                })
+                
         except Exception as e:
-            logger.error(f"Error in camera control: {e}")
+            logger.error(f"Error handling camera control: {e}")
             emit('camera_control_response', {
-                'command': data.get('command'),
                 'success': False,
-                'error': str(e)
+                'error': str(e),
+                'command': data.get('command', 'unknown')
             })
     
     @socketio.on('camera_config_update', namespace='/camera')
     def handle_camera_config_update(data):
+        """Handle camera configuration updates."""
         try:
-            camera_manager = get_service('camera_manager')
-            if camera_manager:
-                config = data.get('config', {})
-                success = camera_manager.update_configuration(config)
-                
-                # Get updated configuration that's JSON serializable
-                updated_config = camera_manager.get_configuration()
-                
+            config = data.get('config')
+            if not config:
                 emit('camera_config_response', {
-                    'success': success,
-                    'message': 'Configuration updated successfully' if success else 'Configuration update failed',
-                    'config': updated_config
+                    'success': False,
+                    'error': 'No configuration data provided'
                 })
-            else:
+                return
+            
+            camera_manager = get_service('camera_manager')
+            if not camera_manager:
                 emit('camera_config_response', {
                     'success': False,
                     'error': 'Camera manager not available'
                 })
+                return
+            
+            result = camera_manager.update_configuration(config)
+            
+            emit('camera_config_response', {
+                'success': result.get('success', False),
+                'message': result.get('message', ''),
+                'error': result.get('error', '')
+            })
+            
+            # Send updated status after config change
+            if result.get('success', False):
+                status = camera_manager.get_status()
+                updated_config = camera_manager.get_configuration()
+                emit('camera_status_update', {
+                    'success': True,
+                    'status': status,
+                    'config': updated_config
+                })
+                
         except Exception as e:
-            logger.error(f"Error in camera config update: {e}")
+            logger.error(f"Error handling camera config update: {e}")
             emit('camera_config_response', {
                 'success': False,
                 'error': str(e)
             })
     
-    @socketio.on('camera_health_request', namespace='/camera')
-    def handle_camera_health_request():
-        try:
-            camera_manager = get_service('camera_manager')
-            if camera_manager:
-                health = camera_manager.health_check()
-                emit('camera_health_update', health)
-            else:
-                emit('camera_health_update', {'error': 'Camera manager not available'})
-        except Exception as e:
-            logger.error(f"Error in camera health request: {e}")
-            emit('camera_health_update', {'error': str(e)})
+    logger.info("Camera WebSocket events registered successfully")
 
 
 @camera_bp.route('/debug')
@@ -647,16 +801,18 @@ def camera_debug():
         if not camera_handler:
             return jsonify({'error': 'Camera handler not available'}), 500
         
-        # Get camera status
-        camera_status = camera_handler.get_status()
+        # Get camera status from both manager and handler
+        manager_status = camera_manager.get_status()
+        handler_status = camera_handler.get_status()
+        handler_config = camera_handler.get_configuration()
         
         # Try to capture a test frame
         test_frame = None
         frame_error = None
         try:
             test_frame = camera_handler.capture_frame()
-            if test_frame and 'image' in test_frame:
-                frame_shape = test_frame['image'].shape if test_frame['image'] is not None else None
+            if test_frame and 'frame' in test_frame:
+                frame_shape = test_frame['frame'].shape if test_frame['frame'] is not None else None
             else:
                 frame_shape = None
         except Exception as e:
@@ -664,12 +820,14 @@ def camera_debug():
             frame_shape = None
         
         debug_info = {
-            'camera_status': camera_status,
+            'manager_status': manager_status,
+            'handler_status': handler_status,
+            'handler_config': handler_config,
             'frame_capture_success': test_frame is not None,
             'frame_shape': frame_shape,
             'frame_error': frame_error,
-            'camera_initialized': camera_status.get('initialized', False),
-            'camera_streaming': camera_status.get('streaming', False),
+            'camera_initialized': handler_status.get('initialized', False),
+            'camera_streaming': handler_status.get('streaming', False),
             'timestamp': datetime.now().isoformat()
         }
         
@@ -685,6 +843,136 @@ def camera_debug():
             'error': str(e),
             'timestamp': datetime.now().isoformat()
         }), 500
+
+
+@camera_bp.route('/test')
+def camera_test():
+    """
+    Simple test endpoint to verify camera functionality.
+    
+    Returns:
+        dict: JSON response with test results
+    """
+    try:
+        camera_manager = get_service('camera_manager')
+        if not camera_manager:
+            return jsonify({
+                'success': False,
+                'error': 'Camera manager not available',
+                'timestamp': datetime.now().isoformat()
+            }), 500
+        
+        camera_handler = camera_manager.camera_handler
+        if not camera_handler:
+            return jsonify({
+                'success': False,
+                'error': 'Camera handler not available',
+                'timestamp': datetime.now().isoformat()
+            }), 500
+        
+        # Get basic status
+        handler_status = camera_handler.get_status()
+        manager_status = camera_manager.get_status()
+        
+        test_results = {
+            'handler_initialized': handler_status.get('initialized', False),
+            'handler_streaming': handler_status.get('streaming', False),
+            'manager_initialized': manager_status.get('initialized', False),
+            'manager_streaming': manager_status.get('streaming', False),
+            'auto_start_enabled': manager_status.get('auto_start_enabled', False),
+            'uptime': manager_status.get('uptime', 0),
+            'timestamp': datetime.now().isoformat()
+        }
+        
+        return jsonify({
+            'success': True,
+            'test_results': test_results
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in camera test: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'timestamp': datetime.now().isoformat()
+        }), 500
+
+
+@camera_bp.route('/video_test')
+def video_feed_test():
+    """
+    Test endpoint to check video feed functionality.
+    
+    Returns:
+        dict: JSON response with video feed test results
+    """
+    try:
+        camera_manager = get_service('camera_manager')
+        if not camera_manager:
+            return jsonify({
+                'success': False,
+                'error': 'Camera manager not available',
+                'timestamp': datetime.now().isoformat()
+            }), 500
+        
+        camera_handler = camera_manager.camera_handler
+        if not camera_handler:
+            return jsonify({
+                'success': False,
+                'error': 'Camera handler not available',
+                'timestamp': datetime.now().isoformat()
+            }), 500
+        
+        # Test frame capture
+        test_frame = None
+        frame_error = None
+        try:
+            test_frame = camera_handler.capture_frame()
+            if test_frame and 'frame' in test_frame:
+                frame_shape = test_frame['frame'].shape if test_frame['frame'] is not None else None
+            else:
+                frame_shape = None
+        except Exception as e:
+            frame_error = str(e)
+            frame_shape = None
+        
+        # Get camera status
+        handler_status = camera_handler.get_status()
+        
+        test_results = {
+            'camera_initialized': handler_status.get('initialized', False),
+            'camera_streaming': handler_status.get('streaming', False),
+            'frame_capture_success': test_frame is not None,
+            'frame_shape': frame_shape,
+            'frame_error': frame_error,
+            'video_feed_url': '/camera/video_feed',
+            'video_feed_lores_url': '/camera/video_feed_lores',
+            'timestamp': datetime.now().isoformat()
+        }
+        
+        return jsonify({
+            'success': True,
+            'video_test_results': test_results
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in video feed test: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'timestamp': datetime.now().isoformat()
+        }), 500
+
+
+@camera_bp.route('/metadata')
+def camera_metadata():
+    """
+    Camera metadata viewer page.
+    
+    Returns:
+        str: Rendered metadata template
+    """
+    return render_template('camera/metadata.html')
 
 
 @camera_bp.route('/debug_metadata')

@@ -9,7 +9,7 @@ handle_error() {
     echo "   1. Check if all dependencies are installed"
     echo "   2. Verify virtual environment is working"
     echo "   3. Check system permissions"
-    echo "   4. Review service logs: sudo journalctl -u aicamera_v1.3.service"
+    echo "   4. Review service logs: sudo journalctl -u aicamera_lpr.service"
     exit $exit_code
 }
 
@@ -17,7 +17,7 @@ handle_error() {
 trap handle_error ERR
 set -e  # Exit immediately if a command exits with a non-zero status
 
-echo "🚀 Starting AI Camera v1.3 Installation..."
+echo "🚀 Starting AI Camera v2.0.0 Installation..."
 echo "📋 System: $(uname -a)"
 echo "📋 Python: $(python3 --version)"
 echo "📋 Working Directory: $(pwd)"
@@ -35,8 +35,8 @@ echo "🔧 Cleaning up any existing camera processes and services..."
 
 # Stop AI Camera service if running
 echo "�� Stopping AI Camera service if running..."
-sudo systemctl stop aicamera_v1.3.service 2>/dev/null || true
-sudo systemctl disable aicamera_v1.3.service 2>/dev/null || true
+sudo systemctl stop aicamera_lpr.service 2>/dev/null || true
+sudo systemctl disable aicamera_lpr.service 2>/dev/null || true
 
 # Stop any running camera-related processes
 echo "🛑 Stopping camera-related processes..."

@@ -6,11 +6,49 @@
     background: #000;
     border-radius: 8px;
     overflow: hidden;
+    min-height: 400px;
 }
 
 .video-feed {
     width: 100%;
     height: auto;
+    display: block;
+    min-height: 400px;
+}
+
+/* Video Status Overlay */
+.video-status-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    transition: opacity 0.3s ease;
+}
+
+.video-status-overlay.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.video-status-content {
+    text-align: center;
+    color: white;
+    font-size: 1.2rem;
+}
+
+.video-status-content i {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+    display: block;
+}
+
+.video-status-content span {
     display: block;
 }
 
@@ -46,4 +84,25 @@
         font-size: 0.75rem;
         padding: 0.25rem 0.5rem;
     }
+}
+
+/* Metadata viewer styles */
+pre {
+    background-color: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 4px;
+    padding: 1rem;
+    font-size: 0.875rem;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+code {
+    color: #e83e8c;
+    background-color: transparent;
+    padding: 0;
+}
+
+.card-body pre {
+    margin-bottom: 0;
 }

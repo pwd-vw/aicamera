@@ -1,5 +1,5 @@
 #!/bin/bash
-# Pre-start script for aicamera_v1.3 service
+# Pre-start script for aicamera_lpr service
 # This script ensures database schema is up to date before starting the service
 
 set -e
@@ -8,7 +8,7 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
-echo "🔧 Running pre-start checks for aicamera_v1.3..."
+echo "🔧 Running pre-start checks for aicamera_lpr..."
 
 # Change to project directory
 cd "$PROJECT_ROOT"

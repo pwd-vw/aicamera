@@ -1307,16 +1307,146 @@ class CameraHandler:
         """
         try:
             with self._lock:
-                config = {
+                if not self.initialized:
+                    return {
+                        'initialized': False,
+                        'streaming': False,
+                        'error': 'Camera not initialized'
+                    }
+                
+                # Get the actual camera configuration
+                config = make_json_serializable(self.current_config)
+                
+                # Add camera properties and status
+                config.update({
                     'initialized': self.initialized,
                     'streaming': self.streaming,
-                    'current_config': make_json_serializable(self.current_config),
                     'camera_properties': make_json_serializable(self.camera_properties),
                     'sensor_modes_count': len(self.sensor_modes),
                     'camera_status': self.camera_status
-                }
+                })
                 
                 return config
+                
+        except Exception as e:
+            self.logger.error(f"Failed to get configuration: {e}")
+            return {
+                'initialized': False,
+                'streaming': False,
+                'error': str(e)
+            }
+    
+    def capture_frame(self) -> Optional[Dict[str, Any]]:
+        """
+        Capture a single frame from the camera.
+        
+        Returns:
+            Optional[Dict[str, Any]]: Frame data with 'frame' key containing numpy array, or None if failed
+        """
+        try:
+            with self._lock:
+                if not self.initialized:
+                    self.logger.error("Camera not initialized")
+                    return None
+                
+                if not self.streaming:
+                    self.logger.error("Camera not streaming")
+                    return None
+                
+                if not self.picam2:
+                    self.logger.error("Picamera2 not available")
+                    return None
+                
+                # Capture frame using Picamera2
+                request = self.picam2.capture_request()
+                if not request:
+                    self.logger.error("Failed to capture request")
+                    return None
+                
+                try:
+                    # Get the main stream frame
+                    frame = request.make_array("main")
+                    if frame is None:
+                        self.logger.error("Failed to make array from request")
+                        return None
+                    
+                    # Convert to RGB if needed
+                    if len(frame.shape) == 3 and frame.shape[2] == 3:
+                        # Already RGB
+                        rgb_frame = frame
+                    else:
+                        # Convert to RGB
+                        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                    
+                    return {
+                        'frame': rgb_frame,
+                        'timestamp': time.time(),
+                        'shape': rgb_frame.shape
+                    }
+                    
+                finally:
+                    # Always release the request
+                    request.release()
+                    
+        except Exception as e:
+            self.logger.error(f"Failed to capture frame: {e}")
+            return None
+    
+    def capture_lores_frame(self) -> Optional[Dict[str, Any]]:
+        """
+        Capture a low-resolution frame from the camera.
+        
+        Returns:
+            Optional[Dict[str, Any]]: Frame data with 'frame' key containing numpy array, or None if failed
+        """
+        try:
+            with self._lock:
+                if not self.initialized:
+                    self.logger.error("Camera not initialized")
+                    return None
+                
+                if not self.streaming:
+                    self.logger.error("Camera not streaming")
+                    return None
+                
+                if not self.picam2:
+                    self.logger.error("Picamera2 not available")
+                    return None
+                
+                # Capture frame using Picamera2
+                request = self.picam2.capture_request()
+                if not request:
+                    self.logger.error("Failed to capture request")
+                    return None
+                
+                try:
+                    # Get the lores stream frame
+                    frame = request.make_array("lores")
+                    if frame is None:
+                        self.logger.error("Failed to make lores array from request")
+                        return None
+                    
+                    # Convert to RGB if needed
+                    if len(frame.shape) == 3 and frame.shape[2] == 3:
+                        # Already RGB
+                        rgb_frame = frame
+                    else:
+                        # Convert to RGB
+                        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                    
+                    return {
+                        'frame': rgb_frame,
+                        'timestamp': time.time(),
+                        'shape': rgb_frame.shape
+                    }
+                    
+                finally:
+                    # Always release the request
+                    request.release()
+                    
+        except Exception as e:
+            self.logger.error(f"Failed to capture lores frame: {e}")
+            return None
                 
         except Exception as e:
             self.logger.error(f"Failed to get configuration: {e}")

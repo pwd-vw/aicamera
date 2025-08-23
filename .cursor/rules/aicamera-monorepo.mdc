@@ -58,9 +58,10 @@ aicamera/
 
 ## Versioning Strategy
 - **Current Version**: 2.0.0 (semantic versioning)
-- **Format**: MAJOR.MINOR.PATCH[-PRERELEASE]
+- **Format**: MAJOR.MINOR.PATCH[-PRERELEASE][+BUILD]
 - **Commit Convention**: Conventional Commits (feat:, fix:, BREAKING CHANGE:)
 - **Branch Strategy**: main, develop, feature/*, hotfix/*, alpha, beta, rc
+- **GitHub Workflow**: `.github/workflows/version.yml` - Centralized automated semantic versioning
 
 ## Communication Protocols
 1. **WebSocket (Primary)**: Real-time bidirectional communication
@@ -70,19 +71,93 @@ aicamera/
 
 ## Development Rules
 
+### 🏗️ MODULAR ARCHITECTURE - CRITICAL REQUIREMENT
+**⚠️ CRITICAL**: This system uses a strict modular architecture with dependency injection. Changes to core components (especially camera components) can break other modules.
+
+#### **Modular Architecture Principles:**
+- **Component Isolation**: Each component operates independently
+- **Dependency Injection**: All dependencies managed through `dependency_container.py`
+- **Service Layer Pattern**: Components → Services → Application
+- **Backward Compatibility**: New methods must be additive, not breaking
+- **Interface Stability**: Public APIs must remain stable
+
+#### **Core Components (DO NOT BREAK):**
+- **CameraHandler**: Low-level camera operations (Singleton pattern)
+- **CameraManager**: High-level camera service management
+- **DetectionManager**: AI detection pipeline orchestration
+- **HealthMonitor**: System health monitoring
+- **DatabaseManager**: Data persistence layer
+- **VideoStreamingService**: Video streaming functionality
+
+#### **Component Dependencies:**
+```
+DetectionManager → CameraManager → CameraHandler
+HealthMonitor → CameraManager (status only)
+VideoStreamingService → CameraManager
+ExperimentService → (independent)
+```
+
 ### Code Organization
-- Use absolute imports managed by import_helper.py
-- Follow dependency injection pattern with dependency_container.py
-- Modularize Web UI with Flask Blueprints
-- Separate concerns: CameraManager, DetectionManager, VideoStreaming, HealthMonitor, WebsocketSender, FlaskApp
+- **MANDATORY**: Use absolute imports managed by import_helper.py
+- **MANDATORY**: Follow dependency injection pattern with dependency_container.py
+- **MANDATORY**: Modularize Web UI with Flask Blueprints
+- **MANDATORY**: Separate concerns: CameraManager, DetectionManager, VideoStreaming, HealthMonitor, WebsocketSender, FlaskApp
 
 ### Python (Edge) Development
-- Use `venv_hailo` virtual environment
-- Follow PEP 8 style guidelines
-- Use type hints where appropriate
-- Implement proper error handling and logging
-- Guard libcamera imports behind device checks to avoid import-time failures
-- Use absolute paths managed by import_helper.py
+- **MANDATORY**: Use `venv_hailo` virtual environment
+- **MANDATORY**: Follow PEP 8 style guidelines
+- **MANDATORY**: Use type hints where appropriate
+- **MANDATORY**: Implement proper error handling and logging
+- **MANDATORY**: Guard libcamera imports behind device checks to avoid import-time failures
+- **MANDATORY**: Use absolute paths managed by import_helper.py
+
+### 🔒 CAMERA COMPONENT CHANGE VERIFICATION - CRITICAL
+**🚨 CRITICAL REQUIREMENT**: Any changes to CameraHandler or CameraManager MUST be verified for impact on other components.
+
+#### **Component Change Workflow:**
+1. **Analyze Dependencies**: Check which components use camera services
+2. **Verify Method Signatures**: Ensure existing methods remain unchanged
+3. **Test Integration Points**: Verify detection, health, and video streaming still work
+4. **Check Auto-Startup**: Ensure auto-startup sequence is not affected
+5. **Validate DI Container**: Confirm service registration and lifecycle unchanged
+6. **Run Integration Tests**: Test all dependent components
+7. **Document Changes**: Update documentation if APIs change
+
+#### **Required Verification Checklist:**
+- [ ] **DetectionManager**: `camera_manager.capture_frame()` method exists and works
+- [ ] **HealthMonitor**: Camera status monitoring unaffected
+- [ ] **VideoStreamingService**: Video streaming functionality intact
+- [ ] **Auto-Startup**: Camera initialization and startup sequence unchanged
+- [ ] **DI Container**: Service registration and dependency injection working
+- [ ] **Backward Compatibility**: All existing public APIs unchanged
+- [ ] **Error Handling**: Error patterns and exception types unchanged
+- [ ] **Import Compatibility**: All absolute imports still work
+- [ ] **Service Lifecycle**: Initialize, start, stop, cleanup methods unchanged
+
+#### **Safe Change Patterns:**
+- ✅ **Additive Methods**: Adding new methods is safe
+- ✅ **Internal Improvements**: Internal logic changes are safe
+- ✅ **Enhanced Error Handling**: Better error messages are safe
+- ✅ **Performance Optimizations**: Internal optimizations are safe
+- ❌ **Breaking Changes**: Changing method signatures is NOT safe
+- ❌ **API Changes**: Modifying public interfaces is NOT safe
+- ❌ **Dependency Changes**: Changing component dependencies is NOT safe
+- ❌ **Import Changes**: Changing import paths is NOT safe
+
+#### **Verification Commands:**
+```bash
+# Test auto-startup sequence
+python -m edge.src.app
+
+# Test detection pipeline
+python -c "from edge.src.core.dependency_container import get_service; dm = get_service('detection_manager'); print('Detection manager:', dm)"
+
+# Test camera services
+python -c "from edge.src.core.dependency_container import get_service; cm = get_service('camera_manager'); print('Camera manager:', cm)"
+
+# Test health monitoring
+python -c "from edge.src.core.dependency_container import get_service; hm = get_service('health_monitor'); print('Health monitor:', hm)"
+```
 
 ### Node.js (Server) Development
 - Use ES6+ syntax
@@ -138,12 +213,13 @@ aicamera/
 - Provide migration guides for breaking changes
 
 ### Git Workflow
-- Use conventional commit messages
+- Use conventional commit messages (feat:, fix:, docs:, style:, refactor:, test:, chore:, BREAKING CHANGE:)
 - Create feature branches from develop
 - Use pull requests for code review
 - Squash commits before merging
-- Tag releases with semantic versions
+- Tag releases with semantic versions (v2.0.0, v2.1.0-alpha.1, etc.)
 - Keep main branch stable
+- Follow automated semantic versioning via GitHub Actions
 
 ### Deployment
 - Use systemd for service management
@@ -239,11 +315,37 @@ aicamera/
 - Use PascalCase for class names
 - Use UPPER_CASE for constants
 
-## Import Conventions
-- Use absolute imports with import_helper.py
-- Group imports: standard library, third-party, local
-- Avoid circular imports
-- Use specific imports over wildcard imports
+## Import Conventions - ABSOLUTE IMPORTS ONLY
+**🚨 CRITICAL**: This project uses ABSOLUTE IMPORTS ONLY. Never use relative imports.
+
+### **MANDATORY Import Rules:**
+- **ONLY**: Use absolute imports managed by import_helper.py
+- **NEVER**: Use relative imports (../ or ./)
+- **ALWAYS**: Import from edge.src.* namespace
+- **MANDATORY**: Group imports: standard library, third-party, local
+- **MANDATORY**: Avoid circular imports
+- **MANDATORY**: Use specific imports over wildcard imports
+
+### **Correct Import Examples:**
+```python
+# ✅ CORRECT - Absolute imports
+from edge.src.core.dependency_container import get_service
+from edge.src.components.camera_handler import CameraHandler
+from edge.src.services.camera_manager import CameraManager
+from edge.src.core.utils.logging_config import get_logger
+
+# ❌ WRONG - Relative imports (NEVER USE)
+from ..core.dependency_container import get_service
+from .camera_handler import CameraHandler
+import sys; sys.path.append('..')
+```
+
+### **Import Helper Usage:**
+```python
+# Always import import_helper first
+from edge.src.core.utils.import_helper import setup_import_paths, validate_imports
+setup_import_paths()
+```
 
 ## Comment Guidelines
 - Use docstrings for functions and classes
@@ -269,19 +371,25 @@ aicamera/
 - Keep dependencies updated
 
 ## Testing Strategy
-- Unit tests for individual functions
-- Integration tests for component interaction
-- End-to-end tests for complete workflows
-- Performance tests for critical paths
-- Security tests for vulnerabilities
+- **Unit tests**: Individual functions and components
+- **Integration tests**: Component interaction and communication
+- **End-to-end tests**: Complete workflows and user journeys
+- **Performance tests**: Critical paths and load testing
+- **Security tests**: Vulnerability scanning and penetration testing
+- **Automated testing**: GitHub Actions run tests on all branches
+- **Pre-release testing**: Tests run on feature/hotfix branches before merge
+- **Security scanning**: Automated npm audit and safety check on main branch
+- **Dependency monitoring**: Regular dependency update checks
 
 ## Release Process
-- Follow semantic versioning
-- Create release branches
-- Update changelog
-- Tag releases
-- Deploy to staging first
-- Monitor after deployment
+- **Automated semantic versioning**: Via GitHub Actions workflow
+- **Conventional commits**: Automatic version bumping based on commit messages
+- **Pre-release workflow**: Alpha/beta releases for feature/hotfix branches
+- **Stable releases**: Automatic releases on main branch
+- **Changelog generation**: Automated changelog from commit history
+- **Tag creation**: Automatic semantic version tags (v2.0.0, v2.1.0-alpha.1)
+- **Version tracking**: Centralized in docs/project/version.yml
+- **Component synchronization**: All components updated simultaneously
 
 ## Maintenance
 - Regular dependency updates
@@ -298,4 +406,325 @@ aicamera/
 - Data recovery
 - Service restoration
 
-Remember: This is a production system handling real-time AI inference and data processing. Always prioritize stability, security, and performance in your development decisions.
+## 🚨 CRITICAL DEVELOPMENT PRINCIPLES
+
+### **Modular Architecture First**
+- **NEVER** break component interfaces
+- **ALWAYS** verify changes impact other components
+- **MANDATORY** use dependency injection for all services
+- **CRITICAL** maintain backward compatibility
+
+### **Absolute Imports Only**
+- **NEVER** use relative imports
+- **ALWAYS** use edge.src.* namespace
+- **MANDATORY** import import_helper first
+- **CRITICAL** follow import conventions
+
+### **Camera Component Safety**
+- **VERIFY** all camera changes against other components
+- **TEST** detection, health, and video streaming after changes
+- **ENSURE** auto-startup sequence remains intact
+- **VALIDATE** DI container service registration
+
+### **Production System Requirements**
+This is a production system handling real-time AI inference and data processing. Always prioritize:
+1. **Stability**: Never break existing functionality
+2. **Security**: Follow security best practices
+3. **Performance**: Optimize for real-time processing
+4. **Modularity**: Maintain component isolation
+5. **Compatibility**: Ensure backward compatibility
+6. **Versioning**: Follow automated semantic versioning workflow
+
+### **🔒 GITHUB WORKFLOW COMPLIANCE - CRITICAL**
+**🚨 CRITICAL**: All development must comply with the automated GitHub workflow for semantic versioning and release management.
+
+#### **Workflow Compliance Requirements:**
+- **MANDATORY**: Use conventional commit messages for automated versioning
+- **MANDATORY**: All version changes go through `.github/workflows/version.yml`
+- **MANDATORY**: Centralized version control via GitHub Actions workflow
+- **MANDATORY**: Follow semantic versioning 2.0.0 format
+- **MANDATORY**: Update all component versions simultaneously
+- **MANDATORY**: Run tests before any version changes
+
+#### **Commit Message Enforcement:**
+- **feat:** → MINOR version bump (new features)
+- **fix:** → PATCH version bump (bug fixes)
+- **docs:** → PATCH version bump (documentation)
+- **style:** → PATCH version bump (code style)
+- **refactor:** → PATCH version bump (refactoring)
+- **test:** → PATCH version bump (tests)
+- **chore:** → PATCH version bump (maintenance)
+- **BREAKING CHANGE:** → MAJOR version bump (breaking changes)
+
+#### **Branch Strategy Compliance:**
+- **main**: Production releases (automatic semantic versioning)
+- **develop**: Development versions
+- **feature/***: Alpha releases (2.1.0-alpha.1)
+- **hotfix/***: Beta releases (2.1.0-beta.1)
+- **alpha**: Alpha releases
+- **beta**: Beta releases
+- **rc**: Release candidates
+
+#### **Workflow Verification:**
+- ✅ **Pre-release testing**: All feature/hotfix branches run tests
+- ✅ **Security scanning**: Automated npm audit and safety check
+- ✅ **Dependency monitoring**: Regular dependency update checks
+- ✅ **Version synchronization**: All components updated together
+- ✅ **Changelog generation**: Automated from commit history
+- ✅ **Tag creation**: Automatic semantic version tags
+
+#### **Workflow Change Restrictions:**
+- **❌ NEVER**: Modify `.github/workflows/version.yml` without testing
+- **❌ NEVER**: Change semantic-release configuration without validation
+- **❌ NEVER**: Update package.json version manually (use automated workflow)
+- **❌ NEVER**: Create tags manually (use automated workflow)
+- **❌ NEVER**: Skip conventional commit messages
+- **❌ NEVER**: Bypass automated testing
+
+#### **Safe Workflow Patterns:**
+- ✅ **Test locally**: Run version update script locally first
+- ✅ **Follow conventions**: Use proper commit message format
+- ✅ **Branch properly**: Use correct branch naming conventions
+- ✅ **Validate changes**: Test workflow changes in feature branches
+- ✅ **Document updates**: Update versioning documentation
+
+#### **Workflow Verification Commands:**
+```bash
+# Check workflow status
+gh workflow list
+gh workflow view version.yml
+
+# Verify version configuration
+cat docs/project/version.yml | grep "current:"
+cat server/.releaserc.json
+
+# Test version update script
+cd edge && python scripts/update_version.py
+
+# Check commit message format
+git log --oneline -10
+
+# Verify semantic-release setup
+cd server && npx semantic-release --dry-run
+```
+
+### **🔒 INFRASTRUCTURE CONFIGURATION PROTECTION - CRITICAL**
+**🚨 CRITICAL**: Infrastructure configurations are managed by the installation script and must not be modified to prevent breaking fresh installations.
+
+#### **Protected Infrastructure Components:**
+- **Nginx Configuration**: `/etc/nginx/sites-available/aicamera` - Managed by install.sh
+- **Gunicorn Configuration**: `edge/gunicorn_config.py` - Managed by install.sh
+- **Systemd Services**: `/etc/systemd/system/aicamera_lpr.service` - Managed by install.sh
+- **Socket Files**: `/tmp/aicamera.sock` - Created by Gunicorn
+- **Installation Script**: `edge/installation/install.sh` - Core installation logic
+
+#### **Infrastructure Change Restrictions:**
+- **❌ NEVER**: Modify nginx configuration files directly
+- **❌ NEVER**: Change gunicorn configuration without updating install.sh
+- **❌ NEVER**: Modify systemd service files manually
+- **❌ NEVER**: Change socket file paths without updating all references
+- **❌ NEVER**: Modify install.sh without thorough testing
+- **❌ NEVER**: Change port configurations without updating all components
+
+#### **Safe Infrastructure Patterns:**
+- ✅ **Configuration Validation**: Test configurations before deployment
+- ✅ **Installation Script Updates**: Modify install.sh for configuration changes
+- ✅ **Documentation Updates**: Update deployment guides for changes
+- ✅ **Testing**: Test fresh installations after any infrastructure changes
+- ✅ **Rollback Planning**: Ensure changes can be reverted safely
+
+#### **Infrastructure Change Workflow:**
+1. **Analyze Impact**: Determine which components use the configuration
+2. **Update Install Script**: Modify `edge/installation/install.sh` for changes
+3. **Test Fresh Install**: Run complete fresh installation test
+4. **Update Documentation**: Update deployment and configuration docs
+5. **Validate Rollback**: Ensure changes can be safely reverted
+6. **Deploy Carefully**: Use controlled deployment process
+
+#### **Verification Commands for Infrastructure:**
+```bash
+# Test nginx configuration
+sudo nginx -t
+
+# Check systemd service status
+systemctl status aicamera_lpr.service
+
+# Verify socket file exists
+ls -la /tmp/aicamera.sock
+
+# Test fresh installation
+cd edge/installation && ./install.sh
+
+# Check gunicorn process
+ps aux | grep gunicorn
+```
+
+### **📋 API REFERENCE COMPLIANCE - CRITICAL**
+**🚨 CRITICAL**: All API responses and WebSocket events MUST strictly follow the documented format in `docs/edge/api-reference.md`.
+
+#### **API Response Format Standards:**
+- **MANDATORY**: All responses include `success`, `message`, and `timestamp` fields
+- **MANDATORY**: Error responses include `error` field with descriptive message
+- **MANDATORY**: Status responses include `status` object with component data
+- **MANDATORY**: Configuration responses include `config` object with settings
+- **MANDATORY**: All timestamps use ISO 8601 format: `2025-08-23T10:30:00Z`
+
+#### **WebSocket Event Format Standards:**
+- **MANDATORY**: All events follow the same response format as REST API
+- **MANDATORY**: Connection events: `camera_connected`, `camera_disconnected`
+- **MANDATORY**: Status events: `camera_status_update`, `camera_control_response`, `camera_config_response`
+- **MANDATORY**: Client events: `camera_status_request`, `camera_control`, `camera_config_update`
+- **MANDATORY**: All events include `success`, `message`, and `timestamp` fields
+
+#### **Variable Mapping Standards:**
+- **MANDATORY**: Frontend JavaScript expects specific field names from backend
+- **MANDATORY**: Camera status mapping: `status.initialized`, `status.streaming`, `status.config`
+- **MANDATORY**: Configuration mapping: `config.resolution`, `config.framerate`, `config.controls`
+- **MANDATORY**: Error mapping: `error` field for error messages, `success` field for status
+- **MANDATORY**: Metadata mapping: `camera_properties`, `current_config`, `frame_metadata`
+
+#### **API Compliance Verification:**
+- ✅ **Response Format**: Verify all responses match API reference structure
+- ✅ **Field Names**: Ensure field names match exactly between backend and frontend
+- ✅ **Data Types**: Verify data types match expected format (arrays, objects, strings)
+- ✅ **Error Handling**: Ensure error responses follow standard format
+- ✅ **WebSocket Events**: Verify all events follow documented format
+- ✅ **Timestamp Format**: Ensure all timestamps use ISO 8601 format
+
+#### **Variable Mapping Verification:**
+- ✅ **Frontend Compatibility**: Test that JavaScript can parse all response fields
+- ✅ **Backend Consistency**: Ensure all services return consistent data structures
+- ✅ **Error Propagation**: Verify errors are properly propagated to frontend
+- ✅ **Configuration Sync**: Test configuration updates are reflected in UI
+- ✅ **Status Updates**: Verify status changes are properly displayed
+
+#### **API Reference Update Workflow:**
+1. **Document First**: Update `docs/edge/api-reference.md` before implementing changes
+2. **Implement Consistently**: Follow documented format exactly in implementation
+3. **Test Mapping**: Verify frontend-backend variable mapping works correctly
+4. **Update Examples**: Ensure all examples in API reference are current
+5. **Validate Compliance**: Test that all endpoints follow documented format
+
+#### **Verification Commands for API Compliance:**
+```bash
+# Test camera status endpoint
+curl -s http://localhost/camera/status | jq '.'
+
+# Test camera configuration endpoint
+curl -s http://localhost/camera/config | jq '.'
+
+# Test WebSocket connection
+curl -s http://localhost/camera/test | jq '.'
+
+# Verify API reference is up to date
+grep -r "2025-08-23" docs/edge/api-reference.md
+```
+
+### **📋 VERSIONING WORKFLOW COMPLIANCE - CRITICAL**
+**🚨 CRITICAL**: All version changes must follow the automated semantic versioning workflow and comply with the versioning strategy.
+
+#### **Versioning Workflow Requirements:**
+- **MANDATORY**: All version changes go through `.github/workflows/version.yml`
+- **MANDATORY**: Centralized version control via GitHub Actions workflow
+- **MANDATORY**: Follow semantic versioning 2.0.0 (MAJOR.MINOR.PATCH[-PRERELEASE][+BUILD])
+- **MANDATORY**: Use conventional commit messages for automated versioning
+- **MANDATORY**: Update all component versions simultaneously
+
+#### **Commit Message Standards:**
+- **feat:** → MINOR version bump (new features)
+- **fix:** → PATCH version bump (bug fixes)
+- **docs:** → PATCH version bump (documentation)
+- **style:** → PATCH version bump (code style)
+- **refactor:** → PATCH version bump (refactoring)
+- **test:** → PATCH version bump (tests)
+- **chore:** → PATCH version bump (maintenance)
+- **BREAKING CHANGE:** → MAJOR version bump (breaking changes)
+
+#### **Version Update Workflow:**
+1. **Make Changes**: Follow conventional commit messages
+2. **Push to Branch**: Feature/hotfix branches trigger pre-release workflows
+3. **Merge to Main**: Triggers automated semantic versioning
+4. **GitHub Actions**: Automatically updates version.yml and creates releases
+5. **Tag Creation**: Automatic tag creation (v2.0.0, v2.1.0-alpha.1, etc.)
+
+#### **Version Tracking Files:**
+- **`server/package.json`**: Primary version source
+- **`server/.releaserc.json`**: Semantic-release configuration
+- **`edge/scripts/update_version.py`**: Edge component version updater
+- **`.github/workflows/version.yml`**: Centralized automated versioning workflow
+
+#### **Pre-release Workflow:**
+- **feature/* branches**: Alpha releases (2.1.0-alpha.1)
+- **hotfix/* branches**: Beta releases (2.1.0-beta.1)
+- **develop branch**: Development versions
+- **main branch**: Stable releases (2.1.0)
+
+#### **Version Compatibility Matrix:**
+- **Edge 2.0.0 + Server 2.0.0**: ✅ Full compatibility
+- **Edge 2.1.0 + Server 2.0.0**: ✅ Backward compatible
+- **Edge 2.0.0 + Server 2.1.0**: ✅ Backward compatible
+- **Edge 3.0.0 + Server 2.x.x**: ❌ Breaking changes
+
+#### **Verification Commands for Versioning:**
+```bash
+# Check current version
+cat server/package.json | grep '"version"'
+
+# Verify semantic-release configuration
+cat server/.releaserc.json
+
+# Test version update script
+cd edge && python scripts/update_version.py
+
+# Check GitHub workflow status
+gh workflow list
+gh workflow view version.yml
+```
+
+### **🔒 VARIABLE MAPPING PROTECTION - CRITICAL**
+**🚨 CRITICAL**: Variable mapping between backend services and frontend JavaScript must remain consistent to prevent UI failures.
+
+#### **Protected Variable Mappings:**
+- **Camera Status**: `status.initialized`, `status.streaming`, `status.frame_count`
+- **Camera Configuration**: `config.resolution`, `config.framerate`, `config.controls`
+- **Camera Properties**: `camera_properties.Model`, `camera_properties.Location`
+- **Error Handling**: `success` field, `error` field, `message` field
+- **WebSocket Events**: All event names and data structures
+
+#### **Variable Mapping Restrictions:**
+- **❌ NEVER**: Change field names without updating both backend and frontend
+- **❌ NEVER**: Modify response structure without updating API reference
+- **❌ NEVER**: Change WebSocket event names without updating JavaScript
+- **❌ NEVER**: Modify data types without ensuring frontend compatibility
+- **❌ NEVER**: Remove required fields from API responses
+- **❌ NEVER**: Change error field names or structure
+
+#### **Safe Variable Mapping Patterns:**
+- ✅ **Additive Changes**: Add new fields without removing existing ones
+- ✅ **Backward Compatibility**: Maintain existing field names and types
+- ✅ **Documentation Updates**: Update API reference before implementation
+- ✅ **Frontend Testing**: Test JavaScript parsing after backend changes
+- ✅ **Error Handling**: Ensure errors are properly mapped to UI
+
+#### **Variable Mapping Change Workflow:**
+1. **Analyze Impact**: Determine which frontend components use the variables
+2. **Update API Reference**: Document new structure in `docs/edge/api-reference.md`
+3. **Update Backend**: Implement changes following documented format
+4. **Update Frontend**: Modify JavaScript to handle new structure
+5. **Test Integration**: Verify end-to-end functionality works correctly
+6. **Update Documentation**: Ensure all examples and guides are current
+
+#### **Verification Commands for Variable Mapping:**
+```bash
+# Test frontend JavaScript parsing
+curl -s http://localhost/camera/status | jq '.' > /tmp/status.json
+node -e "console.log(JSON.parse(require('fs').readFileSync('/tmp/status.json')))"
+
+# Test WebSocket event handling
+curl -s http://localhost/camera/test | jq '.test_results'
+
+# Verify API reference consistency
+grep -A 10 -B 5 "success.*true" docs/edge/api-reference.md
+```
+
+**⚠️ CRITICAL**: Any changes that could affect other components must be thoroughly tested and verified before implementation.

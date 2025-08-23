@@ -99,6 +99,32 @@ const AICameraUtils = {
     },
 
     /**
+     * Make API request
+     */
+    apiRequest: function(url, options = {}) {
+        const defaultOptions = {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+        };
+
+        const requestOptions = { ...defaultOptions, ...options };
+
+        return fetch(url, requestOptions)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .catch(error => {
+                console.error('API request failed:', error);
+                throw error;
+            });
+    },
+
+    /**
      * Debounce function to limit API calls
      */
     debounce: function(func, wait) {

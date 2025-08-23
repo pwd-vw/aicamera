@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-AI Camera v1.3 Flask Application
+.0 Camera v2.0.0 Flask Application
 
 Main Flask application that integrates camera services and web interface
 using absolute imports and existing blueprint structure.
 
 Author: AI Camera Team
-Version: 1.3
-Date: August 7, 2025
+Version: 2.0.0
+Date: August 23, 2025
 """
 
 import os

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Enhanced Web Blueprints Module for AI Camera v1.3
+Enhanced Web Blueprints Module for AI Camera v2.0.0
 
 This module contains all Flask blueprints for the application.
 Each blueprint handles a specific area of functionality using absolute imports.
@@ -10,8 +10,8 @@ Modular Architecture:
 - Optional Blueprints: websocket_sender, storage (can be disabled)
 
 Author: AI Camera Team
-Version: 1.3
-Date: August 7, 2025
+Version: 2.0.0
+Date: August 23, 2025
 """
 
 from flask import Flask

@@ -314,15 +314,19 @@ class CameraManager:
             # Get camera handler status
             camera_status = self.camera_handler.get_status()
             
+            # Get configuration
+            config = self.get_configuration()
+            
             # Add manager-specific status
             status = {
                 'initialized': camera_status.get('initialized', False),
                 'streaming': camera_status.get('streaming', False),
                 'auto_start_enabled': self.auto_start_enabled,
+                'auto_streaming_enabled': getattr(self, 'auto_streaming_enabled', False),
                 'uptime': None,
                 'frame_count': camera_status.get('frame_count', 0),
                 'average_fps': camera_status.get('average_fps', 0),
-                'config': camera_status.get('configuration', {}),
+                'config': config,  # Use the corrected configuration
                 'metadata': self.last_metadata,  # Add metadata to status
                 'camera_handler': camera_status
             }
@@ -430,12 +434,70 @@ class CameraManager:
         """
         try:
             if self.camera_handler:
-                return self.camera_handler.get_configuration()
+                config = self.camera_handler.get_configuration()
+                # Extract the actual configuration data
+                if 'current_config' in config:
+                    return config['current_config']
+                else:
+                    return config
             else:
                 return {}
         except Exception as e:
             self.logger.error(f"Error getting available settings: {e}")
             return {}
+    
+    def get_configuration(self):
+        """
+        Get current camera configuration.
+        
+        Returns:
+            dict: Current configuration
+        """
+        try:
+            if self.camera_handler:
+                config = self.camera_handler.get_configuration()
+                # Return the configuration in the format expected by the frontend
+                if 'current_config' in config:
+                    return config['current_config']
+                else:
+                    return config
+            else:
+                return {}
+        except Exception as e:
+            self.logger.error(f"Error getting configuration: {e}")
+            return {}
+    
+    def ensure_camera_streaming(self):
+        """
+        Ensure camera is initialized and streaming.
+        
+        Returns:
+            bool: True if camera is streaming, False otherwise
+        """
+        try:
+            if not self.camera_handler:
+                self.logger.error("Camera handler not available")
+                return False
+            
+            # Check if camera is initialized
+            if not self.camera_handler.initialized:
+                self.logger.info("Camera not initialized, initializing...")
+                if not self.camera_handler.initialize_camera():
+                    self.logger.error("Failed to initialize camera")
+                    return False
+            
+            # Check if camera is streaming
+            if not self.camera_handler.streaming:
+                self.logger.info("Camera not streaming, starting...")
+                if not self.camera_handler.start_camera():
+                    self.logger.error("Failed to start camera")
+                    return False
+            
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Error ensuring camera streaming: {e}")
+            return False
     
     def capture_frame(self):
         """
@@ -555,6 +617,46 @@ class CameraManager:
             self.logger.warning("⏰ Camera availability monitoring timed out - camera hardware not detected")
         else:
             self.logger.info("✅ Camera availability monitoring completed")
+    
+    def capture_frame(self):
+        """
+        Capture a frame from the camera.
+        
+        Returns:
+            dict: Frame data or error information
+        """
+        try:
+            if not self.camera_handler:
+                return {'error': 'Camera handler not available'}
+            
+            # Ensure camera is streaming
+            if not self.ensure_camera_streaming():
+                return {'error': 'Camera not streaming'}
+            
+            return self.camera_handler.capture_frame()
+        except Exception as e:
+            self.logger.error(f"Error capturing frame: {e}")
+            return {'error': str(e)}
+    
+    def capture_lores_frame(self):
+        """
+        Capture a low-resolution frame from the camera.
+        
+        Returns:
+            dict: Frame data or error information
+        """
+        try:
+            if not self.camera_handler:
+                return {'error': 'Camera handler not available'}
+            
+            # Ensure camera is streaming
+            if not self.ensure_camera_streaming():
+                return {'error': 'Camera not streaming'}
+            
+            return self.camera_handler.capture_lores_frame()
+        except Exception as e:
+            self.logger.error(f"Error capturing lores frame: {e}")
+            return {'error': str(e)}
     
     def cleanup(self):
         """

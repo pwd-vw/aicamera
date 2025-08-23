@@ -1,19 +1,26 @@
-name: Semantic Versioning
+name: AI Camera Semantic Versioning
 
 on:
   push:
     branches:
       - main
       - develop
+      - feature/*
+      - hotfix/*
   pull_request:
     branches:
       - main
       - develop
+  release:
+    types: [published]
 
 jobs:
   version:
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    outputs:
+      new_version: ${{ steps.semantic.outputs.new_release_version }}
+      new_tag: ${{ steps.semantic.outputs.new_release_published }}
     
     steps:
       - name: Checkout code
@@ -52,6 +59,7 @@ jobs:
           python -m pytest tests/ -v
 
       - name: Semantic Release
+        id: semantic
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -62,6 +70,8 @@ jobs:
   version-edge:
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    outputs:
+      edge_version: ${{ steps.update_edge.outputs.version }}
     
     steps:
       - name: Checkout code
@@ -81,14 +91,16 @@ jobs:
           pip install -r requirements.txt
 
       - name: Update edge version
+        id: update_edge
         run: |
           cd edge
           python scripts/update_version.py
+          echo "version=$(python -c "import sys; sys.path.append('.'); from edge.src.core.config import VERSION; print(VERSION)")" >> $GITHUB_OUTPUT
 
   create-release:
     runs-on: ubuntu-latest
     needs: [version, version-edge]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.version.outputs.new_tag == 'true'
     
     steps:
       - name: Checkout code
@@ -101,13 +113,140 @@ jobs:
         run: |
           npx conventional-changelog-cli@latest --preset angular --release-count 0 --outfile docs/project/CHANGELOG.md
 
+      - name: Update version information
+        run: |
+          # Update version information in component files
+          NEW_VERSION="${{ needs.version.outputs.new_version }}"
+          EDGE_VERSION="${{ needs.version-edge.outputs.edge_version }}"
+          
+          # Update package.json version
+          cd server && npm version $NEW_VERSION --no-git-tag-version
+          
+          # Update edge component version files
+          cd ../edge && python scripts/update_version.py
+          
+          # Update documentation versions
+          sed -i "s/Version: \d+\.\d+\.\d+/Version: $NEW_VERSION/g" docs/edge/api-reference.md
+          sed -i "s/\"version\": \"\d+\.\d+\.\d+\"/\"version\": \"$NEW_VERSION\"/g" docs/edge/api-reference.md
+
       - name: Create Release
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ github.ref_name }}
-          release_name: Release ${{ github.ref_name }}
+          tag_name: v${{ needs.version.outputs.new_version }}
+          release_name: AI Camera v${{ needs.version.outputs.new_version }} Release
           body_path: docs/project/CHANGELOG.md
           draft: false
           prerelease: false
+
+      - name: Commit version updates
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add server/package.json edge/scripts/update_version.py docs/edge/api-reference.md docs/project/CHANGELOG.md
+          git commit -m "chore: update version to ${{ needs.version.outputs.new_version }}"
+          git push
+
+  pre-release:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && (startsWith(github.ref, 'refs/heads/feature/') || startsWith(github.ref, 'refs/heads/hotfix/'))
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: server/package-lock.json
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          cd server && npm ci
+          cd ../edge && pip install -r requirements.txt
+
+      - name: Run tests
+        run: |
+          cd server && npm test
+          cd ../edge && python -m pytest tests/ -v
+
+      - name: Update pre-release version
+        run: |
+          # Determine pre-release type based on branch
+          if [[ "${{ github.ref }}" == refs/heads/feature/* ]]; then
+            PRERELEASE_TYPE="alpha"
+          elif [[ "${{ github.ref }}" == refs/heads/hotfix/* ]]; then
+            PRERELEASE_TYPE="beta"
+          else
+            PRERELEASE_TYPE="dev"
+          fi
+          
+          # Update component versions with pre-release information
+          cd server && npm version prerelease --preid=$PRERELEASE_TYPE --no-git-tag-version
+          cd ../edge && python scripts/update_version.py
+
+  security-scan:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: server/package-lock.json
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          cd server && npm ci
+          cd ../edge && pip install -r requirements.txt
+
+      - name: Security scan
+        run: |
+          cd server && npm audit --audit-level moderate
+          cd ../edge && safety check
+
+  dependency-update:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: server/package-lock.json
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Check for updates
+        run: |
+          cd server && npm outdated
+          cd ../edge && pip list --outdated

@@ -24,6 +24,12 @@
                     <span id="camera-status" class="status-indicator status-offline"></span>
                     <span id="camera-status-text">Offline</span>
                     <div class="float-end">
+                        <button id="refresh-video-btn" class="btn btn-sm btn-outline-secondary me-2">
+                            <i class="fas fa-sync-alt"></i> Refresh Video
+                        </button>
+                        <button id="test-video-btn" class="btn btn-sm btn-outline-warning me-2">
+                            <i class="fas fa-video"></i> Test Video
+                        </button>
                         <a href="/camera/metadata" class="btn btn-sm btn-outline-info">
                             <i class="fas fa-chart-bar"></i> Metadata Viewer
                         </a>
@@ -52,6 +58,12 @@
                 <!-- Video Container -->
                 <div class="video-container">
                     <img id="video-feed" src="/camera/video_feed" class="video-feed" alt="Camera Feed">
+                    <div id="video-status" class="video-status-overlay">
+                        <div class="video-status-content">
+                            <i class="fas fa-spinner fa-spin"></i>
+                            <span>Loading video feed...</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
