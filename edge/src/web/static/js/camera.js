@@ -740,7 +740,33 @@ const CameraManager = {
                         'last_capture_time': 'เวลาถ่ายภาพล่าสุด',
                         'total_captures': 'จำนวนภาพที่ถ่ายทั้งหมด',
                         'memory_usage': 'การใช้หน่วยความจำ',
-                        'cpu_usage': 'การใช้ CPU'
+                        'cpu_usage': 'การใช้ CPU',
+                        
+                        // Camera Metadata (from actual API response)
+                        'ExposureTime': 'เวลาการเปิดรับแสง (ไมโครวินาที)',
+                        'AnalogueGain': 'การขยายสัญญาณแอนะล็อก',
+                        'DigitalGain': 'การขยายสัญญาณดิจิทัล',
+                        'FocusFoM': 'คุณภาพการโฟกัส (Figure of Merit)',
+                        'LensPosition': 'ตำแหน่งเลนส์',
+                        'SensorTemperature': 'อุณหภูมิเซ็นเซอร์',
+                        'ColourTemperature': 'อุณหภูมิสี (เคลวิน)',
+                        'Lux': 'ความสว่าง (ลักซ์)',
+                        'ColourGains': 'การขยายสี',
+                        'FrameDuration': 'ระยะเวลาเฟรม (ไมโครวินาที)',
+                        'FrameWallClock': 'เวลาผนังเฟรม',
+                        'SensorTimestamp': 'เวลาสแตมป์เซ็นเซอร์',
+                        'AeState': 'สถานะการเปิดรับแสงอัตโนมัติ',
+                        'AfState': 'สถานะการโฟกัสอัตโนมัติ',
+                        'AfPauseState': 'สถานะการหยุดการโฟกัสอัตโนมัติ',
+                        'ScalerCrop': 'การครอบตัดสเกล',
+                        'ScalerCrops': 'การครอบตัดสเกลหลายรายการ',
+                        'SensorBlackLevels': 'ระดับสีดำของเซ็นเซอร์',
+                        'ColourCorrectionMatrix': 'เมทริกซ์การแก้ไขสี',
+                        'total_gain': 'การขยายรวม',
+                        'frame_timestamp': 'เวลาสแตมป์เฟรม',
+                        'request_timestamp': 'เวลาสแตมป์คำขอ',
+                        'awb_gains': 'การขยายสมดุลแสงขาวอัตโนมัติ',
+                        'af_state': 'สถานะการโฟกัสอัตโนมัติ'
                     };
                     
                     // Helper function to format value
@@ -761,12 +787,12 @@ const CameraManager = {
                         return thaiDescriptions[key] || 'ไม่มีการอธิบาย';
                     };
                     
-                    // Camera Properties Section
-                    if (metadata.camera_properties) {
+                    // Debug Information Section
+                    if (metadata.debug_info) {
                         html += `
                             <div class="metadata-category">
                                 <h5 class="category-title">
-                                    <i class="fas fa-camera"></i> คุณสมบัติของกล้อง (Camera Properties)
+                                    <i class="fas fa-bug"></i> ข้อมูลการแก้ไขปัญหา (Debug Information)
                                 </h5>
                                 <div class="table-responsive">
                                     <table class="table table-sm table-striped metadata-table">
@@ -780,7 +806,55 @@ const CameraManager = {
                                         <tbody>
                         `;
                         
-                        Object.entries(metadata.camera_properties).forEach(([key, value]) => {
+                        // Debug status
+                        const debugStatus = [
+                            { key: 'camera_initialized', value: metadata.debug_info.camera_initialized, desc: 'กล้องเริ่มต้นแล้ว' },
+                            { key: 'camera_streaming', value: metadata.debug_info.camera_streaming, desc: 'กล้องกำลังสตรีม' },
+                            { key: 'picam2_exists', value: metadata.debug_info.picam2_exists, desc: 'Picam2 มีอยู่' },
+                            { key: 'picam2_started', value: metadata.debug_info.picam2_started, desc: 'Picam2 เริ่มต้นแล้ว' },
+                            { key: 'success', value: metadata.debug_info.success, desc: 'การดำเนินการสำเร็จ' }
+                        ];
+                        
+                        debugStatus.forEach(item => {
+                            const statusClass = item.value ? 'text-success' : 'text-danger';
+                            html += `
+                                <tr>
+                                    <td><code class="text-primary">${item.key}</code></td>
+                                    <td><span class="${statusClass}">${formatValue(item.value)}</span></td>
+                                    <td><small class="text-muted">${item.desc}</small></td>
+                                </tr>
+                            `;
+                        });
+                        
+                        html += `
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    
+                    // Extracted Metadata Section
+                    if (metadata.debug_info && metadata.debug_info.extracted_metadata) {
+                        const extracted = metadata.debug_info.extracted_metadata;
+                        html += `
+                            <div class="metadata-category">
+                                <h5 class="category-title">
+                                    <i class="fas fa-camera"></i> ข้อมูลเมทาดาต้าที่สกัด (Extracted Metadata)
+                                </h5>
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-striped metadata-table">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th width="25%">คีย์ (Key)</th>
+                                                <th width="35%">ค่า (Value)</th>
+                                                <th width="40%">คำอธิบาย (Description)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                        `;
+                        
+                        Object.entries(extracted).forEach(([key, value]) => {
                             html += `
                                 <tr>
                                     <td><code class="text-primary">${key}</code></td>
@@ -798,12 +872,13 @@ const CameraManager = {
                         `;
                     }
                     
-                    // Current Configuration Section
-                    if (metadata.current_config) {
+                    // Complete Metadata Section
+                    if (metadata.debug_info && metadata.debug_info.extracted_metadata && metadata.debug_info.extracted_metadata.complete_metadata) {
+                        const complete = metadata.debug_info.extracted_metadata.complete_metadata;
                         html += `
                             <div class="metadata-category">
                                 <h5 class="category-title">
-                                    <i class="fas fa-cog"></i> การตั้งค่าปัจจุบัน (Current Configuration)
+                                    <i class="fas fa-database"></i> ข้อมูลเมทาดาต้าแบบสมบูรณ์ (Complete Metadata)
                                 </h5>
                                 <div class="table-responsive">
                                     <table class="table table-sm table-striped metadata-table">
@@ -817,7 +892,7 @@ const CameraManager = {
                                         <tbody>
                         `;
                         
-                        Object.entries(metadata.current_config).forEach(([key, value]) => {
+                        Object.entries(complete).forEach(([key, value]) => {
                             html += `
                                 <tr>
                                     <td><code class="text-primary">${key}</code></td>
@@ -835,12 +910,13 @@ const CameraManager = {
                         `;
                     }
                     
-                    // Camera Status Section
-                    if (metadata.camera_status) {
+                    // Debug Steps Section
+                    if (metadata.debug_info && metadata.debug_info.steps) {
+                        const steps = metadata.debug_info.steps;
                         html += `
                             <div class="metadata-category">
                                 <h5 class="category-title">
-                                    <i class="fas fa-info-circle"></i> สถานะกล้อง (Camera Status)
+                                    <i class="fas fa-list-ol"></i> ขั้นตอนการแก้ไขปัญหา (Debug Steps)
                                 </h5>
                                 <div class="table-responsive">
                                     <table class="table table-sm table-striped metadata-table">
@@ -854,53 +930,26 @@ const CameraManager = {
                                         <tbody>
                         `;
                         
-                        Object.entries(metadata.camera_status).forEach(([key, value]) => {
-                            const statusClass = key === 'initialized' || key === 'streaming' ? 
-                                (value ? 'text-success' : 'text-danger') : 'text-success';
-                            html += `
-                                <tr>
-                                    <td><code class="text-primary">${key}</code></td>
-                                    <td><span class="${statusClass}">${formatValue(value)}</span></td>
-                                    <td><small class="text-muted">${getThaiDescription(key)}</small></td>
-                                </tr>
-                            `;
-                        });
+                        const stepDescriptions = {
+                            'step1_camera_ready': 'ขั้นตอนที่ 1: กล้องพร้อม',
+                            'step2_picam2_started': 'ขั้นตอนที่ 2: Picam2 เริ่มต้นแล้ว',
+                            'step3_capture_request': 'ขั้นตอนที่ 3: คำขอการจับภาพ',
+                            'step4_get_metadata': 'ขั้นตอนที่ 4: รับเมทาดาต้า',
+                            'step5_extract_metadata': 'ขั้นตอนที่ 5: สกัดเมทาดาต้า',
+                            'step6_release_request': 'ขั้นตอนที่ 6: ปล่อยคำขอ'
+                        };
                         
-                        html += `
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        `;
-                    }
-                    
-                    // Manager Status Section
-                    if (metadata.manager_status) {
-                        html += `
-                            <div class="metadata-category">
-                                <h5 class="category-title">
-                                    <i class="fas fa-tasks"></i> สถานะผู้จัดการ (Manager Status)
-                                </h5>
-                                <div class="table-responsive">
-                                    <table class="table table-sm table-striped metadata-table">
-                                        <thead class="table-light">
-                                            <tr>
-                                                <th width="25%">คีย์ (Key)</th>
-                                                <th width="35%">ค่า (Value)</th>
-                                                <th width="40%">คำอธิบาย (Description)</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                        `;
-                        
-                        Object.entries(metadata.manager_status).forEach(([key, value]) => {
-                            html += `
-                                <tr>
-                                    <td><code class="text-primary">${key}</code></td>
-                                    <td><span class="text-success">${formatValue(value)}</span></td>
-                                    <td><small class="text-muted">${getThaiDescription(key)}</small></td>
-                                </tr>
-                            `;
+                        Object.entries(steps).forEach(([key, value]) => {
+                            if (typeof value === 'boolean') {
+                                const statusClass = value ? 'text-success' : 'text-danger';
+                                html += `
+                                    <tr>
+                                        <td><code class="text-primary">${key}</code></td>
+                                        <td><span class="${statusClass}">${formatValue(value)}</span></td>
+                                        <td><small class="text-muted">${stepDescriptions[key] || 'ไม่มีการอธิบาย'}</small></td>
+                                    </tr>
+                                `;
+                            }
                         });
                         
                         html += `
