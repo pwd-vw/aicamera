@@ -190,6 +190,23 @@ class CameraHandler:
         self.sensor_modes = []
         self.camera_status = check_camera_availability()
         
+        # Frame buffer system attributes
+        self._frame_buffer_lock = threading.Lock()
+        self._main_frame_buffer = None
+        self._lores_frame_buffer = None
+        self._metadata_buffer = {}
+        self._capture_thread = None
+        self._capture_running = False
+        self._capture_interval = 0.1  # 10 FPS
+        
+        # Performance tracking attributes
+        self.frame_count = 0
+        self.average_fps = 0.0
+        self._frame_timestamps = []
+        self._last_capture_time = time.time()
+        self._last_fps_update = time.time()
+        self._frame_count_since_update = 0
+        
         # Camera connection retry settings
         self.connection_retry_count = 0
         self.max_retry_attempts = 5
