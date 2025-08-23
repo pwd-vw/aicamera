@@ -1476,219 +1476,6 @@ class CameraHandler:
                 'error': str(e)
             }
     
-    def capture_frame(self) -> Optional[Dict[str, Any]]:
-        """
-        Capture a single frame from the camera.
-        
-        Returns:
-            Optional[Dict[str, Any]]: Frame data with 'frame' key containing numpy array, or None if failed
-        """
-        try:
-            with self._lock:
-                if not self.initialized:
-                    self.logger.error("Camera not initialized")
-                    return None
-                
-                if not self.streaming:
-                    self.logger.error("Camera not streaming")
-                    return None
-                
-                if not self.picam2:
-                    self.logger.error("Picamera2 not available")
-                    return None
-                
-                # Capture frame using Picamera2
-                request = self.picam2.capture_request()
-                if not request:
-                    self.logger.error("Failed to capture request")
-                    return None
-                
-                try:
-                    # Get the main stream frame
-                    frame = request.make_array("main")
-                    if frame is None:
-                        self.logger.error("Failed to make array from request")
-                        return None
-                    
-                    # Convert to RGB if needed
-                    if len(frame.shape) == 3 and frame.shape[2] == 3:
-                        # Already RGB
-                        rgb_frame = frame
-                    else:
-                        # Convert to RGB
-                        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                    
-                    return {
-                        'frame': rgb_frame,
-                        'timestamp': time.time(),
-                        'shape': rgb_frame.shape
-                    }
-                    
-                finally:
-                    # Always release the request
-                    request.release()
-                    
-        except Exception as e:
-            self.logger.error(f"Failed to capture frame: {e}")
-            return None
-    
-    def capture_lores_frame(self) -> Optional[Dict[str, Any]]:
-        """
-        Capture a low-resolution frame from the camera.
-        
-        Returns:
-            Optional[Dict[str, Any]]: Frame data with 'frame' key containing numpy array, or None if failed
-        """
-        try:
-            with self._lock:
-                if not self.initialized:
-                    self.logger.error("Camera not initialized")
-                    return None
-                
-                if not self.streaming:
-                    self.logger.error("Camera not streaming")
-                    return None
-                
-                if not self.picam2:
-                    self.logger.error("Picamera2 not available")
-                    return None
-                
-                # Capture frame using Picamera2
-                request = self.picam2.capture_request()
-                if not request:
-                    self.logger.error("Failed to capture request")
-                    return None
-                
-                try:
-                    # Get the lores stream frame
-                    frame = request.make_array("lores")
-                    if frame is None:
-                        self.logger.error("Failed to make lores array from request")
-                        return None
-                    
-                    # Convert to RGB if needed
-                    if len(frame.shape) == 3 and frame.shape[2] == 3:
-                        # Already RGB
-                        rgb_frame = frame
-                    else:
-                        # Convert to RGB
-                        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                    
-                    return {
-                        'frame': rgb_frame,
-                        'timestamp': time.time(),
-                        'shape': rgb_frame.shape
-                    }
-                    
-                finally:
-                    # Always release the request
-                    request.release()
-                    
-        except Exception as e:
-            self.logger.error(f"Failed to capture lores frame: {e}")
-            return None
-                
-        except Exception as e:
-            self.logger.error(f"Failed to get configuration: {e}")
-            return {
-                'initialized': False,
-                'streaming': False,
-                'error': str(e)
-            }
-    
-    def cleanup(self):
-        """Cleanup resources."""
-        try:
-            with self._lock:
-                self.logger.info("Cleaning up camera handler...")
-                self.close_camera()
-                self.logger.info("Camera handler cleanup completed")
-                
-        except Exception as e:
-            self.logger.error(f"Error during cleanup: {e}")
-    
-    @classmethod
-    def reset_instance(cls):
-        """Reset the Singleton instance (for testing/debugging)."""
-        with cls._lock:
-            if cls._instance:
-                cls._instance.cleanup()
-                cls._instance = None
-                cls._initialized = False
-                logger.info("CameraHandler Singleton instance reset")
-    
-    @classmethod
-    def get_instance(cls, **kwargs):
-        """Get the Singleton instance."""
-        if cls._instance is None:
-            cls._instance = cls(**kwargs)
-        return cls._instance
-    
-    @classmethod
-    def acquire_camera_access(cls, timeout=5.0):
-        """
-        Acquire camera access lock (thread-safe only).
-        
-        Args:
-            timeout (float): Timeout in seconds
-            
-        Returns:
-            bool: True if access acquired, False if timeout
-        """
-        try:
-            # Try to acquire thread lock
-            thread_acquired = cls._camera_lock.acquire(timeout=timeout)
-            if not thread_acquired:
-                return False
-                
-            # Try to get queue slot
-            try:
-                cls._camera_queue.get(timeout=timeout)
-                return True
-            except queue.Empty:
-                cls._camera_lock.release()
-                return False
-                
-        except Exception as e:
-            logger.error(f"Error acquiring camera access: {e}")
-            return False
-    
-    @classmethod
-    def release_camera_access(cls):
-        """Release camera access lock."""
-        try:
-            # Return queue slot
-            cls._camera_queue.put(None, timeout=1.0)
-            # Release thread lock
-            cls._camera_lock.release()
-        except Exception as e:
-            logger.error(f"Error releasing camera access: {e}")
-    
-    def safe_camera_operation(self, operation_func, *args, **kwargs):
-        """
-        Execute camera operation with safe access control.
-        
-        Args:
-            operation_func: Function to execute
-            *args: Arguments for operation
-            **kwargs: Keyword arguments for operation
-            
-        Returns:
-            Result of operation or None if failed
-        """
-        if not self.acquire_camera_access(timeout=10.0):
-            self.logger.error("Failed to acquire camera access")
-            return None
-            
-        try:
-            result = operation_func(*args, **kwargs)
-            return result
-        except Exception as e:
-            self.logger.error(f"Camera operation failed: {e}")
-            return None
-        finally:
-            self.release_camera_access()
-
     def get_comprehensive_metadata(self) -> Dict[str, Any]:
         """
         Get comprehensive camera metadata optimized for experimental efficiency.
@@ -2100,3 +1887,31 @@ class CameraHandler:
         
         if hasattr(self, '_frame_count_since_update'):
             self._frame_count_since_update += 1
+    
+    def cleanup(self):
+        """Cleanup resources."""
+        try:
+            with self._lock:
+                self.logger.info("Cleaning up camera handler...")
+                self.close_camera()
+                self.logger.info("Camera handler cleanup completed")
+                
+        except Exception as e:
+            self.logger.error(f"Error during cleanup: {e}")
+    
+    @classmethod
+    def reset_instance(cls):
+        """Reset the Singleton instance (for testing/debugging)."""
+        with cls._lock:
+            if cls._instance:
+                cls._instance.cleanup()
+                cls._instance = None
+                cls._initialized = False
+                logger.info("CameraHandler Singleton instance reset")
+    
+    @classmethod
+    def get_instance(cls, **kwargs):
+        """Get the Singleton instance."""
+        if cls._instance is None:
+            cls._instance = cls(**kwargs)
+        return cls._instance

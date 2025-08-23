@@ -21,6 +21,7 @@ import logging
 import os
 from datetime import datetime
 from typing import Dict, Any, Optional, List
+import numpy as np
 
 from edge.src.core.utils.logging_config import get_logger
 from edge.src.core.config import DETECTION_INTERVAL, AUTO_START_DETECTION, STARTUP_DELAY, IMAGE_SAVE_DIR
@@ -279,12 +280,11 @@ class DetectionManager:
                 self.logger.debug("No frame available from camera")
                 return None
             
-            # Extract numpy array from dict
-            if isinstance(frame, dict) and 'frame' in frame:
-                frame = frame['frame']  # Extract numpy array
+            # Camera manager returns numpy array directly, not dict
+            if isinstance(frame, np.ndarray):
                 return self.process_frame(frame)
             else:
-                self.logger.error("Invalid frame data format")
+                self.logger.error(f"Invalid frame data format: expected numpy array, got {type(frame)}")
                 return None
             
             
