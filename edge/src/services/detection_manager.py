@@ -279,7 +279,14 @@ class DetectionManager:
                 self.logger.debug("No frame available from camera")
                 return None
             
-            return self.process_frame(frame)
+            # Extract numpy array from dict
+            if isinstance(frame, dict) and 'frame' in frame:
+                frame = frame['frame']  # Extract numpy array
+                return self.process_frame(frame)
+            else:
+                self.logger.error("Invalid frame data format")
+                return None
+            
             
         except Exception as e:
             self.logger.error(f"Error processing frame from camera: {e}")

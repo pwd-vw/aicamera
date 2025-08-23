@@ -1,12 +1,12 @@
-# AI Camera v1.3 - Variable Conflict Prevention Guide
+# AI Camera v2.0 - Variable Conflict Prevention Guide
 
 ## Overview
 
-เอกสารนี้เป็นแนวทางสำคัญในการป้องกันปัญหา Variable Conflicts และ Naming Inconsistencies ที่เกิดขึ้นในระบบ AI Camera v1.3
+เอกสารนี้เป็นแนวทางสำคัญในการป้องกันปัญหา Variable Conflicts และ Naming Inconsistencies ที่เกิดขึ้นในระบบ AI Camera v2.0
 
 **Created:** August 9, 2025  
 **Last Updated:** August 9, 2025  
-**Version:** 1.3
+**Version:** v2.0
 
 ## 📋 Table of Contents
 

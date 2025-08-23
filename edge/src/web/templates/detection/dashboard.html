@@ -1,3 +1,13 @@
+<!--
+ * AI Camera v2.0 - Detection Dashboard Template
+ * 
+ * AI detection control and monitoring interface with model status and results display.
+ * Provides detection service control, model management, and real-time monitoring.
+ * 
+ * @author AI Camera Team
+ * @version 2.0
+ * @since 2025-08-23
+ -->
 {% extends "base.html" %}
 
 {% set active_page = "detection" %}
@@ -7,8 +17,8 @@
 {% block title %}Detection Dashboard{% endblock %}
 
 {% block additional_css %}
-<link href="{{ url_for('static', filename='css/detection.css') }}" rel="stylesheet">
-<link href="{{ url_for('static', filename='css/detection_results.css') }}" rel="stylesheet">
+<link href="{{ url_for('static', filename='css/detection.css', v=timestamp) }}" rel="stylesheet">
+<link href="{{ url_for('static', filename='css/detection_results.css', v=timestamp) }}" rel="stylesheet">
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 {% endblock %}
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Experiments Blueprint for AI Camera v1.3
+Experiments Blueprint for AI Camera v2.0.0
 
 This blueprint provides experiment management and research functionality:
 - Experiment dashboard and configuration
@@ -10,7 +10,7 @@ This blueprint provides experiment management and research functionality:
 - Night mode lens comparison experiments
 
 Author: AI Camera Team
-Version: 1.3.2
+Version: 2.0
 Date: August 10, 2025
 """
 

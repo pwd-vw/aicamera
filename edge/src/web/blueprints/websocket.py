@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """
-WebSocket Blueprint for AI Camera v1.3
+WebSocket Blueprint for AI Camera v2.0.0
 
+This blueprint provides WebSocket functionality for real-time communication.
 This blueprint handles general WebSocket communication functionality using absolute imports
 and dependency injection pattern.
 
 Author: AI Camera Team
-Version: 1.3
+Version: 2.0
 Date: August 8, 2025
 """
 
@@ -315,7 +316,7 @@ def register_websocket_events(socketio):
         logger.info(f"Client connected: {request.sid}")
         emit('connection_response', {
             'success': True,
-            'message': 'Connected to AI Camera v1.3 WebSocket',
+            'message': 'Connected to AI Camera v2.0.0 WebSocket',
             'timestamp': datetime.now().isoformat()
         })
     

@@ -1,4 +1,4 @@
-# AI Camera v1.3.2 - Experiments Component Documentation
+# AI Camera v2.0 - Experiments Component Documentation
 
 ## Overview
 
@@ -350,13 +350,13 @@ logger.setLevel(logging.DEBUG)
 
 ## Version History
 
-### v1.3.2 (Current)
+### v2.0 (Current)
 - Initial implementation of experiments component
 - Basic experiment configuration and execution
 - Real-time monitoring and results analysis
 - WebSocket integration for live updates
 
-### Planned v1.3.3
+### Planned v2.1
 - Advanced analytics and machine learning integration
 - Automated parameter optimization
 - Enhanced visualization and reporting

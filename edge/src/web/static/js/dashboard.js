@@ -1,6 +1,11 @@
 /**
- * AI Camera v2.0.0 - Dashboard JavaScript
- * Main dashboard specific functionality
+ * AI Camera v2.0 - Dashboard JavaScript
+ * 
+ * Main dashboard specific functionality.
+ * 
+ * @author AI Camera Team
+ * @version 2.0
+ * @since 2025-08-23
  */
 
 // Dashboard state management
@@ -224,15 +229,60 @@ const DashboardManager = {
      * Set up periodic updates
      */
     setupPeriodicUpdates: function() {
-        // Update core status every 5 seconds
+        // Update core status every 10 seconds (reduced from 5 seconds)
         setInterval(() => {
             this.updateSystemStatusComprehensive();
-        }, 5000);
+        }, 10000);
         
-        // Update system info every 30 seconds
+        // Update system info every 60 seconds (reduced from 30 seconds)
         setInterval(() => {
             this.updateSystemInfoFromAPI();
-        }, 30000);
+        }, 60000);
+    },
+
+    /**
+     * Update system info from API (FIXED - was missing)
+     */
+    updateSystemInfoFromAPI: function() {
+        // Only update if system info section exists
+        const systemInfoSection = document.getElementById('system-info-section');
+        if (!systemInfoSection) {
+            return;
+        }
+        
+        AICameraUtils.apiRequest('/system/info')
+            .then(data => {
+                if (data && data.success) {
+                    this.updateSystemInfoDisplay(data.info);
+                }
+            })
+            .catch(error => {
+                console.log('System info update failed (optional):', error.message);
+                // Don't show error for optional system info updates
+            });
+    },
+
+    /**
+     * Update system info display
+     */
+    updateSystemInfoDisplay: function(info) {
+        if (!info) return;
+        
+        // Update system info elements if they exist
+        const elements = {
+            'system-uptime': info.uptime,
+            'system-load': info.load_average,
+            'system-memory': info.memory_usage,
+            'system-cpu': info.cpu_usage,
+            'system-temperature': info.temperature
+        };
+        
+        Object.entries(elements).forEach(([id, value]) => {
+            const element = document.getElementById(id);
+            if (element && value !== undefined) {
+                element.textContent = value;
+            }
+        });
     },
 
     /**
@@ -456,6 +506,12 @@ const DashboardManager = {
      * Update experiments status from API (Experiments Service)
      */
     updateExperimentsStatusFromAPI: function() {
+        // Check if experiments section exists before making API call
+        const experimentsSection = document.getElementById('experiments-section');
+        if (!experimentsSection) {
+            return;
+        }
+        
         console.log('Updating experiments status from API...');
         
         AICameraUtils.apiRequest('/experiments/status')
@@ -468,8 +524,17 @@ const DashboardManager = {
                 }
             })
             .catch(error => {
-                console.log('Experiments service not available (optional module):', error.message);
-                this.updateOptionalServiceStatus('experiment', 'offline', 'Offline');
+                // Handle 404 gracefully - experiments service is optional
+                if (error.message && error.message.includes('404')) {
+                    console.log('Experiments service not available (optional module):', error.message);
+                    // Hide experiments section if service is not available
+                    if (experimentsSection) {
+                        experimentsSection.style.display = 'none';
+                    }
+                } else {
+                    console.log('Experiments service not available (optional module):', error.message);
+                    this.updateOptionalServiceStatus('experiment', 'offline', 'Offline');
+                }
             });
     },
 

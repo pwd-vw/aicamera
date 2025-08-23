@@ -1,4 +1,4 @@
-# AI Camera v1.3.2 - Experiments Component Development Summary
+# AI Camera v2.0 - Experiments Component Development Summary
 
 ## 🎯 Project Overview
 
@@ -42,7 +42,7 @@ v1_3/src/web/templates/experiments/results.html   # Results analysis and visuali
 v1_3/src/web/templates/experiments/error.html     # Error handling page
 v1_3/EXPERIMENTS_DOCUMENTATION.md                 # Complete user documentation
 v1_3/EXPERIMENTS_MODULAR_ARCHITECTURE.md          # Technical architecture guide
-v1_3/EXPERIMENTS_v1.3.2_SUMMARY.md               # This summary document
+edge/EXPERIMENTS_v2.0_SUMMARY.md               # This summary document
 ```
 
 ### Modified Files
@@ -275,7 +275,7 @@ pip install scikit-image==0.21.0
 ### 3. **Restart Application**
 ```bash
 # Restart the service
-sudo systemctl restart aicamera_v1.3
+sudo systemctl restart aicamera_lpr
 ```
 
 ### 4. **Verify Installation**
@@ -487,7 +487,7 @@ curl http://localhost/experiments/
 
 ## 🏆 Conclusion
 
-The Experiments component for AI Camera v1.3.2 represents a significant achievement in modular software architecture. The implementation successfully demonstrates:
+The Experiments component for AI Camera v2.0 represents a significant achievement in modular software architecture. The implementation successfully demonstrates:
 
 1. **True Modularity**: Complete independence from core modules
 2. **Production Quality**: Robust, scalable, and maintainable code

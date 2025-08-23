@@ -1,10 +1,20 @@
+<!--
+ * AI Camera v2.0 - Detection Results Dashboard Template
+ * 
+ * Detection results viewing interface with pagination, search, and filtering.
+ * Displays vehicle and license plate detection history with detailed analytics.
+ * 
+ * @author AI Camera Team
+ * @version 2.0
+ * @since 2025-08-23
+ -->
 {% extends "base.html" %}
 
 {% set active_page = "detection_results" %}
 {% set fluid_container = true %}
 {% set use_socketio = true %}
 
-{% block title %}Detection Results - AI Camera v2.0.0{% endblock %}
+{% block title %}Detection Results - AI Camera v2.0{% endblock %}
 
 {% block additional_css %}
 <link href="{{ url_for('static', filename='css/detection_results.css') }}" rel="stylesheet">

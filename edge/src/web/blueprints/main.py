@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """
-Main Blueprint for AI Camera v1.3
+Main Blueprint for AI Camera v2.0.0
 
 This blueprint handles the main dashboard and system overview.
 """
 
 from flask import Blueprint, render_template, current_app
 from flask_socketio import emit
+import time
 from edge.src.core.dependency_container import get_service
 from edge.src.core.utils.logging_config import get_logger
 
@@ -23,17 +24,20 @@ def index():
         
         return render_template('index.html', 
                              camera_status=camera_status,
-                             title="AI Camera Dashboard")
+                             title="AI Camera Dashboard",
+                             timestamp=int(time.time()))
     except KeyError as e:
         logger.error(f"Service not Registered: {e}")
         return render_template('index.html', 
                              camera_status={'error': f'Camera service not available: {e}'},
-                             title="AI Camera Dashboard")
+                             title="AI Camera Dashboard",
+                             timestamp=int(time.time()))
     except Exception as e:
         logger.error(f"Error in main index: {e}")
         return render_template('index.html', 
                              camera_status={'error': str(e)},
-                             title="AI Camera Dashboard")
+                             title="AI Camera Dashboard",
+                             timestamp=int(time.time()))
 
 
 def register_main_events(socketio):

@@ -1,4 +1,4 @@
-# AI Camera v1.3 - Variable Management Standards
+# AI Camera v2.0 - Variable Management Standards
 
 ## Overview
 
@@ -859,7 +859,7 @@ health_tests = [
 <div class="col-md-4">
     <h6>Development Information</h6>
     <ul class="list-unstyled">
-        <li><strong>Application:</strong> AI Camera v1.3</li>
+        <li><strong>Application:</strong> AI Camera v2.0</li>
         <li><strong>Framework:</strong> Flask + Blueprints</li>
         <li><strong>Architecture:</strong> Dependency Injection + Services</li>
         <li><strong>Camera:</strong> Picamera2 + Hailo AI</li>

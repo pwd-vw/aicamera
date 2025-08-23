@@ -11,7 +11,7 @@ This documentation is organized into three main categories:
 ### 🖥️ **Edge Device Documentation** (`edge/`)
 Documentation specific to edge device deployment and operation.
 
-- **[RELEASE_v1.3.1.md](edge/RELEASE_v1.3.1.md)** - Release notes and changelog
+- **[RELEASE_v2.0.md](edge/RELEASE_v2.0.md)** - Release notes and changelog
 - **[INSTALLATION.md](edge/INSTALLATION.md)** - Edge device installation guide
 - **[DEPLOYMENT.md](edge/DEPLOYMENT.md)** - Production deployment guide
 - **[TROUBLESHOOTING.md](edge/TROUBLESHOOTING.md)** - Edge device troubleshooting

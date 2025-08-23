@@ -1,7 +1,7 @@
 # Picamera2 Metadata Reference
 
 ## Overview
-This document provides a comprehensive reference of all metadata extracted from Picamera2 in the AI Camera v1.3 system. The metadata is collected event-based (on initialization and configuration changes) to optimize CPU performance.
+This document provides a comprehensive reference of all metadata extracted from Picamera2 in the AI Camera v2.0 system. The metadata is collected event-based (on initialization and configuration changes) to optimize CPU performance.
 
 ## Metadata Categories
 

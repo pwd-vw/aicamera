@@ -1,8 +1,8 @@
-# AI Camera v1.3 - API Documentation
+# AI Camera v2.0 - API Documentation
 
 ## Overview
 
-เอกสาร API สำหรับ AI Camera v1.3 ระบบการจัดการกล้องอัจฉริยะด้วย Hailo AI Accelerator
+เอกสาร API สำหรับ AI Camera v2.0 ระบบการจัดการกล้องอัจฉริยะด้วย Hailo AI Accelerator
 
 **Last Updated:** August 20, 2025  
 **Version:** 1.3  
@@ -130,7 +130,7 @@ Each service can be individually enabled/disabled via configuration.
 ```html
 <!DOCTYPE html>
 <html>
-    <head><title>AI Camera v1.3</title></head>
+    <head><title>AI Camera v2.0</title></head>
     <body><!-- Dashboard content --></body>
 </html>
 ```
@@ -143,8 +143,8 @@ Each service can be individually enabled/disabled via configuration.
 {
     "success": true,
     "status": "healthy",
-    "service": "aicamera_v1.3",
-    "version": "1.3",
+    "service": "aicamera_lpr",
+    "version": "2.0",
     "timestamp": "2025-08-09T18:36:57.390144"
 }
 ```

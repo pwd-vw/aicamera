@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 """
-Detection Results Blueprint for AI Camera v1.3
+Detection Results Blueprint for AI Camera v2.0.0
 
-This blueprint handles the detection results web UI with pagination,
-search, filter, sort, and detail view capabilities.
-
+This blueprint provides detection results viewing and management functionality.
 Features:
 - Paginated table view of detection results
 - Search functionality for OCR results and plate text
@@ -15,7 +13,7 @@ Features:
 - Export functionality
 
 Author: AI Camera Team
-Version: 1.3
+Version: 2.0
 Date: August 2025
 """
 

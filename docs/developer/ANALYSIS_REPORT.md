@@ -1,4 +1,4 @@
-# AI Camera v1.3 - Factory Reset & Installation Analysis Report
+# AI Camera v2.0 - Factory Reset & Installation Analysis Report
 
 ## Executive Summary
 
@@ -8,7 +8,7 @@ This report analyzes the factory reset script, installation script, and complete
 
 ### ✅ Strengths
 - **Comprehensive cleanup**: Removes all AI Camera components systematically
-- **Service management**: Properly stops and disables all services (aicamera_v1.3, nginx, kiosk-browser)
+- **Service management**: Properly stops and disables all services (aicamera_lpr, nginx, kiosk-browser)
 - **File cleanup**: Removes systemd files, nginx config, Unix socket, database, logs, images
 - **Virtual environment cleanup**: Removes venv_hailo completely
 - **Optional components**: Handles kiosk browser and desktop launcher as optional
@@ -54,9 +54,9 @@ This report analyzes the factory reset script, installation script, and complete
 ```
 1. System Boot
    ↓
-2. systemd starts aicamera_v1.3.service
+2. systemd starts aicamera_lpr.service
    ↓
-3. Pre-start script (aicamera_v1.3_prestart.sh)
+3. Pre-start script (aicamera_lpr_prestart.sh)
    - Database schema update
    - Directory creation
    - Environment validation
@@ -236,9 +236,9 @@ curl http://localhost/health
 ### 6.3 Application Workflow Testing
 ```bash
 # Test service startup sequence
-sudo systemctl restart aicamera_v1.3.service
+sudo systemctl restart aicamera_lpr.service
 # Monitor startup logs
-sudo journalctl -u aicamera_v1.3.service -f
+sudo journalctl -u aicamera_lpr.service -f
 # Test web interface
 curl http://localhost/
 # Test API endpoints

@@ -1,4 +1,4 @@
-# AI Camera v1.3.2 - Experiments Modular Architecture
+# AI Camera v2.0 - Experiments Modular Architecture
 
 ## Overview
 
@@ -283,7 +283,7 @@ print('Registered blueprints:', [bp.name for bp in app.blueprints.values()])
 
 ## Migration Guide
 
-### From v1.3.1 to v1.3.2
+### From v1.3.1 to v2.0
 
 1. **No Breaking Changes**: Core functionality remains unchanged
 2. **Optional Feature**: Experiments are disabled by default
@@ -300,7 +300,7 @@ echo 'EXPERIMENT_ENABLED="true"' >> .env.production
 pip install scikit-image==0.21.0
 
 # 3. Restart application
-sudo systemctl restart aicamera_v1.3
+sudo systemctl restart aicamera_lpr
 
 # 4. Verify
 curl http://localhost/experiments/

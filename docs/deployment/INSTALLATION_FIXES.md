@@ -1,8 +1,8 @@
-# AI Camera v1.3 Installation Fixes
+# AI Camera v2.0 Installation Fixes
 
 ## Overview
 
-This document outlines the comprehensive fixes implemented to prevent EasyOCR and database issues during fresh installation of AI Camera v1.3.
+This document outlines the comprehensive fixes implemented to prevent EasyOCR and database issues during fresh installation of AI Camera v2.0.
 
 ## Issues Addressed
 
@@ -143,7 +143,7 @@ Environment=PYTHONPATH=/home/camuser/aicamera/venv_hailo/lib/python3.11/site-pac
 
 ### ExecStart Commands
 ```ini
-ExecStartPre=/bin/bash -lc 'source /home/camuser/aicamera/venv_hailo/bin/activate && /home/camuser/aicamera/systemd_service/aicamera_v1.3_prestart.sh'
+ExecStartPre=/bin/bash -lc 'source /home/camuser/aicamera/venv_hailo/bin/activate && /home/camuser/aicamera/systemd_service/aicamera_lpr_prestart.sh'
 ExecStart=/bin/bash -lc 'source /home/camuser/aicamera/venv_hailo/bin/activate && source /home/camuser/aicamera/setup_env.sh && exec /home/camuser/aicamera/venv_hailo/bin/gunicorn --config /home/camuser/aicamera/gunicorn_config.py --worker-class gthread --workers 1 --threads 4 v1_3.src.wsgi:app'
 ```
 
@@ -172,8 +172,8 @@ python scripts/validate_installation.py
 
 3. **Service Issues**:
    ```bash
-   sudo systemctl status aicamera_v1.3.service
-   sudo journalctl -u aicamera_v1.3.service -f
+   sudo systemctl status aicamera_lpr.service
+   sudo journalctl -u aicamera_lpr.service -f
    ```
 
 4. **Complete Validation**:

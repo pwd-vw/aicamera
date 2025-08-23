@@ -1,3 +1,13 @@
+<!--
+ * AI Camera v2.0 - Main Dashboard Template
+ * 
+ * Main dashboard page with system status overview and service monitoring.
+ * Displays real-time status of all AI Camera components and services.
+ * 
+ * @author AI Camera Team
+ * @version 2.0
+ * @since 2025-08-23
+ -->
 {% extends "base.html" %}
 
 {% set active_page = "main" %}
@@ -7,7 +17,7 @@
 {% block title %}Main Dashboard{% endblock %}
 
 {% block additional_css %}
-<link href="{{ url_for('static', filename='css/dashboard.css', v=2) }}" rel="stylesheet">
+<link href="{{ url_for('static', filename='css/dashboard.css', v=timestamp) }}" rel="stylesheet">
 {% endblock %}
 
 {% block page_header %}
@@ -138,7 +148,7 @@
                     <div class="col-md-4">
                         <h6>Development Information</h6>
                         <ul class="list-unstyled">
-                            <li><strong>Application:</strong> AI Camera v2.0.0</li>
+                            <li><strong>Application:</strong> AI Camera v2.0</li>
                             <li><strong>Framework:</strong> Flask + Blueprints</li>
                             <li><strong>Architecture:</strong> Dependency Injection + Services</li>
                             <li><strong>Camera:</strong> Picamera2 + Hailo AI</li>

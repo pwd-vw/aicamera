@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Detection Blueprint for AI Camera v1.3
+Detection Blueprint for AI Camera v2.0.0
 
 This blueprint provides detection control and monitoring functionality:
 - Detection service control endpoints
@@ -10,7 +10,7 @@ This blueprint provides detection control and monitoring functionality:
 - Detection statistics and reporting
 
 Author: AI Camera Team
-Version: 1.3
+Version: 2.0
 Date: August 2025
 """
 
@@ -49,13 +49,15 @@ def detection_dashboard():
         return render_template('detection/dashboard.html',
                              detection_status=detection_status,
                              stats=stats,
-                             title="Detection Dashboard")
+                             title="Detection Dashboard",
+                             timestamp=int(time.time()))
     except Exception as e:
         logger.error(f"Error in detection dashboard: {e}")
         return render_template('detection/dashboard.html',
                              detection_status={},
                              stats={},
-                             title="Detection Dashboard")
+                             title="Detection Dashboard",
+                             timestamp=int(time.time()))
 
 
 @detection_bp.route('/status')
@@ -79,14 +81,14 @@ def get_detection_status():
         return jsonify({
             'success': True,
             'status': serializable_status,
-            'timestamp': datetime.now().isoformat()
+            'timestamp': int(time.time())
         })
     except Exception as e:
         logger.error(f"Error getting detection status: {e}")
         return jsonify({
             'success': False,
             'error': str(e),
-            'timestamp': datetime.now().isoformat()
+            'timestamp': int(time.time())
         }), 500
 
 
@@ -114,7 +116,7 @@ def start_detection():
             return jsonify({
                 'success': True,
                 'message': 'Detection service started successfully',
-                'timestamp': datetime.now().isoformat()
+                'timestamp': int(time.time())
             })
         else:
             return jsonify({
@@ -127,7 +129,7 @@ def start_detection():
         return jsonify({
             'success': False,
             'error': str(e),
-            'timestamp': datetime.now().isoformat()
+            'timestamp': int(time.time())
         }), 500
 
 
@@ -155,7 +157,7 @@ def stop_detection():
             return jsonify({
                 'success': True,
                 'message': 'Detection service stopped successfully',
-                'timestamp': datetime.now().isoformat()
+                'timestamp': int(time.time())
             })
         else:
             return jsonify({
@@ -168,7 +170,7 @@ def stop_detection():
         return jsonify({
             'success': False,
             'error': str(e),
-            'timestamp': datetime.now().isoformat()
+            'timestamp': int(time.time())
         }), 500
 
 
@@ -203,13 +205,13 @@ def process_single_frame():
             return jsonify({
                 'success': True,
                 'detection_result': make_json_serializable(result),
-                'timestamp': datetime.now().isoformat()
+                'timestamp': int(time.time())
             })
         else:
             return jsonify({
                 'success': False,
                 'message': 'No detection results or processing failed',
-                'timestamp': datetime.now().isoformat()
+                'timestamp': int(time.time())
             })
             
     except Exception as e:
@@ -217,7 +219,7 @@ def process_single_frame():
         return jsonify({
             'success': False,
             'error': str(e),
-            'timestamp': datetime.now().isoformat()
+            'timestamp': int(time.time())
         }), 500
 
 
@@ -254,7 +256,7 @@ def get_detection_statistics():
         return jsonify({
             'success': True,
             'statistics': enhanced_stats,
-            'timestamp': datetime.now().isoformat()
+            'timestamp': int(time.time())
         })
         
     except Exception as e:
@@ -262,7 +264,7 @@ def get_detection_statistics():
         return jsonify({
             'success': False,
             'error': str(e),
-            'timestamp': datetime.now().isoformat()
+            'timestamp': int(time.time())
         }), 500
 
 
@@ -289,7 +291,7 @@ def get_recent_results():
             'success': True,
             'results': make_json_serializable(recent_results),
             'count': len(recent_results),
-            'timestamp': datetime.now().isoformat()
+            'timestamp': int(time.time())
         })
         
     except Exception as e:
@@ -297,7 +299,7 @@ def get_recent_results():
         return jsonify({
             'success': False,
             'error': str(e),
-            'timestamp': datetime.now().isoformat()
+            'timestamp': int(time.time())
         }), 500
 
 
@@ -333,7 +335,7 @@ def get_models_status():
         return jsonify({
             'success': True,
             'models': model_info,
-            'timestamp': datetime.now().isoformat()
+            'timestamp': int(time.time())
         })
         
     except Exception as e:
@@ -341,7 +343,7 @@ def get_models_status():
         return jsonify({
             'success': False,
             'error': str(e),
-            'timestamp': datetime.now().isoformat()
+            'timestamp': int(time.time())
         }), 500
 
 
@@ -370,7 +372,7 @@ def detection_config():
             return jsonify({
                 'success': True,
                 'config': config,
-                'timestamp': datetime.now().isoformat()
+                'timestamp': int(time.time())
             })
         
         elif request.method == 'POST':
@@ -397,7 +399,7 @@ def detection_config():
             return jsonify({
                 'success': True,
                 'message': 'Configuration updated successfully',
-                'timestamp': datetime.now().isoformat()
+                'timestamp': int(time.time())
             })
             
     except Exception as e:
@@ -405,7 +407,7 @@ def detection_config():
         return jsonify({
             'success': False,
             'error': str(e),
-            'timestamp': datetime.now().isoformat()
+            'timestamp': int(time.time())
         }), 500
 
 

@@ -1,8 +1,8 @@
-# AI Camera v1.3 Architecture Documentation
+# AI Camera v2.0 Architecture Documentation
 
 ## Overview
 
-AI Camera v1.3 ใช้ Design Patterns หลัก 3 แบบเพื่อสร้างระบบที่ Modular, Maintainable และ Testable:
+AI Camera v2.0 ใช้ Design Patterns หลัก 3 แบบเพื่อสร้างระบบที่ Modular, Maintainable และ Testable:
 
 1. **Dependency Injection (DI)** - สำหรับการจัดการ Dependencies ระหว่าง Components
 2. **Flask Blueprints** - สำหรับการแบ่งส่วนการทำงานของ Web UI
@@ -476,7 +476,7 @@ class HealthService:
 
 ### 6.1 WebSocket Sender System Overview
 
-ระบบ WebSocket Sender ของ AI Camera v1.3 รองรับการสื่อสารแบบ Real-time และ REST API พร้อม fallback mechanism:
+ระบบ WebSocket Sender ของ AI Camera v2.0 รองรับการสื่อสารแบบ Real-time และ REST API พร้อม fallback mechanism:
 
 1. **WebSocketSender Service** - Business logic layer
 2. **Socket.IO Client** - Real-time communication
@@ -596,7 +596,7 @@ GET /api/statistics - Get statistics (existing)
 
 ### 7.1 Storage Management System Overview
 
-ระบบ Storage Management ของ AI Camera v1.3 ประกอบด้วย 3 ชั้นหลัก:
+ระบบ Storage Management ของ AI Camera v2.0 ประกอบด้วย 3 ชั้นหลัก:
 
 1. **StorageMonitor Component** - Low-level storage monitoring
 2. **StorageService** - Business logic layer
@@ -781,7 +781,7 @@ def _initialize_services(logger):
 
 ### 5.1 Health Monitoring System Overview
 
-ระบบ Health Monitoring ของ AI Camera v1.3 ประกอบด้วย 3 ชั้นหลัก:
+ระบบ Health Monitoring ของ AI Camera v2.0 ประกอบด้วย 3 ชั้นหลัก:
 
 1. **HealthMonitor Component** - Low-level health checks
 2. **HealthService** - Business logic layer
@@ -1624,7 +1624,7 @@ The dashboard layout has evolved from a single-row system to a **2-row responsiv
 
 ### 16.1 Offline Mode Overview
 
-WebSocket Sender ใน AI Camera v1.3 รองรับ **Offline Mode** เพื่อให้ระบบทำงานได้แม้ไม่สามารถเชื่อมต่อ server ได้:
+WebSocket Sender ใน AI Camera v2.0 รองรับ **Offline Mode** เพื่อให้ระบบทำงานได้แม้ไม่สามารถเชื่อมต่อ server ได้:
 
 **Key Features:**
 - **Graceful Degradation**: ทำงานใน local mode เมื่อไม่มี server URL
@@ -1856,7 +1856,7 @@ def create_app():
 # v1_3/src/wsgi.py
 #!/usr/bin/env python3
 """
-WSGI Entry Point for AI Camera v1.3
+WSGI Entry Point for AI Camera v2.0
 
 This module provides the WSGI application entry point for deployment.
 """
@@ -1900,7 +1900,7 @@ if __name__ == "__main__":
 
 ## 18. สรุป
 
-AI Camera v1.3 ใช้ Dependency Injection, Flask Blueprints และ **Absolute Imports** เพื่อสร้างระบบที่:
+AI Camera v2.0 ใช้ Dependency Injection, Flask Blueprints และ **Absolute Imports** เพื่อสร้างระบบที่:
 - **Modular**: แบ่งส่วนการทำงานชัดเจน
 - **Maintainable**: ง่ายต่อการบำรุงรักษา
 - **Testable**: ทดสอบได้ง่าย

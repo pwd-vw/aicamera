@@ -496,4 +496,4 @@ You now have a complete GitHub setup for AI Camera development with:
 
 ---
 
-**Note:** This guide is specific to the AI Camera v2.0.0 monorepo. For other projects, adjust the repository name and configuration accordingly.
+**Note:** This guide is specific to the AI Camera v2.0 monorepo. For other projects, adjust the repository name and configuration accordingly.

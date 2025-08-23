@@ -144,14 +144,14 @@ echo ""
 #### Systemd Service Monitoring
 ```bash
 # Check service status
-sudo systemctl status aicamera_v1.3
+sudo systemctl status aicamera_lpr
 
 # Monitor service logs
-sudo journalctl -u aicamera_v1.3 -f
+sudo journalctl -u aicamera_lpr -f
 
 # Service health check
-sudo systemctl is-active aicamera_v1.3
-sudo systemctl is-enabled aicamera_v1.3
+sudo systemctl is-active aicamera_lpr
+sudo systemctl is-enabled aicamera_lpr
 ```
 
 #### Application Health Check
@@ -464,7 +464,7 @@ tail -f /var/log/hailort.log
     notifempty
     create 644 camuser camuser
     postrotate
-        systemctl reload aicamera_v1.3
+    systemctl reload aicamera_lpr
     endscript
 }
 ```
@@ -522,7 +522,7 @@ check_disk() {
 
 # Check service status
 check_service() {
-    if ! systemctl is-active --quiet aicamera_v1.3; then
+    if ! systemctl is-active --quiet aicamera_lpr; then
         send_alert "AI Camera service is not running" "CRITICAL"
     fi
 }
@@ -669,7 +669,7 @@ vcgencmd measure_temp
 echo ""
 
 echo "=== Service Status ==="
-systemctl status aicamera_v1.3 --no-pager
+systemctl status aicamera_lpr --no-pager
 systemctl status tailscaled --no-pager
 echo ""
 

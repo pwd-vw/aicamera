@@ -110,7 +110,7 @@ aicamera/
 
 4. **Start Application:**
    ```bash
-   sudo systemctl start aicamera_v1.3
+   sudo systemctl start aicamera_lpr
    ```
 
 ## Documentation Index

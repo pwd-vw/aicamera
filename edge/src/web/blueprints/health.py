@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-Health Blueprint for AI Camera v1.3
+Health Blueprint for AI Camera v2.0.0
 
 This blueprint provides health monitoring endpoints and WebSocket events
 for system health status and monitoring.
 
 Author: AI Camera Team
-Version: 1.3
+Version: 2.0.0
 Date: August 2025
 """
 
@@ -14,6 +14,7 @@ from flask import Blueprint, render_template, jsonify, request
 from flask_socketio import emit, join_room, leave_room
 from datetime import datetime
 from typing import Dict, Any
+import time
 
 from edge.src.core.utils.logging_config import get_logger
 from edge.src.core.dependency_container import get_service
@@ -26,7 +27,7 @@ logger = get_logger(__name__)
 def health_dashboard():
     """Render health monitoring dashboard."""
     try:
-        return render_template('health/dashboard.html')
+        return render_template('health/dashboard.html', timestamp=int(time.time()))
     except Exception as e:
         logger.error(f"Error rendering health dashboard: {e}")
         return "Health dashboard not available", 500

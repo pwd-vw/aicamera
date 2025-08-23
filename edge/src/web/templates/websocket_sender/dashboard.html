@@ -1,12 +1,22 @@
+<!--
+ * AI Camera v2.0 - WebSocket Sender Dashboard Template
+ * 
+ * WebSocket sender management interface with connection monitoring and control.
+ * Provides WebSocket service status, connection management, and log monitoring.
+ * 
+ * @author AI Camera Team
+ * @version 2.0
+ * @since 2025-08-23
+ -->
 {% extends "base.html" %}
 
 {% set active_page = "websocket_sender" %}
 {% set use_socketio = true %}
 
-{% block title %}WebSocket Sender Dashboard - AI Camera v2.0.0{% endblock %}
+{% block title %}WebSocket Sender Dashboard - AI Camera v2.0{% endblock %}
 
 {% block additional_css %}
-<link href="{{ url_for('static', filename='css/websocket_sender.css') }}" rel="stylesheet">
+<link href="{{ url_for('static', filename='css/websocket_sender.css', v=timestamp) }}" rel="stylesheet">
 {% endblock %}
 
 {% block content %}

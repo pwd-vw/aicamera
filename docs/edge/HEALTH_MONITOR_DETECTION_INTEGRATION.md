@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document describes the integration between the Health Monitor and Detection Module in AI Camera v1.3. The health monitor now uses proper detection module patterns and mechanisms to accurately determine detection status and auto-startup conditions.
+This document describes the integration between the Health Monitor and Detection Module in AI Camera v2.0. The health monitor now uses proper detection module patterns and mechanisms to accurately determine detection status and auto-startup conditions.
 
 ## Detection Module Patterns
 
@@ -230,7 +230,7 @@ The auto-startup sequence now follows this exact flow:
 ```
 System Startup
     ↓
-Systemd Service (aicamera_v1.3)
+Systemd Service (aicamera_lpr)
     ↓
 Gunicorn (Unix Socket)
     ↓

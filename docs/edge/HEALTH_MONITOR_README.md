@@ -1,8 +1,8 @@
-# Health Monitor - AI Camera v1.3
+# Health Monitor - AI Camera v2.0
 
 ## Overview
 
-The Health Monitor is a comprehensive system monitoring component for AI Camera v1.3 that continuously monitors the health status of various system components and provides real-time diagnostics through a web interface.
+The Health Monitor is a comprehensive system monitoring component for AI Camera v2.0 that continuously monitors the health status of various system components and provides real-time diagnostics through a web interface.
 
 ## Features
 
@@ -408,7 +408,7 @@ When adding new health checks:
 
 ## License
 
-This health monitor is part of AI Camera v1.3 and follows the same licensing terms.
+This health monitor is part of AI Camera v2.0 and follows the same licensing terms.
 
 ## Support
 

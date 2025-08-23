@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
 """
-WebSocket Sender Blueprint for AI Camera v1.3
+WebSocket Sender Blueprint for AI Camera v2.0.0
 
-This blueprint provides WebSocket sender management endpoints and WebSocket events
-for server communication status and sending logs.
-
+This blueprint provides WebSocket sender management and monitoring functionality.
 Author: AI Camera Team
 Version: 1.3
-Date: December 2024
+Date: August 2025
 """
 
 from flask import Blueprint, render_template, jsonify, request

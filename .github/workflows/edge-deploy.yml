@@ -52,7 +52,7 @@ jobs:
             
             # Configuration
             DEPLOY_PATH="/home/camuser/aicamera"
-            SERVICE_NAME="aicamera_v1.3.service"
+            SERVICE_NAME="aicamera_lpr.service"
             NGINX_SERVICE="nginx"
             BACKUP_DIR="/home/camuser/aicamera_backups"
             TIMESTAMP=$(date +%Y%m%d_%H%M%S)

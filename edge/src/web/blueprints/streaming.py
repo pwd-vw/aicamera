@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
 """
-Streaming Blueprint for AI Camera v1.3
+Streaming Blueprint for AI Camera v2.0.0
 
-This blueprint handles video streaming functionality using absolute imports
-and dependency injection pattern.
-
+This blueprint provides video streaming functionality.
 Author: AI Camera Team
-Version: 1.3
-Date: August 8, 2025
+Version: 2.0
+Date: August 2025
 """
 
 from flask import Blueprint, render_template, jsonify, request

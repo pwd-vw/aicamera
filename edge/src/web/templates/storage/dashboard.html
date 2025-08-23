@@ -1,12 +1,22 @@
+<!--
+ * AI Camera v2.0 - Storage Dashboard Template
+ * 
+ * Storage management interface with disk monitoring, cleanup, and analytics.
+ * Provides storage status, file management, and cleanup operations.
+ * 
+ * @author AI Camera Team
+ * @version 2.0
+ * @since 2025-08-23
+ -->
 {% extends "base.html" %}
 
 {% set active_page = "storage" %}
 {% set use_socketio = true %}
 
-{% block title %}Storage Management - AI Camera v2.0.0{% endblock %}
+{% block title %}Storage Management - AI Camera v2.0{% endblock %}
 
 {% block additional_css %}
-<link href="{{ url_for('static', filename='css/storage.css') }}" rel="stylesheet">
+<link href="{{ url_for('static', filename='css/storage.css', v=timestamp) }}" rel="stylesheet">
 {% endblock %}
 
 {% block content %}

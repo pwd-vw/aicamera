@@ -1,6 +1,6 @@
 # 🚗 AI Camera Edge System - Exclusive Summary
 
-**เวอร์ชันปัจจุบัน: v1.3.9**  
+**เวอร์ชันปัจจุบัน: v2.0**  
 **วันที่อัปเดตล่าสุด: 20 สิงหาคม 2025**  
 **สถานะ: ระบบพร้อมใช้งานสำหรับ Checkpoint Deployment**
 
@@ -43,7 +43,7 @@ Video Stream → OCR Results → Web Dashboard
 
 ---
 
-## 📝 **Changelog: v1.3.3 → v1.3.9**
+## 📝 **Changelog: v1.3.3 → v2.0**
 
 ### 🚀 **v1.3.9 - Checkpoint Vehicle Tracking & Storage Optimization** (สิงหาคม 2025)
 **การปรับปรุงหลัก:**

@@ -128,7 +128,7 @@ source venv_hailo/bin/activate
 pip install -r edge/requirements.txt
 
 # Restart services
-sudo systemctl restart aicamera_v1.3.service
+sudo systemctl restart aicamera_lpr.service
 sudo systemctl restart nginx
 
 # Test deployment
@@ -145,12 +145,12 @@ curl http://localhost/health
    - Ensure public key is in authorized_keys
 
 2. **Service Failed to Start**
-   - Check systemd logs: `sudo journalctl -u aicamera_v1.3.service`
+   - Check systemd logs: `sudo journalctl -u aicamera_lpr.service`
    - Verify dependencies are installed
    - Check configuration files
 
 3. **Health Check Failed**
-   - Verify service is running: `sudo systemctl status aicamera_v1.3.service`
+   - Verify service is running: `sudo systemctl status aicamera_lpr.service`
    - Check nginx configuration: `sudo nginx -t`
    - Test manually: `curl http://localhost/health`
 
@@ -164,7 +164,7 @@ cd /home/camuser/aicamera_backups
 LATEST_BACKUP=$(ls -t edge_backup_*.tar.gz | head -1)
 cd /home/camuser/aicamera
 tar -xzf "/home/camuser/aicamera_backups/$LATEST_BACKUP" .
-sudo systemctl restart aicamera_v1.3.service
+sudo systemctl restart aicamera_lpr.service
 sudo systemctl restart nginx
 ```
 
@@ -219,10 +219,10 @@ Monitor deployment status:
 
 ```bash
 # Check service status
-sudo systemctl status aicamera_v1.3.service
+sudo systemctl status aicamera_lpr.service
 
 # View service logs
-sudo journalctl -u aicamera_v1.3.service -f
+sudo journalctl -u aicamera_lpr.service -f
 
 # Check nginx status
 sudo systemctl status nginx

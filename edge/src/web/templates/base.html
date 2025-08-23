@@ -1,9 +1,19 @@
+<!--
+ * AI Camera v2.0 - Base HTML Template
+ * 
+ * Base template providing common layout, navigation, and structure for all pages.
+ * Includes Bootstrap, Font Awesome, and common CSS/JS includes.
+ * 
+ * @author AI Camera Team
+ * @version 2.0
+ * @since 2025-08-23
+ -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}{{ title }}{% endblock %} - AI Camera v2.0.0</title>
+    <title>{% block title %}{{ title }}{% endblock %} - AI Camera v2.0</title>
     
     <!-- Google Fonts - Modern Typography -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -103,7 +113,7 @@
     <footer class="py-4 mt-5" style="background: var(--card-background); border-top: 1px solid var(--border-color);">
         <div class="container text-center">
             <p class="mb-0" style="color: var(--secondary-color); font-weight: 500;">
-                <i class="fas fa-camera me-2" style="color: var(--primary-color);"></i> AI Camera v2.0.0 - Advanced Camera Management System
+                <i class="fas fa-camera me-2" style="color: var(--primary-color);"></i> AI Camera v2.0 - Advanced Camera Management System
             </p>
             <small style="color: var(--secondary-color);">
                 Built with Flask, Picamera2, and Hailo AI

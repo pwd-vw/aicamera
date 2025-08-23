@@ -1,6 +1,11 @@
 /**
- * AI Camera v2.0.0 - Unified Detection Dashboard JavaScript
- * Combined detection control, monitoring, and results functionality
+ * AI Camera v2.0 - Unified Detection Dashboard JavaScript
+ * 
+ * Combined detection control, monitoring, and results functionality.
+ * 
+ * @author AI Camera Team
+ * @version 2.0
+ * @since 2025-08-23
  */
 
 // Unified Detection Manager

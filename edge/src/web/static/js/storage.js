@@ -1,6 +1,11 @@
 /**
- * AI Camera v2.0.0 - Storage Management JavaScript
- * Handles storage monitoring, cleanup, and configuration management
+ * AI Camera v2.0 - Storage Management JavaScript
+ * 
+ * Handles storage monitoring, cleanup, and configuration management.
+ * 
+ * @author AI Camera Team
+ * @version 2.0
+ * @since 2025-08-23
  */
 
 // Storage Manager state management

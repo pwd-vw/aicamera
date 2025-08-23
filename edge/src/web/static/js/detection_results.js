@@ -1,8 +1,12 @@
 /**
- * AI Camera v2.0.0 - Detection Results JavaScript
+ * AI Camera v2.0 - Detection Results JavaScript
  * 
  * Handles the detection results table with pagination, search, filter, sort,
  * and detail view functionality.
+ * 
+ * @author AI Camera Team
+ * @version 2.0
+ * @since 2025-08-23
  */
 
 // Detection Results state management

@@ -1,6 +1,11 @@
 /**
- * AI Camera v2.0.0 - Base JavaScript Functions
- * Common utilities and functions shared across all dashboards
+ * AI Camera v2.0 - Base JavaScript Functions
+ * 
+ * Common utilities and functions shared across all dashboards.
+ * 
+ * @author AI Camera Team
+ * @version 2.0
+ * @since 2025-08-23
  */
 
 // Global utilities
@@ -335,7 +340,22 @@ const FullscreenManager = {
         // Setup keyboard shortcuts
         this.setupKeyboardShortcuts();
         
+        // Auto-enter fullscreen on page load (for kiosk mode)
+        this.autoEnterFullscreen();
+        
         console.log('Fullscreen manager initialized. Current state:', this.isFullscreen ? 'Fullscreen' : 'Normal');
+    },
+    
+    /**
+     * Auto-enter fullscreen on page load
+     */
+    autoEnterFullscreen: function() {
+        // Wait a bit for the page to load completely
+        setTimeout(() => {
+            if (!this.isFullscreen) {
+                this.enterFullscreen();
+            }
+        }, 2000);
     },
     
     /**
@@ -351,7 +371,14 @@ const FullscreenManager = {
         // Add click event listener
         exitBtn.addEventListener('click', (e) => {
             e.preventDefault();
+            e.stopPropagation();
             this.toggleFullscreen();
+        });
+        
+        // Prevent right-click context menu on the button
+        exitBtn.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
         });
     },
     
@@ -371,6 +398,22 @@ const FullscreenManager = {
                 e.preventDefault();
                 this.exitFullscreen();
             }
+        });
+        
+        // Listen for fullscreen change events
+        document.addEventListener('fullscreenchange', () => {
+            this.isFullscreen = document.fullscreenElement !== null;
+            this.updateExitButton();
+        });
+        
+        document.addEventListener('webkitfullscreenchange', () => {
+            this.isFullscreen = document.webkitFullscreenElement !== null;
+            this.updateExitButton();
+        });
+        
+        document.addEventListener('mozfullscreenchange', () => {
+            this.isFullscreen = document.mozFullScreenElement !== null;
+            this.updateExitButton();
         });
     },
     
@@ -408,17 +451,36 @@ const FullscreenManager = {
      * Exit fullscreen mode
      */
     exitFullscreen: function() {
-        if (document.exitFullscreen) {
-            document.exitFullscreen();
-        } else if (document.webkitExitFullscreen) {
-            document.webkitExitFullscreen();
-        } else if (document.msExitFullscreen) {
-            document.msExitFullscreen();
+        // Check if we're in a kiosk-like environment
+        if (window.navigator.standalone || window.chrome && window.chrome.webstore) {
+            // In kiosk mode, show a confirmation dialog instead of exiting
+            if (confirm('Are you sure you want to exit fullscreen mode? This will show the browser interface.')) {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                } else if (document.webkitExitFullscreen) {
+                    document.webkitExitFullscreen();
+                } else if (document.msExitFullscreen) {
+                    document.msExitFullscreen();
+                }
+                
+                this.isFullscreen = false;
+                this.updateExitButton();
+                AICameraUtils.showToast('Exited fullscreen mode', 'info');
+            }
+        } else {
+            // Normal browser mode
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            } else if (document.webkitExitFullscreen) {
+                document.webkitExitFullscreen();
+            } else if (document.msExitFullscreen) {
+                document.msExitFullscreen();
+            }
+            
+            this.isFullscreen = false;
+            this.updateExitButton();
+            AICameraUtils.showToast('Exited fullscreen mode', 'info');
         }
-        
-        this.isFullscreen = false;
-        this.updateExitButton();
-        AICameraUtils.showToast('Exited fullscreen mode', 'info');
     },
     
     /**
@@ -477,5 +539,5 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize fullscreen manager
     FullscreenManager.init();
 
-    console.log('AI Camera v2.0.0 - Base JavaScript loaded');
+    console.log('AI Camera v2.0 - Base JavaScript loaded');
 });

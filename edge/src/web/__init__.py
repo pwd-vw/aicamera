@@ -1,6 +1,7 @@
 """
-Web Module for AI Camera v1.3
+Web Module for AI Camera v2.0.0
 
+This module provides the web interface for the AI Camera system.
 This module contains web-related components including:
 - Flask blueprints
 - WebSocket handlers
@@ -8,8 +9,8 @@ This module contains web-related components including:
 - Web interface components
 
 Author: AI Camera Team
-Version: 1.3
-Date: August 7, 2025
+Version: 2.0
+Date: August 2025
 """
 
 from edge.src.web.blueprints import (

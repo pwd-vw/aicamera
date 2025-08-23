@@ -1,3 +1,13 @@
+<!--
+ * AI Camera v2.0 - Camera Dashboard Template
+ * 
+ * Camera control and monitoring interface with live video feed and metadata display.
+ * Provides camera controls, status monitoring, and configuration management.
+ * 
+ * @author AI Camera Team
+ * @version 2.0
+ * @since 2025-08-23
+ -->
 {% extends "base.html" %}
 
 {% set active_page = "camera" %}
@@ -7,7 +17,226 @@
 {% block title %}Camera Dashboard{% endblock %}
 
 {% block additional_css %}
-<link href="{{ url_for('static', filename='css/camera.css') }}" rel="stylesheet">
+<link href="{{ url_for('static', filename='css/camera.css', v=timestamp) }}" rel="stylesheet">
+<style>
+/* Metadata Viewer Styles */
+.metadata-container {
+    max-width: 100%;
+}
+
+.metadata-section {
+    margin-bottom: 1rem;
+    padding: 1rem;
+    border: 1px solid #e3e6f0;
+    border-radius: 0.35rem;
+    background-color: #f8f9fc;
+}
+
+.section-title {
+    color: #5a5c69;
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    border-bottom: 2px solid #4e73df;
+    padding-bottom: 0.25rem;
+}
+
+.metadata-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 0.5rem;
+}
+
+.metadata-item {
+    background: white;
+    padding: 0.75rem;
+    border-radius: 0.35rem;
+    border: 1px solid #e3e6f0;
+    box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+}
+
+.metadata-key {
+    font-weight: 600;
+    color: #5a5c69;
+    font-size: 0.8rem;
+    margin-bottom: 0.25rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.metadata-value {
+    color: #858796;
+    font-family: 'Courier New', monospace;
+    font-size: 0.75rem;
+    word-break: break-all;
+    max-height: 60px;
+    overflow-y: auto;
+}
+
+.info-card {
+    background: white;
+    padding: 1rem;
+    border-radius: 0.35rem;
+    border: 1px solid #e3e6f0;
+    text-align: center;
+    box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+}
+
+.info-label {
+    font-size: 0.7rem;
+    color: #858796;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 0.25rem;
+}
+
+.info-value {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #5a5c69;
+}
+
+.status-ok {
+    color: #1cc88a !important;
+}
+
+.status-error {
+    color: #e74a3b !important;
+}
+
+.status-warning {
+    color: #f6c23e !important;
+}
+
+.debug-container {
+    background-color: #f8f9fc;
+    border-radius: 0.35rem;
+    padding: 0.75rem;
+}
+
+.debug-group {
+    margin-bottom: 1rem;
+    padding: 0.75rem;
+    border: 1px solid #e3e6f0;
+    border-radius: 0.35rem;
+    background-color: white;
+}
+
+.debug-group h5 {
+    color: #5a5c69;
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    border-bottom: 1px solid #e3e6f0;
+    padding-bottom: 0.25rem;
+}
+
+.steps-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.step-item {
+    display: flex;
+    align-items: center;
+    padding: 0.5rem;
+    border-radius: 0.35rem;
+    border: 1px solid #e3e6f0;
+    background-color: #f8f9fc;
+    font-size: 0.8rem;
+}
+
+.step-item.step-success {
+    background-color: #d1ecf1;
+    border-color: #bee5eb;
+}
+
+.step-item.step-error {
+    background-color: #f8d7da;
+    border-color: #f5c6cb;
+}
+
+.step-number {
+    background-color: #4e73df;
+    color: white;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    font-weight: bold;
+    margin-right: 0.5rem;
+}
+
+.step-text {
+    flex: 1;
+    font-weight: 500;
+}
+
+.step-status {
+    font-size: 1rem;
+}
+
+.metadata-keys {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+}
+
+.metadata-key-badge {
+    background-color: #4e73df;
+    color: white;
+    padding: 0.125rem 0.25rem;
+    border-radius: 0.25rem;
+    font-size: 0.7rem;
+    font-weight: 500;
+}
+
+.error-card {
+    background-color: #f8d7da;
+    border: 1px solid #f5c6cb;
+    color: #721c24;
+    padding: 0.75rem;
+    border-radius: 0.35rem;
+    font-size: 0.8rem;
+}
+
+.success-card {
+    background-color: #d4edda;
+    border: 1px solid #c3e6cb;
+    color: #155724;
+    padding: 0.75rem;
+    border-radius: 0.35rem;
+    font-size: 0.8rem;
+}
+
+.metadata-toggle {
+    cursor: pointer;
+    user-select: none;
+}
+
+.metadata-toggle:hover {
+    background-color: #e3e6f0;
+}
+
+.metadata-content {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+@media (max-width: 768px) {
+    .metadata-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .metadata-content {
+        max-height: 300px;
+    }
+}
+</style>
 {% endblock %}
 
 {% block container_class %}mt-2{% endblock %}
@@ -33,9 +262,9 @@
                         <button id="test-video-btn" class="btn btn-sm btn-outline-warning">
                             <i class="fas fa-video"></i>
                         </button>
-                        <a href="/camera/metadata" class="btn btn-sm btn-outline-info">
+                        <button id="toggle-metadata-btn" class="btn btn-sm btn-outline-info">
                             <i class="fas fa-chart-bar"></i>
-                        </a>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -65,6 +294,37 @@
                         <div class="video-status-content">
                             <i class="fas fa-spinner fa-spin"></i>
                             <span>Loading video feed...</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Metadata Viewer Section (Collapsible) -->
+                <div id="metadata-section" class="mt-2" style="display: none;">
+                    <div class="card compact-card">
+                        <div class="card-header compact-header metadata-toggle" onclick="toggleMetadata()">
+                            <div class="d-flex align-items-center justify-content-between">
+                                <div class="d-flex align-items-center">
+                                    <i class="fas fa-chart-bar me-1"></i>
+                                    <span class="fw-bold">Camera Metadata (Cached)</span>
+                                </div>
+                                <div class="d-flex gap-1">
+                                    <button id="refresh-metadata-btn" class="btn btn-sm btn-outline-secondary" onclick="event.stopPropagation(); refreshMetadata()">
+                                        <i class="fas fa-sync-alt"></i>
+                                    </button>
+                                    <button id="export-metadata-btn" class="btn btn-sm btn-outline-success" onclick="event.stopPropagation(); exportMetadata()">
+                                        <i class="fas fa-download"></i>
+                                    </button>
+                                    <i class="fas fa-chevron-down" id="metadata-toggle-icon"></i>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-body compact-body metadata-content" id="metadata-content">
+                            <div class="text-center">
+                                <div class="spinner-border spinner-border-sm" role="status">
+                                    <span class="sr-only">Loading metadata...</span>
+                                </div>
+                                <p class="mt-2 small">Loading cached camera metadata...</p>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -172,5 +432,276 @@
 {% endblock %}
 
 {% block additional_js %}
-<script src="{{ url_for('static', filename='js/camera.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/camera.js', v=timestamp) }}"></script>
+<script>
+// Metadata Viewer functionality
+let metadataVisible = false;
+let metadataData = null;
+
+// Toggle metadata section
+function toggleMetadata() {
+    const metadataSection = document.getElementById('metadata-section');
+    const toggleIcon = document.getElementById('metadata-toggle-icon');
+    
+    if (metadataVisible) {
+        metadataSection.style.display = 'none';
+        toggleIcon.className = 'fas fa-chevron-down';
+        metadataVisible = false;
+    } else {
+        metadataSection.style.display = 'block';
+        toggleIcon.className = 'fas fa-chevron-up';
+        metadataVisible = true;
+        loadMetadata();
+    }
+}
+
+// Load metadata from cached data
+function loadMetadata() {
+    const container = document.getElementById('metadata-content');
+    container.innerHTML = `
+        <div class="text-center">
+            <div class="spinner-border spinner-border-sm" role="status">
+                <span class="sr-only">Loading metadata...</span>
+            </div>
+            <p class="mt-2 small">Loading cached camera metadata...</p>
+        </div>
+    `;
+    
+    // Use cached data from CameraManager if available
+    if (typeof CameraManager !== 'undefined' && CameraManager.cachedStatus) {
+        metadataData = {
+            camera_properties: CameraManager.cachedStatus.camera_properties || {},
+            current_config: CameraManager.cachedStatus.current_config || {},
+            camera_status: CameraManager.cachedStatus.camera_status || {},
+            manager_status: CameraManager.cachedStatus,
+            debug_info: CameraManager.cachedStatus.debug_info || null,
+            timestamp: new Date().toISOString()
+        };
+        displayMetadata(metadataData);
+    } else {
+        // Fallback to API call only if no cached data
+        AICameraUtils.apiRequest('/camera/debug_metadata')
+            .then(data => {
+                if (data && data.success) {
+                    metadataData = data.metadata;
+                    displayMetadata(data.metadata);
+                } else {
+                    displayMetadataError('Failed to load metadata');
+                }
+            })
+            .catch(error => {
+                console.error('Metadata load error:', error);
+                displayMetadataError('Error loading metadata: ' + error.message);
+            });
+    }
+}
+
+// Display metadata
+function displayMetadata(metadata) {
+    const container = document.getElementById('metadata-content');
+    if (!container) return;
+    
+    let html = '';
+    
+    // Debug Information
+    if (metadata.debug_info) {
+        html += `
+            <div class="metadata-section">
+                <h5 class="section-title">🔧 Debug Information</h5>
+                <div class="debug-container">
+        `;
+        
+        // Debug Steps
+        if (metadata.debug_info.steps) {
+            html += `
+                <div class="debug-group">
+                    <h5>⚙️ Debug Steps</h5>
+                    <div class="steps-container">
+            `;
+            
+            const steps = [
+                { key: 'step1_camera_ready', text: 'Camera Ready' },
+                { key: 'step2_picam2_started', text: 'Picam2 Started' },
+                { key: 'step3_capture_request', text: 'Capture Request' },
+                { key: 'step4_get_metadata', text: 'Get Metadata' },
+                { key: 'step5_extract_metadata', text: 'Extract Metadata' },
+                { key: 'step6_release_request', text: 'Release Request' }
+            ];
+            
+            steps.forEach(step => {
+                const success = metadata.debug_info.steps[step.key];
+                html += `
+                    <div class="step-item ${success ? 'step-success' : 'step-error'}">
+                        <span class="step-number">${step.key.slice(-1)}</span>
+                        <span class="step-text">${step.text}</span>
+                        <span class="step-status">${success ? '✅' : '❌'}</span>
+                    </div>
+                `;
+            });
+            
+            html += `
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Error Information
+        if (metadata.debug_info.error) {
+            html += `
+                <div class="debug-group">
+                    <h5>❌ Error Information</h5>
+                    <div class="error-card">
+                        <div class="error-message">${metadata.debug_info.error}</div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Success Status
+        if (metadata.debug_info.success) {
+            html += `
+                <div class="debug-group">
+                    <h5>🎉 Debug Status</h5>
+                    <div class="success-card">
+                        <div class="success-message">✅ All debug steps completed successfully!</div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        html += `
+                </div>
+            </div>
+        `;
+    }
+    
+    // Camera Properties
+    if (metadata.camera_properties) {
+        html += `
+            <div class="metadata-section">
+                <h5 class="section-title">🔧 Camera Properties</h5>
+                <div class="metadata-grid">
+        `;
+        
+        Object.entries(metadata.camera_properties).forEach(([key, value]) => {
+            html += `
+                <div class="metadata-item">
+                    <div class="metadata-key">${key}</div>
+                    <div class="metadata-value">${JSON.stringify(value)}</div>
+                </div>
+            `;
+        });
+        
+        html += `
+                </div>
+            </div>
+        `;
+    }
+    
+    // Current Configuration
+    if (metadata.current_config) {
+        html += `
+            <div class="metadata-section">
+                <h5 class="section-title">⚙️ Current Configuration</h5>
+                <div class="metadata-grid">
+        `;
+        
+        Object.entries(metadata.current_config).forEach(([key, value]) => {
+            html += `
+                <div class="metadata-item">
+                    <div class="metadata-key">${key}</div>
+                    <div class="metadata-value">${JSON.stringify(value)}</div>
+                </div>
+            `;
+        });
+        
+        html += `
+                </div>
+            </div>
+        `;
+    }
+    
+    // Camera Status
+    if (metadata.camera_status) {
+        html += `
+            <div class="metadata-section">
+                <h5 class="section-title">📷 Camera Status</h5>
+                <div class="metadata-grid">
+        `;
+        
+        Object.entries(metadata.camera_status).forEach(([key, value]) => {
+            html += `
+                <div class="metadata-item">
+                    <div class="metadata-key">${key}</div>
+                    <div class="metadata-value">${JSON.stringify(value)}</div>
+                </div>
+            `;
+        });
+        
+        html += `
+                </div>
+            </div>
+        `;
+    }
+    
+    // Timestamp
+    html += `
+        <div class="text-center mt-2">
+            <small class="text-muted">Last updated: ${new Date().toLocaleString()}</small>
+        </div>
+    `;
+    
+    container.innerHTML = html;
+}
+
+// Display metadata error
+function displayMetadataError(message) {
+    const container = document.getElementById('metadata-content');
+    if (container) {
+        container.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-triangle"></i> ${message}
+            </div>
+        `;
+    }
+}
+
+// Refresh metadata
+function refreshMetadata() {
+    if (metadataVisible) {
+        // In a real application, you would fetch fresh data from the API
+        // For now, we'll just reload the cached data
+        loadMetadata();
+        AICameraUtils.showToast('Refreshing cached metadata...', 'info');
+    }
+}
+
+// Export metadata
+function exportMetadata() {
+    if (!metadataData) {
+        AICameraUtils.showToast('No metadata to export', 'warning');
+        return;
+    }
+
+    const dataStr = JSON.stringify(metadataData, null, 2);
+    const dataBlob = new Blob([dataStr], {type: 'application/json'});
+    const url = URL.createObjectURL(dataBlob);
+    
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `camera_metadata_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.json`;
+    link.click();
+    
+    URL.revokeObjectURL(url);
+    AICameraUtils.showToast('Metadata exported successfully', 'success');
+}
+
+// Setup metadata toggle button
+document.addEventListener('DOMContentLoaded', function() {
+    const toggleBtn = document.getElementById('toggle-metadata-btn');
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', toggleMetadata);
+    }
+});
+</script>
 {% endblock %}

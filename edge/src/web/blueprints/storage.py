@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Storage Blueprint for AI Camera v1.3
+Storage Blueprint for AI Camera v2.0.0
 
 This blueprint provides web interface for storage management including
 disk space monitoring, file cleanup, and storage analytics.
@@ -9,6 +9,7 @@ disk space monitoring, file cleanup, and storage analytics.
 from flask import Blueprint, render_template, jsonify, request
 from flask_socketio import emit, join_room, leave_room
 from datetime import datetime
+import time
 
 from edge.src.core.dependency_container import get_service
 from edge.src.core.utils.logging_config import get_logger
@@ -23,7 +24,8 @@ def storage_dashboard():
     """Render storage management dashboard."""
     return render_template('storage/dashboard.html', 
                          active_page='storage',
-                         title='Storage Management')
+                         title='Storage Management',
+                         timestamp=int(time.time()))
 
 @storage_bp.route('/status')
 def get_storage_status():
