@@ -29,6 +29,30 @@ The edge system follows a modular architecture with the following components:
 - **Dependency Injection**: Centralized service management
 - **Auto-Startup**: Sequential service initialization with configurable delays
 
+### Singleton Camera Access Architecture
+
+**🚨 CRITICAL**: The camera system uses a singleton pattern to prevent multiple concurrent access to Picamera2, which does not support multiple processes accessing the camera simultaneously.
+
+#### Camera Access Pattern:
+- **CameraHandler**: Singleton low-level camera operations (Picamera2 interface)
+- **CameraManager**: High-level camera service management (accesses CameraHandler)
+- **Frame Buffer System**: Single capture thread provides frames and metadata to all consumers
+- **Other Components**: Access camera data ONLY through CameraManager, never directly to CameraHandler
+
+#### Frame Buffer System:
+- **Single Capture Thread**: Continuously captures main and lores frames + metadata
+- **Thread-Safe Buffers**: Shared memory for frames and metadata
+- **Multiple Consumers**: Detection Manager, Video Streaming, Health Monitor read from buffers
+- **No Direct Access**: Components use `get_main_frame()`, `get_lores_frame()`, `get_cached_metadata()`
+
+#### Component Access Rules:
+- ✅ **Detection Manager**: Uses `camera_manager.capture_frame()` for main stream
+- ✅ **Video Streaming**: Uses `camera_manager.capture_lores_frame()` for web interface
+- ✅ **Health Monitor**: Gets status from `camera_manager.get_status()`
+- ✅ **Metadata Access**: Uses `camera_manager.get_status()` for camera metadata
+- ❌ **Direct Camera Access**: Never call `picam2.capture_request()` directly
+- ❌ **Multiple Processes**: Never access CameraHandler from multiple processes
+
 ## Response Format Standards
 
 ### Standard Response Structure
@@ -368,6 +392,159 @@ API endpoint สำหรับ metadata ของกล้อง
   },
   "available_modes": [...],
   "sensor_modes_count": 4,
+  "timestamp": "2025-08-23T10:30:00Z"
+}
+```
+
+#### GET /camera/api/experimental_metadata
+API endpoint สำหรับ comprehensive experimental metadata ของกล้อง
+
+**Response:**
+```json
+{
+  "success": true,
+  "experimental_metadata": {
+    "timing": {
+      "frame_timestamp": 1234567890,
+      "sensor_timestamp": 1234567890,
+      "request_timestamp": 1234567890,
+      "frame_duration": 33333,
+      "exposure_time": 10000,
+      "timestamp_ns": 1234567890,
+      "timestamp_ms": 1234.567,
+      "capture_latency": 5.2
+    },
+    "exposure": {
+      "exposure_time": 10000,
+      "exposure_time_ms": 10.0,
+      "analogue_gain": 2.0,
+      "digital_gain": 1.0,
+      "total_gain": 2.0,
+      "gain_db": 6.02,
+      "exposure_index": 20.0
+    },
+    "color": {
+      "awb_gains": [1.2, 0.8],
+      "colour_gains": [1.2, 1.0, 0.8],
+      "color_temperature": 5500.0,
+      "red_gain": 1.2,
+      "blue_gain": 0.8,
+      "green_gain": 1.0,
+      "wb_ratio": 1.5
+    },
+    "focus": {
+      "focus_fom": 750,
+      "af_state": 2,
+      "lens_position": 500,
+      "focus_distance": 2.0,
+      "focus_confidence": 0.75,
+      "autofocus_active": true
+    },
+    "sensor": {
+      "sensor_id": "imx708",
+      "sensor_mode": 0,
+      "sensor_timestamp": 1234567890,
+      "sensor_line_length": 3840,
+      "sensor_frame_length": 720,
+      "sensor_exposure_time": 10000
+    },
+    "quality": {
+      "sharpness": 1.0,
+      "contrast": 1.0,
+      "brightness": 0.0,
+      "saturation": 1.0,
+      "noise_reduction": "Fast",
+      "dynamic_range": 10.5,
+      "signal_to_noise": 25.3
+    },
+    "performance": {
+      "frame_count": 1234,
+      "average_fps": 29.5,
+      "buffer_ready": true,
+      "main_frame_available": true,
+      "lores_frame_available": true,
+      "capture_thread_active": true,
+      "buffer_latency": 2.1
+    },
+    "camera_properties": {
+      "model": "imx708",
+      "location": 2,
+      "rotation": 0,
+      "pixel_array_size": [4608, 2592],
+      "unit_cell_size": [1.4, 1.4],
+      "color_filter_arrangement": 0
+    },
+    "configuration": {
+      "resolution": [1280, 720],
+      "format": "RGB888",
+      "framerate": 30.0,
+      "buffer_count": 4,
+      "use_case": "video",
+      "transform": "identity",
+      "colour_space": "Rec709"
+    },
+    "experimental": {
+      "lighting_condition": "normal",
+      "motion_detected": false,
+      "image_stability": 0.95,
+      "exposure_adequacy": "adequate",
+      "focus_quality": "good",
+      "noise_level": "low",
+      "dynamic_range_utilization": 75.5
+    },
+    "raw_metadata": {...},
+    "metadata_info": {
+      "collection_time": 1692800000.0,
+      "collection_method": "comprehensive_experimental",
+      "version": "2.0",
+      "source": "camera_handler"
+    }
+  },
+  "timestamp": "2025-08-23T10:30:00Z"
+}
+```
+
+#### GET /camera/api/metadata_summary
+API endpoint สำหรับ metadata summary สำหรับ experimental efficiency
+
+**Response:**
+```json
+{
+  "success": true,
+  "metadata_summary": {
+    "camera_status": {
+      "initialized": true,
+      "streaming": true,
+      "frame_count": 1234,
+      "average_fps": 29.5
+    },
+    "image_quality": {
+      "exposure_adequacy": "adequate",
+      "focus_quality": "good",
+      "lighting_condition": "normal",
+      "noise_level": "low",
+      "dynamic_range_utilization": 75.5
+    },
+    "performance_metrics": {
+      "buffer_ready": true,
+      "buffer_latency_ms": 2.1,
+      "capture_thread_active": true,
+      "actual_framerate": 30.0
+    },
+    "camera_settings": {
+      "resolution": [1280, 720],
+      "exposure_time_ms": 10.0,
+      "total_gain": 2.0,
+      "color_temperature": 5500.0,
+      "focus_distance": 2.0
+    },
+    "experimental_indicators": {
+      "image_stability": 0.95,
+      "signal_to_noise_db": 25.3,
+      "dynamic_range_stops": 10.5,
+      "focus_confidence": 0.75
+    }
+  },
   "timestamp": "2025-08-23T10:30:00Z"
 }
 ```

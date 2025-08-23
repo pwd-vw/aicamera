@@ -159,6 +159,15 @@ class CameraHandler:
     _camera_queue = queue.Queue(maxsize=1)  # Single slot queue for camera access
     _camera_queue.put(None)  # เติม slot แรกให้ queue พร้อมใช้งาน
     
+    # Frame Buffer System for concurrent access
+    _frame_buffer_lock = threading.Lock()
+    _main_frame_buffer = None  # Latest main stream frame
+    _lores_frame_buffer = None  # Latest lores stream frame
+    _metadata_buffer = {}  # Latest metadata
+    _capture_thread = None
+    _capture_running = False
+    _capture_interval = 0.033  # ~30 FPS capture rate
+    
     def __new__(cls, *args, **kwargs):
         """Ensure only one instance exists (Singleton pattern)."""
         if cls._instance is None:
@@ -190,6 +199,126 @@ class CameraHandler:
         self.logger.info(f"Camera status: {self.camera_status}")
         
         self._initialized = True
+    
+    def _start_frame_capture_thread(self):
+        """
+        Start the frame capture thread that continuously captures frames.
+        This eliminates concurrent access issues by having a single capture point.
+        """
+        if self._capture_thread and self._capture_thread.is_alive():
+            self.logger.info("Frame capture thread already running")
+            return True
+        
+        if not self.streaming or not self.picam2:
+            self.logger.error("Cannot start capture thread - camera not streaming")
+            return False
+        
+        self._capture_running = True
+        self._capture_thread = threading.Thread(target=self._frame_capture_loop, daemon=True)
+        self._capture_thread.start()
+        self.logger.info("Frame capture thread started")
+        return True
+    
+    def _stop_frame_capture_thread(self):
+        """Stop the frame capture thread."""
+        self._capture_running = False
+        if self._capture_thread and self._capture_thread.is_alive():
+            self._capture_thread.join(timeout=2.0)
+            self.logger.info("Frame capture thread stopped")
+    
+    def _frame_capture_loop(self):
+        """
+        Continuous frame capture loop for both main and lores streams.
+        Captures frames and metadata in a single thread to avoid concurrent access.
+        """
+        self.logger.info("Starting frame capture loop")
+        
+        # Initialize frame timestamp tracking
+        self._frame_timestamps = []
+        self._last_capture_time = time.time()
+        
+        while self._capture_running:
+            try:
+                # Capture main frame and metadata
+                main_frame_data = self._capture_main_frame_with_metadata()
+                if main_frame_data:
+                    with self._frame_buffer_lock:
+                        self._main_frame_buffer = main_frame_data['frame']
+                        self._metadata_buffer = main_frame_data['metadata']
+                        self._last_capture_time = time.time()
+                        
+                        # Track frame timestamps for performance metrics
+                        if main_frame_data['metadata'] and 'sensor_timestamp' in main_frame_data['metadata']:
+                            self._frame_timestamps.append(main_frame_data['metadata']['sensor_timestamp'])
+                            # Keep only last 100 timestamps to prevent memory growth
+                            if len(self._frame_timestamps) > 100:
+                                self._frame_timestamps = self._frame_timestamps[-100:]
+                
+                # Capture lores frame
+                lores_frame = self._capture_lores_frame()
+                if lores_frame is not None:
+                    with self._frame_buffer_lock:
+                        self._lores_frame_buffer = lores_frame
+                
+                # Update frame count and FPS
+                self.frame_count += 1
+                self._update_fps()
+                
+                # Sleep to control capture rate
+                time.sleep(self._capture_interval)
+                
+            except Exception as e:
+                self.logger.error(f"Error in frame capture loop: {e}")
+                time.sleep(0.1)  # Brief pause on error
+        
+        self.logger.info("Frame capture loop stopped")
+    
+    def get_main_frame(self) -> Optional[np.ndarray]:
+        """
+        Get the latest main stream frame from buffer.
+        Thread-safe access to main stream for detection processing.
+        
+        Returns:
+            Optional[np.ndarray]: Latest main frame or None
+        """
+        with self._frame_buffer_lock:
+            if self._main_frame_buffer is not None:
+                return self._main_frame_buffer.copy()
+        return None
+    
+    def get_lores_frame(self) -> Optional[np.ndarray]:
+        """
+        Get the latest lores stream frame from buffer.
+        Thread-safe access to lores stream for web interface.
+        
+        Returns:
+            Optional[np.ndarray]: Latest lores frame or None
+        """
+        with self._frame_buffer_lock:
+            if self._lores_frame_buffer is not None:
+                return self._lores_frame_buffer.copy()
+        return None
+    
+    def get_cached_metadata(self) -> Dict[str, Any]:
+        """
+        Get the latest metadata from buffer.
+        Thread-safe access to metadata for status reporting.
+        
+        Returns:
+            Dict[str, Any]: Latest metadata
+        """
+        with self._frame_buffer_lock:
+            return self._metadata_buffer.copy()
+    
+    def is_frame_buffer_ready(self) -> bool:
+        """
+        Check if frame buffers have data.
+        
+        Returns:
+            bool: True if buffers have frames, False otherwise
+        """
+        with self._frame_buffer_lock:
+            return self._main_frame_buffer is not None and self._lores_frame_buffer is not None
     
     def try_connect_camera(self) -> bool:
         """
@@ -425,6 +554,13 @@ class CameraHandler:
                         self.logger.warning(f"Failed to apply basic controls: {e}")
                     
                     self.logger.info("Camera started successfully")
+                    
+                    # Start frame capture thread for concurrent access
+                    if self._start_frame_capture_thread():
+                        self.logger.info("Frame capture thread started successfully")
+                    else:
+                        self.logger.warning("Failed to start frame capture thread")
+                    
                     return True
                     
                 except Exception as e:
@@ -448,6 +584,9 @@ class CameraHandler:
                     return True
                 
                 self.logger.info("Stopping camera...")
+                
+                # Stop frame capture thread first
+                self._stop_frame_capture_thread()
                 
                 # Stop recording if active
                 if self.recording:
@@ -493,79 +632,63 @@ class CameraHandler:
     
     def capture_frame(self) -> Optional[Dict[str, Any]]:
         """
-        Capture a single frame with metadata.
-        Based on Picamera2 manual - proper capture_request() usage.
+        Capture a single frame with metadata using frame buffer.
+        Thread-safe access to main stream for detection processing.
         
         Returns:
             Optional[Dict[str, Any]]: Frame data with metadata, None if failed
         """
-        if not self.streaming or not self.picam2:
-            self.logger.error("Camera not streaming or not initialized")
-            return None
-            
-        if not self.picam2.started:
-            self.logger.error("Camera not started - cannot capture")
-            return None
-            
-        request = None
         try:
-            # According to Picamera2 manual, capture_request() should be used when camera is started
-            request = self.picam2.capture_request()
-            frame = request.make_array("main")  # Get frame as numpy array
-            metadata = request.get_metadata()   # Get metadata
-            request.release()
-            request = None
+            # Get frame from buffer instead of direct camera access
+            frame = self.get_main_frame()
+            if frame is None:
+                self.logger.warning("No main frame available in buffer")
+                return None
+            
+            # Get metadata from buffer
+            metadata = self.get_cached_metadata()
             
             return {
                 'frame': frame,
-                'metadata': make_json_serializable(metadata),
+                'metadata': metadata,
                 'timestamp': time.time(),
                 'format': 'RGB888',
                 'size': frame.shape[:2]
             }
                 
         except Exception as e:
-            self.logger.error(f"Failed to capture frame: {e}")
+            self.logger.error(f"Failed to capture frame from buffer: {e}")
             return None
-        finally:
-            if request:
-                request.release()
     
     def capture_lores_frame(self) -> Optional[Dict[str, Any]]:
         """
-        Capture a low-resolution frame optimized for ML detection.
-        Based on Picamera2 ML integration approach.
+        Capture a low-resolution frame optimized for web interface.
+        Thread-safe access to lores stream using frame buffer.
         
         Returns:
             Optional[Dict[str, Any]]: Low-res frame data, None if failed
         """
-        if not self.streaming or not self.picam2:
-            self.logger.error("Camera not streaming or not initialized")
-            return None
-            
-        request = None
         try:
-            # Use capture_request() approach optimized for ML
-            request = self.picam2.capture_request()
-            frame = request.make_array("lores")  # Get low-res frame as numpy array
-            metadata = request.get_metadata()    # Get metadata
-            request.release()
-            request = None
+            # Get frame from buffer instead of direct camera access
+            frame = self.get_lores_frame()
+            if frame is None:
+                self.logger.warning("No lores frame available in buffer")
+                return None
+            
+            # Get metadata from buffer
+            metadata = self.get_cached_metadata()
             
             return {
                 'frame': frame,
-                'metadata': make_json_serializable(metadata),
+                'metadata': metadata,
                 'timestamp': time.time(),
                 'format': 'XBGR8888',
                 'size': frame.shape[:2]
             }
                 
         except Exception as e:
-            self.logger.error(f"Failed to capture low-res frame: {e}")
+            self.logger.error(f"Failed to capture lores frame from buffer: {e}")
             return None
-        finally:
-            if request:
-                request.release()
     
     def capture_ml_frame(self) -> Optional[Dict[str, Any]]:
         """
@@ -1548,3 +1671,415 @@ class CameraHandler:
             return None
         finally:
             self.release_camera_access()
+
+    def get_comprehensive_metadata(self) -> Dict[str, Any]:
+        """
+        Get comprehensive camera metadata optimized for experimental efficiency.
+        Provides detailed information for image processing experiments and analysis.
+        
+        Returns:
+            Dict[str, Any]: Comprehensive metadata with experimental data
+        """
+        if not self.streaming or not self.picam2:
+            self.logger.error("Camera not streaming or not initialized")
+            return None
+            
+        if not getattr(self.picam2, 'started', False):
+            self.logger.error("Picam2 not started - cannot capture metadata")
+            return None
+            
+        request = None
+        try:
+            # Capture request from streaming camera
+            request = self.picam2.capture_request()
+            
+            if not request:
+                self.logger.error("Failed to capture request - request is None")
+                return None
+            
+            # Extract complete metadata
+            metadata = request.get_metadata()
+            
+            if not metadata:
+                self.logger.error("Failed to get metadata - metadata is None")
+                request.release()
+                return None
+            
+            # Release the request
+            request.release()
+            request = None
+            
+            # Comprehensive metadata extraction for experiments
+            comprehensive_metadata = {
+                # Timing Information
+                'timing': {
+                    'frame_timestamp': metadata.get("SensorTimestamp"),
+                    'sensor_timestamp': metadata.get("SensorTimestamp"),
+                    'request_timestamp': metadata.get("RequestTimestamp"),
+                    'frame_duration': metadata.get("FrameDuration"),
+                    'exposure_time': metadata.get("ExposureTime"),
+                    'timestamp_ns': metadata.get("SensorTimestamp"),
+                    'timestamp_ms': metadata.get("SensorTimestamp", 0) / 1000000 if metadata.get("SensorTimestamp") else 0,
+                    'capture_latency': time.time() * 1000000 - metadata.get("SensorTimestamp", 0) if metadata.get("SensorTimestamp") else 0
+                },
+                
+                # Exposure and Gain Information
+                'exposure': {
+                    'exposure_time': metadata.get("ExposureTime"),
+                    'exposure_time_ms': metadata.get("ExposureTime", 0) / 1000 if metadata.get("ExposureTime") else 0,
+                    'analogue_gain': metadata.get("AnalogueGain"),
+                    'digital_gain': metadata.get("DigitalGain"),
+                    'total_gain': metadata.get("AnalogueGain", 1.0) * metadata.get("DigitalGain", 1.0),
+                    'gain_db': 20 * np.log10(metadata.get("AnalogueGain", 1.0) * metadata.get("DigitalGain", 1.0)),
+                    'exposure_index': metadata.get("ExposureTime", 0) * metadata.get("AnalogueGain", 1.0) * metadata.get("DigitalGain", 1.0) / 1000
+                },
+                
+                # Color and White Balance
+                'color': {
+                    'awb_gains': metadata.get("AwbGains"),
+                    'colour_gains': metadata.get("ColourGains"),
+                    'color_temperature': self._estimate_color_temperature(metadata.get("AwbGains")),
+                    'red_gain': metadata.get("AwbGains", [1.0, 1.0])[0] if metadata.get("AwbGains") else 1.0,
+                    'blue_gain': metadata.get("AwbGains", [1.0, 1.0])[1] if metadata.get("AwbGains") else 1.0,
+                    'green_gain': 1.0,  # Reference gain
+                    'wb_ratio': metadata.get("AwbGains", [1.0, 1.0])[0] / metadata.get("AwbGains", [1.0, 1.0])[1] if metadata.get("AwbGains") and len(metadata.get("AwbGains")) >= 2 else 1.0
+                },
+                
+                # Focus and Lens Information
+                'focus': {
+                    'focus_fom': metadata.get("FocusFoM"),
+                    'af_state': metadata.get("AfState"),
+                    'lens_position': metadata.get("LensPosition"),
+                    'focus_distance': self._estimate_focus_distance(metadata.get("LensPosition")),
+                    'focus_confidence': metadata.get("FocusFoM", 0) / 1000 if metadata.get("FocusFoM") else 0,
+                    'autofocus_active': metadata.get("AfState") in [1, 2, 3] if metadata.get("AfState") is not None else False
+                },
+                
+                # Sensor Information
+                'sensor': {
+                    'sensor_id': metadata.get("SensorId"),
+                    'sensor_mode': metadata.get("SensorMode"),
+                    'sensor_timestamp': metadata.get("SensorTimestamp"),
+                    'sensor_line_length': metadata.get("SensorLineLength"),
+                    'sensor_frame_length': metadata.get("SensorFrameLength"),
+                    'sensor_exposure_time': metadata.get("SensorExposureTime")
+                },
+                
+                # Image Quality Metrics
+                'quality': {
+                    'sharpness': metadata.get("Sharpness"),
+                    'contrast': metadata.get("Contrast"),
+                    'brightness': metadata.get("Brightness"),
+                    'saturation': metadata.get("Saturation"),
+                    'noise_reduction': metadata.get("NoiseReduction"),
+                    'dynamic_range': self._estimate_dynamic_range(metadata.get("ExposureTime"), metadata.get("AnalogueGain")),
+                    'signal_to_noise': self._estimate_snr(metadata.get("ExposureTime"), metadata.get("AnalogueGain"))
+                },
+                
+                # Performance Metrics
+                'performance': {
+                    'frame_count': self.frame_count,
+                    'average_fps': self.average_fps,
+                    'buffer_ready': self.is_frame_buffer_ready(),
+                    'main_frame_available': self.get_main_frame() is not None,
+                    'lores_frame_available': self.get_lores_frame() is not None,
+                    'capture_thread_active': self._capture_running,
+                    'buffer_latency': self._calculate_buffer_latency()
+                },
+                
+                # Camera Properties
+                'camera_properties': {
+                    'model': self.camera_properties.get('Model'),
+                    'location': self.camera_properties.get('Location'),
+                    'rotation': self.camera_properties.get('Rotation'),
+                    'pixel_array_size': self.camera_properties.get('PixelArraySize'),
+                    'unit_cell_size': self.camera_properties.get('UnitCellSize'),
+                    'color_filter_arrangement': self.camera_properties.get('ColorFilterArrangement')
+                },
+                
+                # Current Configuration
+                'configuration': {
+                    'resolution': self.current_config.get('main', {}).get('size'),
+                    'format': self.current_config.get('main', {}).get('format'),
+                    'framerate': self._calculate_framerate(),
+                    'buffer_count': self.current_config.get('buffer_count'),
+                    'use_case': self.current_config.get('use_case'),
+                    'transform': str(self.current_config.get('transform')),
+                    'colour_space': str(self.current_config.get('colour_space'))
+                },
+                
+                # Experimental Data
+                'experimental': {
+                    'lighting_condition': self._classify_lighting_condition(metadata),
+                    'motion_detected': self._detect_motion(),
+                    'image_stability': self._calculate_image_stability(),
+                    'exposure_adequacy': self._assess_exposure_adequacy(metadata),
+                    'focus_quality': self._assess_focus_quality(metadata),
+                    'noise_level': self._estimate_noise_level(metadata),
+                    'dynamic_range_utilization': self._calculate_dr_utilization(metadata)
+                },
+                
+                # Raw Metadata (for advanced analysis)
+                'raw_metadata': make_json_serializable(metadata),
+                
+                # Metadata Collection Info
+                'metadata_info': {
+                    'collection_time': time.time(),
+                    'collection_method': 'comprehensive_experimental',
+                    'version': '2.0',
+                    'source': 'camera_handler'
+                }
+            }
+            
+            return comprehensive_metadata
+                
+        except Exception as e:
+            self.logger.error(f"Failed to get comprehensive metadata: {e}")
+            return None
+        finally:
+            if request:
+                try:
+                    request.release()
+                except:
+                    pass
+
+    def _estimate_color_temperature(self, awb_gains) -> float:
+        """Estimate color temperature from AWB gains."""
+        if not awb_gains or len(awb_gains) < 2:
+            return 5500.0  # Default daylight temperature
+        
+        red_gain, blue_gain = awb_gains[0], awb_gains[1]
+        if red_gain <= 0 or blue_gain <= 0:
+            return 5500.0
+        
+        # Simple estimation based on gain ratio
+        ratio = red_gain / blue_gain
+        if ratio > 1.5:
+            return 3000.0  # Warm light
+        elif ratio < 0.7:
+            return 7500.0  # Cool light
+        else:
+            return 5500.0  # Neutral light
+
+    def _estimate_focus_distance(self, lens_position) -> float:
+        """Estimate focus distance from lens position."""
+        if lens_position is None:
+            return 0.0
+        
+        # Simple linear estimation (would need calibration for accuracy)
+        # Assuming lens_position 0 = infinity, 1000 = closest focus
+        if lens_position == 0:
+            return float('inf')
+        else:
+            return 1000.0 / lens_position if lens_position > 0 else 0.0
+
+    def _estimate_dynamic_range(self, exposure_time, analogue_gain) -> float:
+        """Estimate dynamic range based on exposure and gain."""
+        if not exposure_time or not analogue_gain:
+            return 10.0  # Default DR in stops
+        
+        # Simplified DR estimation
+        base_dr = 10.0  # Base DR for sensor
+        gain_factor = np.log2(analogue_gain) if analogue_gain > 0 else 0
+        exposure_factor = np.log2(exposure_time / 1000) if exposure_time > 0 else 0
+        
+        return max(6.0, base_dr - gain_factor + exposure_factor)
+
+    def _estimate_snr(self, exposure_time, analogue_gain) -> float:
+        """Estimate signal-to-noise ratio."""
+        if not exposure_time or not analogue_gain:
+            return 20.0  # Default SNR in dB
+        
+        # Simplified SNR estimation
+        signal = exposure_time * analogue_gain
+        noise = np.sqrt(exposure_time * analogue_gain**2)
+        
+        if noise > 0:
+            return 20 * np.log10(signal / noise)
+        return 20.0
+
+    def _calculate_framerate(self) -> float:
+        """Calculate actual framerate from frame timing."""
+        if not hasattr(self, '_frame_timestamps') or len(self._frame_timestamps) < 2:
+            return self.average_fps
+        
+        recent_timestamps = self._frame_timestamps[-10:]  # Last 10 frames
+        if len(recent_timestamps) < 2:
+            return self.average_fps
+        
+        intervals = [recent_timestamps[i] - recent_timestamps[i-1] for i in range(1, len(recent_timestamps))]
+        avg_interval = np.mean(intervals)
+        
+        if avg_interval > 0:
+            return 1000000.0 / avg_interval  # Convert microseconds to FPS
+        return self.average_fps
+
+    def _calculate_buffer_latency(self) -> float:
+        """Calculate buffer latency in milliseconds."""
+        if not hasattr(self, '_last_capture_time'):
+            return 0.0
+        
+        return (time.time() - self._last_capture_time) * 1000
+
+    def _classify_lighting_condition(self, metadata) -> str:
+        """Classify lighting condition based on exposure and gain."""
+        exposure_time = metadata.get("ExposureTime", 0)
+        analogue_gain = metadata.get("AnalogueGain", 1.0)
+        
+        if exposure_time < 1000 and analogue_gain < 2.0:
+            return "bright"
+        elif exposure_time > 10000 or analogue_gain > 4.0:
+            return "low_light"
+        else:
+            return "normal"
+
+    def _detect_motion(self) -> bool:
+        """Detect motion based on frame differences."""
+        # This would require frame comparison - simplified for now
+        return False
+
+    def _calculate_image_stability(self) -> float:
+        """Calculate image stability score."""
+        # This would require frame analysis - simplified for now
+        return 0.95  # High stability
+
+    def _assess_exposure_adequacy(self, metadata) -> str:
+        """Assess if exposure is adequate."""
+        exposure_time = metadata.get("ExposureTime", 0)
+        analogue_gain = metadata.get("AnalogueGain", 1.0)
+        
+        if exposure_time < 500:
+            return "overexposed"
+        elif exposure_time > 20000 or analogue_gain > 8.0:
+            return "underexposed"
+        else:
+            return "adequate"
+
+    def _assess_focus_quality(self, metadata) -> str:
+        """Assess focus quality."""
+        focus_fom = metadata.get("FocusFoM", 0)
+        
+        if focus_fom > 800:
+            return "excellent"
+        elif focus_fom > 600:
+            return "good"
+        elif focus_fom > 400:
+            return "fair"
+        else:
+            return "poor"
+
+    def _estimate_noise_level(self, metadata) -> str:
+        """Estimate noise level."""
+        analogue_gain = metadata.get("AnalogueGain", 1.0)
+        
+        if analogue_gain < 2.0:
+            return "low"
+        elif analogue_gain < 4.0:
+            return "moderate"
+        else:
+            return "high"
+
+    def _calculate_dr_utilization(self, metadata) -> float:
+        """Calculate dynamic range utilization percentage."""
+        exposure_time = metadata.get("ExposureTime", 0)
+        analogue_gain = metadata.get("AnalogueGain", 1.0)
+        
+        # Simplified calculation
+        exposure_factor = min(1.0, exposure_time / 10000)
+        gain_factor = min(1.0, analogue_gain / 4.0)
+        
+        return (exposure_factor + gain_factor) / 2 * 100
+
+    def _capture_main_frame_with_metadata(self) -> Optional[Dict[str, Any]]:
+        """
+        Capture main frame with metadata in a single request.
+        
+        Returns:
+            Optional[Dict[str, Any]]: Dictionary with 'frame' and 'metadata' keys
+        """
+        if not self.streaming or not self.picam2 or not self.picam2.started:
+            return None
+        
+        request = None
+        try:
+            request = self.picam2.capture_request()
+            if not request:
+                return None
+            
+            # Get main stream frame
+            main_frame = request.make_array("main")
+            if main_frame is None:
+                return None
+            
+            # Get metadata
+            metadata = request.get_metadata()
+            if metadata:
+                metadata = make_json_serializable(metadata)
+            
+            return {
+                'frame': main_frame.copy(),
+                'metadata': metadata
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error capturing main frame with metadata: {e}")
+            return None
+        finally:
+            if request:
+                try:
+                    request.release()
+                except:
+                    pass
+
+    def _capture_lores_frame(self) -> Optional[np.ndarray]:
+        """
+        Capture lores frame for video streaming.
+        
+        Returns:
+            Optional[np.ndarray]: Lores frame data
+        """
+        if not self.streaming or not self.picam2 or not self.picam2.started:
+            return None
+        
+        request = None
+        try:
+            request = self.picam2.capture_request()
+            if not request:
+                return None
+            
+            # Get lores stream frame
+            lores_frame = request.make_array("lores")
+            if lores_frame is None:
+                return None
+            
+            return lores_frame.copy()
+            
+        except Exception as e:
+            self.logger.error(f"Error capturing lores frame: {e}")
+            return None
+        finally:
+            if request:
+                try:
+                    request.release()
+                except:
+                    pass
+
+    def _update_fps(self):
+        """Update average FPS calculation."""
+        current_time = time.time()
+        if hasattr(self, '_last_fps_update'):
+            time_diff = current_time - self._last_fps_update
+            if time_diff >= 1.0:  # Update every second
+                if hasattr(self, '_frame_count_since_update'):
+                    self.average_fps = self._frame_count_since_update / time_diff
+                    self._frame_count_since_update = 0
+                    self._last_fps_update = current_time
+                else:
+                    self._frame_count_since_update = 0
+                    self._last_fps_update = current_time
+        else:
+            self._last_fps_update = current_time
+            self._frame_count_since_update = 0
+        
+        if hasattr(self, '_frame_count_since_update'):
+            self._frame_count_since_update += 1

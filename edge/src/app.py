@@ -359,7 +359,7 @@ def _initialize_services(logger):
 def create_app():
     """Create and configure Flask application using absolute imports."""
     # Setup logging
-    logger = setup_logging(level="INFO")
+    logger = setup_logging(level="DEBUG")
     logger.info("🚀 === STARTING FLASK APP CREATION ===")
     logger.info("Creating Flask application...")
     

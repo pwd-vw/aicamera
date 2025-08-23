@@ -25,13 +25,13 @@
 ## 📋 **Sprint Backlog**
 
 ### **Phase 1: Version Updates and Cleanup (1-2 days)**
-- [ ] **TASK-UI-01**: Update all CSS files to v2.0.0
-- [ ] **TASK-UI-01**: Update all JavaScript files to v2.0.0
-- [ ] **TASK-UI-01**: Update HTML templates to v2.0.0
-- [ ] **TASK-UI-01**: Fix version references in comments and headers
+- [x] **TASK-UI-01**: Update all CSS files to v2.0
+- [x] **TASK-UI-01**: Update all JavaScript files to v2.0
+- [x] **TASK-UI-01**: Update HTML templates to v2.0
+- [x] **TASK-UI-01**: Fix version references in comments and headers
 
 ### **Phase 2: Video Streaming Fixes (2-3 days)**
-- [ ] **TASK-UI-02**: Debug Flask application request handling
+- [x] **TASK-UI-02**: Debug Flask application request handling
 - [ ] **TASK-UI-02**: Fix Unix socket communication issues
 - [ ] **TASK-UI-02**: Implement proper error handling for video feed
 - [ ] **TASK-UI-02**: Add fallback mechanisms for video streaming

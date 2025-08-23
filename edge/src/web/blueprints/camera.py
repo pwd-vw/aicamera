@@ -334,9 +334,9 @@ def generate_frames():
         manager_status = camera_manager.get_status()
         
         # Check if camera manager reports camera as available
-        if not manager_status.get('camera_available', False):
-            logger.warning("Camera not available according to manager")
-            yield _generate_error_placeholder("Camera not available")
+        if not manager_status.get('initialized', False):
+            logger.warning("Camera not initialized according to manager")
+            yield _generate_error_placeholder("Camera not initialized")
             return
         
         # Check if camera is streaming according to manager
@@ -350,46 +350,60 @@ def generate_frames():
         frame_count = 0
         while True:
             try:
-                # Get frame from camera manager (not direct camera access)
-                frame_data = camera_manager.capture_frame()
+                # Get lores frame from camera manager (optimized for web streaming)
+                logger.debug(f"Attempting to capture lores frame {frame_count + 1}")
+                frame_data = camera_manager.capture_lores_frame()
                 
                 if frame_data is None:
-                    logger.warning("No frame data from camera manager")
-                    yield _generate_error_placeholder("No frame data")
+                    logger.warning("No lores frame data from camera manager")
+                    yield _generate_error_placeholder("No lores frame data")
                     time.sleep(0.1)
                     continue
+                
+                # Debug: Log frame data type and structure
+                logger.debug(f"Lores frame data type: {type(frame_data)}")
+                if isinstance(frame_data, dict):
+                    logger.debug(f"Lores frame data keys: {list(frame_data.keys())}")
                 
                 # Handle different frame data formats
                 if isinstance(frame_data, dict) and 'frame' in frame_data:
                     frame = frame_data['frame']
+                    logger.debug(f"Extracted lores frame from dict, shape: {frame.shape if hasattr(frame, 'shape') else 'No shape'}")
                 elif isinstance(frame_data, np.ndarray):
                     frame = frame_data
+                    logger.debug(f"Lores frame is numpy array, shape: {frame.shape}")
                 else:
-                    logger.warning(f"Unexpected frame data format: {type(frame_data)}")
-                    yield _generate_error_placeholder("Invalid frame format")
+                    logger.warning(f"Unexpected lores frame data format: {type(frame_data)}")
+                    yield _generate_error_placeholder("Invalid lores frame format")
                     time.sleep(0.1)
                     continue
                 
                 if frame is not None and frame.size > 0:
+                    logger.debug(f"Encoding lores frame {frame_count + 1} with shape {frame.shape}")
                     ret, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
                     if ret:
                         frame_bytes = buffer.tobytes()
+                        logger.debug(f"Successfully encoded lores frame {frame_count + 1}, size: {len(frame_bytes)} bytes")
                         yield (b'--frame\r\n'
                                b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
                         frame_count += 1
+                        
+                        # Log success every 100 frames
+                        if frame_count % 100 == 0:
+                            logger.info(f"Successfully generated {frame_count} lores frames")
                     else:
-                        logger.warning("Failed to encode frame")
-                        yield _generate_error_placeholder("Frame encoding failed")
+                        logger.warning("Failed to encode lores frame")
+                        yield _generate_error_placeholder("Lores frame encoding failed")
                 else:
-                    logger.warning("Empty frame received")
-                    yield _generate_error_placeholder("Empty frame")
+                    logger.warning("Empty lores frame received")
+                    yield _generate_error_placeholder("Empty lores frame")
                 
                 # Sleep to control frame rate
                 time.sleep(0.1)  # 10 FPS
                 
             except Exception as e:
-                logger.error(f"Error generating frame: {e}")
-                yield _generate_error_placeholder(f"Frame generation error: {str(e)}")
+                logger.error(f"Error generating lores frame: {e}")
+                yield _generate_error_placeholder(f"Lores frame generation error: {str(e)}")
                 time.sleep(1)  # Wait before retrying
                 
     except Exception as e:
@@ -521,7 +535,7 @@ def video_feed():
         Response: Multipart video stream
     """
     return Response(generate_frames(),
-                   mimetype='multipart/x-mixed-replace; boundary=frame')
+                    mimetype='multipart/x-mixed-replace; boundary=frame')
 
 
 def generate_lores_frames():
@@ -900,169 +914,6 @@ def camera_debug():
         }), 500
 
 
-@camera_bp.route('/debug_metadata')
-def camera_debug_metadata():
-    """
-    Debug metadata endpoint to get comprehensive camera metadata information.
-    
-    Returns:
-        dict: JSON response with metadata information
-    """
-    try:
-        camera_manager = get_service('camera_manager')
-        if not camera_manager:
-            return jsonify({'error': 'Camera manager not available'}), 500
-        
-        camera_handler = camera_manager.camera_handler
-        if not camera_handler:
-            return jsonify({'error': 'Camera handler not available'}), 500
-        
-        # Get comprehensive metadata
-        metadata = {
-            'camera_properties': camera_handler.camera_properties,
-            'current_config': camera_handler.current_config,
-            'camera_status': camera_handler.get_status(),
-            'manager_status': camera_manager.get_status(),
-            'debug_info': camera_handler.debug_metadata_capture(),
-            'timestamp': datetime.now().isoformat()
-        }
-        
-        # Ensure all data is JSON serializable
-        serializable_metadata = make_json_serializable(metadata)
-        
-        return jsonify({
-            'success': True,
-            'metadata': serializable_metadata
-        })
-        
-    except Exception as e:
-        logger.error(f"Error in camera debug metadata: {e}")
-        return jsonify({
-            'success': False,
-            'error': str(e),
-            'timestamp': datetime.now().isoformat()
-        }), 500
-
-
-@camera_bp.route('/test')
-def camera_test():
-    """
-    Simple test endpoint to verify camera functionality.
-    
-    Returns:
-        dict: JSON response with test results
-    """
-    try:
-        camera_manager = get_service('camera_manager')
-        if not camera_manager:
-            return jsonify({
-                'success': False,
-                'error': 'Camera manager not available',
-                'timestamp': datetime.now().isoformat()
-            }), 500
-        
-        camera_handler = camera_manager.camera_handler
-        if not camera_handler:
-            return jsonify({
-                'success': False,
-                'error': 'Camera handler not available',
-                'timestamp': datetime.now().isoformat()
-            }), 500
-        
-        # Get basic status
-        handler_status = camera_handler.get_status()
-        manager_status = camera_manager.get_status()
-        
-        test_results = {
-            'handler_initialized': handler_status.get('initialized', False),
-            'handler_streaming': handler_status.get('streaming', False),
-            'manager_initialized': manager_status.get('initialized', False),
-            'manager_streaming': manager_status.get('streaming', False),
-            'auto_start_enabled': manager_status.get('auto_start_enabled', False),
-            'uptime': manager_status.get('uptime', 0),
-            'timestamp': datetime.now().isoformat()
-        }
-        
-        return jsonify({
-            'success': True,
-            'test_results': test_results
-        })
-        
-    except Exception as e:
-        logger.error(f"Error in camera test: {e}")
-        return jsonify({
-            'success': False,
-            'error': str(e),
-            'timestamp': datetime.now().isoformat()
-        }), 500
-
-
-@camera_bp.route('/video_test')
-def video_feed_test():
-    """
-    Test endpoint to check video feed functionality.
-    
-    Returns:
-        dict: JSON response with video feed test results
-    """
-    try:
-        camera_manager = get_service('camera_manager')
-        if not camera_manager:
-            return jsonify({
-                'success': False,
-                'error': 'Camera manager not available',
-                'timestamp': datetime.now().isoformat()
-            }), 500
-        
-        camera_handler = camera_manager.camera_handler
-        if not camera_handler:
-            return jsonify({
-                'success': False,
-                'error': 'Camera handler not available',
-                'timestamp': datetime.now().isoformat()
-            }), 500
-        
-        # Test frame capture
-        test_frame = None
-        frame_error = None
-        try:
-            test_frame = camera_handler.capture_frame()
-            if test_frame and 'frame' in test_frame:
-                frame_shape = test_frame['frame'].shape if test_frame['frame'] is not None else None
-            else:
-                frame_shape = None
-        except Exception as e:
-            frame_error = str(e)
-            frame_shape = None
-        
-        # Get camera status
-        handler_status = camera_handler.get_status()
-        
-        test_results = {
-            'camera_initialized': handler_status.get('initialized', False),
-            'camera_streaming': handler_status.get('streaming', False),
-            'frame_capture_success': test_frame is not None,
-            'frame_shape': frame_shape,
-            'frame_error': frame_error,
-            'video_feed_url': '/camera/video_feed',
-            'video_feed_lores_url': '/camera/video_feed_lores',
-            'timestamp': datetime.now().isoformat()
-        }
-        
-        return jsonify({
-            'success': True,
-            'video_test_results': test_results
-        })
-        
-    except Exception as e:
-        logger.error(f"Error in video feed test: {e}")
-        return jsonify({
-            'success': False,
-            'error': str(e),
-            'timestamp': datetime.now().isoformat()
-        }), 500
-
-
 @camera_bp.route('/metadata')
 def camera_metadata():
     """
@@ -1077,7 +928,7 @@ def camera_metadata():
 @camera_bp.route('/debug_metadata')
 def debug_camera_metadata():
     """
-    Debug endpoint to test metadata capture step by step.
+    ข้อมูล debug metadata ของกล้อง
     
     Returns:
         dict: JSON response with debug information
@@ -1117,103 +968,10 @@ def debug_camera_metadata():
         }), 500
 
 
-@camera_bp.route('/metadata')
-def camera_metadata_viewer():
-    """
-    Camera metadata viewer page.
-    
-    Returns:
-        str: Rendered HTML template with metadata information
-    """
-    try:
-        logger.info("Starting camera metadata viewer...")
-        
-        camera_manager = get_service('camera_manager')
-        if not camera_manager:
-            logger.error("Camera manager not available")
-            return render_template('camera/metadata_viewer.html',
-                                 camera_status={'error': 'Camera manager not available'},
-                                 title="Camera Metadata Viewer")
-        
-        logger.info("Camera manager found, getting status...")
-        
-        # Get comprehensive camera status and metadata
-        try:
-            camera_status = camera_manager.get_status()
-            logger.info("Camera status retrieved successfully")
-        except Exception as e:
-            logger.error(f"Error getting camera status: {e}")
-            return render_template('camera/metadata_viewer.html',
-                                 camera_status={'error': f'Failed to get camera status: {e}'},
-                                 title="Camera Metadata Viewer")
-        
-        # Get camera handler for detailed metadata
-        camera_handler = None
-        try:
-            if hasattr(camera_manager, 'camera_handler'):
-                camera_handler = camera_manager.camera_handler
-                logger.info("Camera handler found")
-            else:
-                logger.warning("Camera handler not available")
-        except Exception as e:
-            logger.error(f"Error accessing camera handler: {e}")
-        
-        # Debug metadata capture
-        debug_info = None
-        if camera_handler:
-            try:
-                logger.info("Starting debug metadata capture...")
-                debug_info = camera_handler.debug_metadata_capture()
-                logger.info("Debug metadata capture completed")
-            except Exception as e:
-                logger.error(f"Error in debug metadata capture: {e}")
-                debug_info = {'error': str(e)}
-        else:
-            debug_info = {'error': 'Camera handler not available'}
-        
-        # Prepare metadata for template with safe defaults
-        try:
-            metadata_data = {
-                'camera_status': camera_status or {},
-                'camera_properties': camera_status.get('camera_handler', {}).get('camera_properties', {}) if camera_status else {},
-                'current_config': camera_status.get('camera_handler', {}).get('current_config', {}) if camera_status else {},
-                'camera_controls': camera_status.get('camera_handler', {}).get('configuration', {}).get('controls', {}) if camera_status else {},
-                'frame_metadata': camera_status.get('metadata', {}) if camera_status else {},
-                'frame_statistics': {
-                    'frame_count': camera_status.get('frame_count', 0) if camera_status else 0,
-                    'average_fps': camera_status.get('average_fps', 0.0) if camera_status else 0.0,
-                    'last_frame_time': camera_status.get('timestamp', 'N/A') if camera_status else 'N/A'
-                },
-                'available_modes': camera_status.get('camera_handler', {}).get('sensor_modes', []) if camera_status else [],
-                'sensor_modes_count': camera_status.get('camera_handler', {}).get('sensor_modes_count', 0) if camera_status else 0,
-                'debug_info': debug_info
-            }
-            logger.info("Metadata data prepared successfully")
-        except Exception as e:
-            logger.error(f"Error preparing metadata data: {e}")
-            metadata_data = {
-                'camera_status': {'error': f'Failed to prepare metadata: {e}'},
-                'debug_info': {'error': str(e)}
-            }
-        
-        logger.info("Rendering metadata viewer template...")
-        return render_template('camera/metadata_viewer.html',
-                             **metadata_data,
-                             title="Camera Metadata Viewer")
-                             
-    except Exception as e:
-        logger.error(f"Unexpected error in camera metadata viewer: {e}")
-        import traceback
-        logger.error(f"Traceback: {traceback.format_exc()}")
-        return render_template('camera/metadata_viewer.html',
-                             camera_status={'error': f'Unexpected error: {e}'},
-                             title="Camera Metadata Viewer")
-
-
 @camera_bp.route('/api/metadata')
 def get_camera_metadata_api():
     """
-    API endpoint to get camera metadata in JSON format.
+    API endpoint สำหรับ metadata ของกล้อง
     
     Returns:
         dict: JSON response with camera metadata
@@ -1252,6 +1010,242 @@ def get_camera_metadata_api():
         
     except Exception as e:
         logger.error(f"Error getting camera metadata API: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'timestamp': datetime.now().isoformat()
+        }), 500
+
+
+@camera_bp.route('/api/experimental_metadata')
+def get_experimental_metadata():
+    """
+    API endpoint สำหรับ comprehensive experimental metadata ของกล้อง
+    
+    Returns:
+        dict: JSON response with comprehensive experimental metadata
+    """
+    try:
+        camera_manager = get_service('camera_manager')
+        if not camera_manager:
+            return jsonify({
+                'success': False,
+                'error': 'Camera manager not available',
+                'timestamp': datetime.now().isoformat()
+            }), 500
+        
+        camera_handler = camera_manager.camera_handler
+        if not camera_handler:
+            return jsonify({
+                'success': False,
+                'error': 'Camera handler not available',
+                'timestamp': datetime.now().isoformat()
+            }), 500
+        
+        # Get comprehensive experimental metadata
+        comprehensive_metadata = camera_handler.get_comprehensive_metadata()
+        
+        if comprehensive_metadata is None:
+            return jsonify({
+                'success': False,
+                'error': 'Failed to capture comprehensive metadata',
+                'timestamp': datetime.now().isoformat()
+            }), 500
+        
+        return jsonify({
+            'success': True,
+            'experimental_metadata': comprehensive_metadata,
+            'timestamp': datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting experimental metadata: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'timestamp': datetime.now().isoformat()
+        }), 500
+
+
+@camera_bp.route('/api/metadata_summary')
+def get_metadata_summary():
+    """
+    API endpoint สำหรับ metadata summary สำหรับ experimental efficiency
+    
+    Returns:
+        dict: JSON response with metadata summary
+    """
+    try:
+        camera_manager = get_service('camera_manager')
+        if not camera_manager:
+            return jsonify({
+                'success': False,
+                'error': 'Camera manager not available',
+                'timestamp': datetime.now().isoformat()
+            }), 500
+        
+        camera_handler = camera_manager.camera_handler
+        if not camera_handler:
+            return jsonify({
+                'success': False,
+                'error': 'Camera handler not available',
+                'timestamp': datetime.now().isoformat()
+            }), 500
+        
+        # Get comprehensive metadata
+        comprehensive_metadata = camera_handler.get_comprehensive_metadata()
+        
+        if comprehensive_metadata is None:
+            return jsonify({
+                'success': False,
+                'error': 'Failed to capture metadata',
+                'timestamp': datetime.now().isoformat()
+            }), 500
+        
+        # Create summary for experimental efficiency
+        metadata_summary = {
+            'camera_status': {
+                'initialized': camera_handler.initialized,
+                'streaming': camera_handler.streaming,
+                'frame_count': camera_handler.frame_count,
+                'average_fps': camera_handler.average_fps
+            },
+            'image_quality': {
+                'exposure_adequacy': comprehensive_metadata.get('experimental', {}).get('exposure_adequacy', 'unknown'),
+                'focus_quality': comprehensive_metadata.get('experimental', {}).get('focus_quality', 'unknown'),
+                'lighting_condition': comprehensive_metadata.get('experimental', {}).get('lighting_condition', 'unknown'),
+                'noise_level': comprehensive_metadata.get('experimental', {}).get('noise_level', 'unknown'),
+                'dynamic_range_utilization': comprehensive_metadata.get('experimental', {}).get('dynamic_range_utilization', 0)
+            },
+            'performance_metrics': {
+                'buffer_ready': comprehensive_metadata.get('performance', {}).get('buffer_ready', False),
+                'buffer_latency_ms': comprehensive_metadata.get('performance', {}).get('buffer_latency', 0),
+                'capture_thread_active': comprehensive_metadata.get('performance', {}).get('capture_thread_active', False),
+                'actual_framerate': comprehensive_metadata.get('configuration', {}).get('framerate', 0)
+            },
+            'camera_settings': {
+                'resolution': comprehensive_metadata.get('configuration', {}).get('resolution', [0, 0]),
+                'exposure_time_ms': comprehensive_metadata.get('exposure', {}).get('exposure_time_ms', 0),
+                'total_gain': comprehensive_metadata.get('exposure', {}).get('total_gain', 1.0),
+                'color_temperature': comprehensive_metadata.get('color', {}).get('color_temperature', 5500),
+                'focus_distance': comprehensive_metadata.get('focus', {}).get('focus_distance', 0)
+            },
+            'experimental_indicators': {
+                'image_stability': comprehensive_metadata.get('experimental', {}).get('image_stability', 0),
+                'signal_to_noise_db': comprehensive_metadata.get('quality', {}).get('signal_to_noise', 0),
+                'dynamic_range_stops': comprehensive_metadata.get('quality', {}).get('dynamic_range', 0),
+                'focus_confidence': comprehensive_metadata.get('focus', {}).get('focus_confidence', 0)
+            }
+        }
+        
+        return jsonify({
+            'success': True,
+            'metadata_summary': metadata_summary,
+            'timestamp': datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting metadata summary: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'timestamp': datetime.now().isoformat()
+        }), 500
+
+
+@camera_bp.route('/test')
+def test_camera():
+    """
+    ทดสอบการทำงานของกล้อง
+    
+    Returns:
+        dict: JSON response with test results
+    """
+    try:
+        camera_manager = get_service('camera_manager')
+        if not camera_manager:
+            return jsonify({
+                'success': False,
+                'error': 'Camera manager not available',
+                'timestamp': datetime.now().isoformat()
+            }), 500
+        
+        camera_handler = camera_manager.camera_handler
+        if not camera_handler:
+            return jsonify({
+                'success': False,
+                'error': 'Camera handler not available',
+                'timestamp': datetime.now().isoformat()
+            }), 500
+        
+        # Get camera status
+        camera_status = camera_manager.get_status()
+        
+        test_results = {
+            'handler_initialized': camera_handler.initialized,
+            'handler_streaming': camera_handler.streaming,
+            'manager_initialized': camera_status.get('initialized', False),
+            'manager_streaming': camera_status.get('streaming', False),
+            'auto_start_enabled': camera_status.get('auto_start_enabled', False),
+            'uptime': camera_status.get('uptime', 0),
+            'timestamp': datetime.now().isoformat()
+        }
+        
+        return jsonify({
+            'success': True,
+            'test_results': test_results
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in camera test: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'timestamp': datetime.now().isoformat()
+        }), 500
+
+
+@camera_bp.route('/video_test')
+def test_video_feed():
+    """
+    ทดสอบการทำงานของ video feed
+    
+    Returns:
+        dict: JSON response with video test results
+    """
+    try:
+        camera_manager = get_service('camera_manager')
+        if not camera_manager:
+            return jsonify({
+                'success': False,
+                'error': 'Camera manager not available',
+                'timestamp': datetime.now().isoformat()
+            }), 500
+        
+        # Test frame capture
+        frame_data = camera_manager.capture_lores_frame()
+        
+        video_test_results = {
+            'camera_initialized': camera_manager.camera_handler.initialized if camera_manager.camera_handler else False,
+            'camera_streaming': camera_manager.camera_handler.streaming if camera_manager.camera_handler else False,
+            'frame_capture_success': frame_data is not None,
+            'frame_shape': frame_data.shape if frame_data is not None else None,
+            'frame_error': None,
+            'video_feed_url': '/camera/video_feed',
+            'video_feed_lores_url': '/camera/video_feed_lores',
+            'timestamp': datetime.now().isoformat()
+        }
+        
+        if frame_data is None:
+            video_test_results['frame_error'] = 'No frame data available'
+        
+        return jsonify({
+            'success': True,
+            'video_test_results': video_test_results
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in video test: {e}")
         return jsonify({
             'success': False,
             'error': str(e),

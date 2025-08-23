@@ -25,6 +25,7 @@ import threading
 import time
 from typing import Dict, Any, Optional
 from datetime import datetime
+import numpy as np
 
 from edge.src.core.utils.logging_config import get_logger
 from edge.src.components.camera_handler import make_json_serializable
@@ -328,7 +329,8 @@ class CameraManager:
                 'average_fps': camera_status.get('average_fps', 0),
                 'config': config,  # Use the corrected configuration
                 'metadata': self.last_metadata,  # Add metadata to status
-                'camera_handler': camera_status
+                'camera_handler': camera_status,
+                'frame_buffer_ready': self.camera_handler.is_frame_buffer_ready() if self.camera_handler else False
             }
             
             # Calculate uptime
@@ -502,6 +504,7 @@ class CameraManager:
     def capture_frame(self):
         """
         Capture a single frame from the camera for detection processing.
+        Uses frame buffer for thread-safe access.
         
         Returns:
             numpy.ndarray or None: Camera frame as numpy array, None if capture failed
@@ -510,18 +513,78 @@ class CameraManager:
             if not self.camera_handler or not self.camera_handler.initialized:
                 self.logger.warning("Cannot capture frame - camera not initialized")
                 return None
-           
+            
+            # Check if frame buffer is ready
+            if not self.camera_handler.is_frame_buffer_ready():
+                self.logger.warning("Frame buffer not ready yet")
+                return None
+            
             # Capture frame from camera handler (returns dict with 'frame' key)
             frame_data = self.camera_handler.capture_frame()
-            if frame_data is not None and isinstance(frame_data, dict) and 'frame' in frame_data:
-                frame = frame_data['frame']
-                return frame
+            
+            # Debug: Log frame data information
+            self.logger.debug(f"Camera handler returned frame_data type: {type(frame_data)}")
+            if isinstance(frame_data, dict):
+                self.logger.debug(f"Frame data keys: {list(frame_data.keys())}")
+                if 'frame' in frame_data:
+                    frame = frame_data['frame']
+                    self.logger.debug(f"Extracted frame shape: {frame.shape if hasattr(frame, 'shape') else 'No shape'}")
+                    return frame
+                else:
+                    self.logger.warning("Frame data dict does not contain 'frame' key")
+                    return None
+            elif isinstance(frame_data, np.ndarray):
+                self.logger.debug(f"Frame data is numpy array, shape: {frame_data.shape}")
+                return frame_data
             else:
-                self.logger.warning("Invalid frame data received")
+                self.logger.warning(f"Invalid frame data type: {type(frame_data)}")
                 return None
                 
         except Exception as e:
             self.logger.error(f"Error capturing frame: {e}")
+            return None
+    
+    def capture_lores_frame(self):
+        """
+        Capture a low-resolution frame for web interface video streaming.
+        Uses frame buffer for thread-safe access.
+        
+        Returns:
+            numpy.ndarray or None: Low-res camera frame as numpy array, None if capture failed
+        """
+        try:
+            if not self.camera_handler or not self.camera_handler.initialized:
+                self.logger.warning("Cannot capture lores frame - camera not initialized")
+                return None
+            
+            # Check if frame buffer is ready
+            if not self.camera_handler.is_frame_buffer_ready():
+                self.logger.warning("Frame buffer not ready yet")
+                return None
+            
+            # Capture lores frame from camera handler
+            frame_data = self.camera_handler.capture_lores_frame()
+            
+            # Debug: Log frame data information
+            self.logger.debug(f"Camera handler returned lores frame_data type: {type(frame_data)}")
+            if isinstance(frame_data, dict):
+                self.logger.debug(f"Lores frame data keys: {list(frame_data.keys())}")
+                if 'frame' in frame_data:
+                    frame = frame_data['frame']
+                    self.logger.debug(f"Extracted lores frame shape: {frame.shape if hasattr(frame, 'shape') else 'No shape'}")
+                    return frame
+                else:
+                    self.logger.warning("Lores frame data dict does not contain 'frame' key")
+                    return None
+            elif isinstance(frame_data, np.ndarray):
+                self.logger.debug(f"Lores frame data is numpy array, shape: {frame_data.shape}")
+                return frame_data
+            else:
+                self.logger.warning(f"Invalid lores frame data type: {type(frame_data)}")
+                return None
+                
+        except Exception as e:
+            self.logger.error(f"Error capturing lores frame: {e}")
             return None
     
     def get_stream_generator(self):
@@ -618,54 +681,12 @@ class CameraManager:
         else:
             self.logger.info("✅ Camera availability monitoring completed")
     
-    def capture_frame(self):
-        """
-        Capture a frame from the camera.
-        
-        Returns:
-            dict: Frame data or error information
-        """
-        try:
-            if not self.camera_handler:
-                return {'error': 'Camera handler not available'}
-            
-            # Ensure camera is streaming
-            if not self.ensure_camera_streaming():
-                return {'error': 'Camera not streaming'}
-            
-            return self.camera_handler.capture_frame()
-        except Exception as e:
-            self.logger.error(f"Error capturing frame: {e}")
-            return {'error': str(e)}
-    
-    def capture_lores_frame(self):
-        """
-        Capture a low-resolution frame from the camera.
-        
-        Returns:
-            dict: Frame data or error information
-        """
-        try:
-            if not self.camera_handler:
-                return {'error': 'Camera handler not available'}
-            
-            # Ensure camera is streaming
-            if not self.ensure_camera_streaming():
-                return {'error': 'Camera not streaming'}
-            
-            return self.camera_handler.capture_lores_frame()
-        except Exception as e:
-            self.logger.error(f"Error capturing lores frame: {e}")
-            return {'error': str(e)}
-    
     def cleanup(self):
         """
         Cleanup camera manager resources.
         """
         try:
             self.logger.info("Cleaning up camera manager...")
-            
-
             
             if self.camera_handler:
                 self.camera_handler.close_camera()
