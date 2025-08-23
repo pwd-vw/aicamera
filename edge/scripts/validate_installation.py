@@ -43,7 +43,7 @@ def check_systemd_service():
     
     try:
         # Check if service exists
-        result = subprocess.run(['systemctl', 'is-enabled', 'aicamera_v1.3.service'], 
+        result = subprocess.run(['systemctl', 'is-enabled', 'aicamera_lpr.service'], 
                               capture_output=True, text=True)
         if result.returncode == 0:
             print("✅ Service is enabled")
@@ -52,7 +52,7 @@ def check_systemd_service():
             return False
         
         # Check if service is active
-        result = subprocess.run(['systemctl', 'is-active', 'aicamera_v1.3.service'], 
+        result = subprocess.run(['systemctl', 'is-active', 'aicamera_lpr.service'], 
                               capture_output=True, text=True)
         if result.returncode == 0:
             print("✅ Service is active")
@@ -150,7 +150,7 @@ def check_configuration_files():
     required_files = [
         'edge/installation/.env.production',
         'edge/nginx.conf',
-        'edge/systemd_service/aicamera_v1.3.service',
+        'edge/systemd_service/aicamera_lpr.service',
         'edge/gunicorn_config.py'
     ]
     
@@ -264,15 +264,15 @@ def main():
         print("🎉 AI Camera v1.3 is properly installed and ready for production use")
         print("\n📋 Quick access:")
         print("   🌐 Web Interface: http://localhost")
-        print("   📊 Service Status: sudo systemctl status aicamera_v1.3.service")
-        print("   📋 Service Logs: sudo journalctl -u aicamera_v1.3.service -f")
+        print("   📊 Service Status: sudo systemctl status aicamera_lpr.service")
+        print("   📋 Service Logs: sudo journalctl -u aicamera_lpr.service -f")
         return 0
     else:
         print("❌ Some installation validations failed")
         print("🔧 Please review the validation output above and fix any issues")
         print("\n📋 Common fixes:")
         print("   - Run: ./install.sh (to reinstall)")
-        print("   - Check: sudo systemctl status aicamera_v1.3.service")
+        print("   - Check: sudo systemctl status aicamera_lpr.service")
         print("   - Check: sudo nginx -t")
         print("   - Check: python edge/scripts/validate_easyocr.py")
         print("   - Check: python edge/scripts/validate_database.py")

@@ -203,7 +203,7 @@ class DependencyContainer:
             
     def _create_logger(self, **kwargs) -> logging.Logger:
         """Create a logger instance."""
-        return get_logger('aicamera_v1.3')
+        return get_logger('aicamera_lpr')
 
     def _create_config(self) -> Dict[str, Any]:
         """Create application configuration using absolute imports."""

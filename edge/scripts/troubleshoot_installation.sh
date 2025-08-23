@@ -123,58 +123,49 @@ fix_service() {
     echo "🔧 Fixing service issues..."
     
     # Stop service first
-    sudo systemctl stop aicamera_v1.3.service 2>/dev/null || true
+    sudo systemctl stop aicamera_lpr.service 2>/dev/null || true
     
-    # Check service file
-    if [[ ! -f "/etc/systemd/system/aicamera_v1.3.service" ]]; then
-        echo "   ❌ Service file not found - reinstalling..."
-        if [[ -f "systemd_service/aicamera_v1.3.service" ]]; then
-            sudo cp systemd_service/aicamera_v1.3.service /etc/systemd/system/
+    # Check if service file exists
+    if [[ ! -f "/etc/systemd/system/aicamera_lpr.service" ]]; then
+        echo "   ❌ Service file not found, copying from installation..."
+        
+        if [[ -f "systemd_service/aicamera_lpr.service" ]]; then
+            sudo cp systemd_service/aicamera_lpr.service /etc/systemd/system/
             sudo systemctl daemon-reload
-            sudo systemctl enable aicamera_v1.3.service
-            echo "   ✅ Service file installed"
+            sudo systemctl enable aicamera_lpr.service
+            echo "   ✅ Service file copied and enabled"
         else
-            echo "   ❌ Service file not found in project"
+            echo "   ❌ Service file not found in installation directory"
             return 1
         fi
     fi
     
-    # Check gunicorn config
-    if [[ ! -f "gunicorn_config.py" ]]; then
-        echo "   ❌ gunicorn_config.py not found"
-        return 1
-    fi
-    
-    # Check required directories
-    for dir in logs db captured_images; do
-        if [[ ! -d "$dir" ]]; then
-            echo "   Creating directory: $dir"
-            mkdir -p "$dir"
-        fi
-    done
-    
     # Start service
-    echo "   Starting service..."
-    if sudo systemctl start aicamera_v1.3.service; then
+    if sudo systemctl start aicamera_lpr.service; then
         echo "   ✅ Service started successfully"
         
-        # Wait for service to be ready
-        echo "   Waiting for service to be ready..."
-        sleep 5
-        
-        # Check if service is running
-        if sudo systemctl is-active --quiet aicamera_v1.3.service; then
+        if sudo systemctl is-active --quiet aicamera_lpr.service; then
             echo "   ✅ Service is running"
+            sudo systemctl status aicamera_lpr.service
         else
             echo "   ❌ Service failed to start"
-            sudo systemctl status aicamera_v1.3.service
+            sudo systemctl status aicamera_lpr.service
             return 1
         fi
     else
         echo "   ❌ Failed to start service"
-        sudo systemctl status aicamera_v1.3.service
         return 1
     fi
+    
+    # Show recent logs
+    echo ""
+    echo "📋 Recent service logs:"
+    sudo journalctl -u aicamera_lpr.service --no-pager -n 20
+    
+    echo ""
+    echo "📋 Troubleshooting commands:"
+    echo "   - Check service status: sudo systemctl status aicamera_lpr.service"
+    echo "   - Check service logs: sudo journalctl -u aicamera_lpr.service -f"
 }
 
 # Function to validate web interface
@@ -197,7 +188,7 @@ validate_web_interface() {
     
     echo "❌ Web interface validation failed after $max_retries attempts"
     echo "📋 Checking service logs..."
-    sudo journalctl -u aicamera_v1.3.service --no-pager -n 20
+    sudo journalctl -u aicamera_lpr.service --no-pager -n 20
     return 1
 }
 
@@ -262,10 +253,11 @@ main() {
     echo "🎉 Troubleshooting completed!"
     echo "📋 Next steps:"
     echo "   - Check web interface: http://localhost"
-    echo "   - Check service status: sudo systemctl status aicamera_v1.3.service"
-    echo "   - Check service logs: sudo journalctl -u aicamera_v1.3.service -f"
+    echo "   - Check service status: sudo systemctl status aicamera_lpr.service"
+    echo "   - Check service logs: sudo journalctl -u aicamera_lpr.service -f"
     echo "   - Run validation: python scripts/validate_installation.py"
 }
 
 # Run main function
 main "$@"
+

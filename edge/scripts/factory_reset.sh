@@ -22,9 +22,9 @@ echo "Starting factory reset process..."
 
 # Step 1: Stop and disable services
 echo "Step 1: Stopping and disabling services..."
-if sudo systemctl is-active --quiet aicamera_v1.3.service; then
-    echo "   Stopping aicamera_v1.3 service..."
-    sudo systemctl stop aicamera_v1.3.service
+if sudo systemctl is-active --quiet aicamera_lpr.service; then
+    echo "   Stopping aicamera_lpr service..."
+    sudo systemctl stop aicamera_lpr.service
     echo "   ✅ Service stopped"
 else
     echo "   ⚪ Service not running"
@@ -48,16 +48,16 @@ fi
 
 # Disable services
 echo "Disabling services..."
-sudo systemctl disable aicamera_v1.3.service 2>/dev/null || echo "   ⚪ Service not enabled"
+sudo systemctl disable aicamera_lpr.service 2>/dev/null || echo "   ⚪ Service not enabled"
 sudo systemctl disable kiosk-browser.service 2>/dev/null || echo "   ⚪ Kiosk browser service not enabled (optional)"
 sudo systemctl disable nginx 2>/dev/null || echo "   ⚪ Nginx not enabled"
 
 # Step 2: Remove systemd service files
 echo ""
 echo "Step 2: Removing systemd service files..."
-if [[ -f "/etc/systemd/system/aicamera_v1.3.service" ]]; then
-    sudo rm -f /etc/systemd/system/aicamera_v1.3.service
-    echo "   ✅ Removed aicamera_v1.3.service"
+if [[ -f "/etc/systemd/system/aicamera_lpr.service" ]]; then
+    sudo rm -f /etc/systemd/system/aicamera_lpr.service
+    echo "   ✅ Removed aicamera_lpr.service"
 else
     echo "   ⚪ Service file not found"
 fi
@@ -316,7 +316,7 @@ echo "FACTORY RESET COMPLETED!"
 echo "=========================="
 echo ""
 echo "✅ All AI Camera v1.3 components have been removed:"
-echo "   - Services stopped and disabled (aicamera_v1.3, nginx, kiosk-browser [optional])"
+echo "   - Services stopped and disabled (aicamera_lpr, nginx, kiosk-browser[optional])"
 echo "   - Systemd service files removed"
 echo "   - Nginx configuration removed"
 echo "   - Database deleted"

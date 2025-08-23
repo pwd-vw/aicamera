@@ -32,7 +32,7 @@ def check_system_services():
     
     # Core services (required)
     core_services = [
-        "aicamera_v1.3.service",
+        "aicamera_lpr.service",
         "nginx"
     ]
     
@@ -67,7 +67,7 @@ def check_systemd_files():
     
     # Core service files (required)
     core_service_files = [
-        "/etc/systemd/system/aicamera_v1.3.service"
+        "/etc/systemd/system/aicamera_lpr.service"
     ]
     
     # Optional service files

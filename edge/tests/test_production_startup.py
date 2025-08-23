@@ -26,7 +26,7 @@ def check_systemd_service():
     print("🔧 Checking systemd service status...")
     
     try:
-        result = subprocess.run(['systemctl', 'is-active', 'aicamera_v1.3'], 
+        result = subprocess.run(['systemctl', 'is-active', 'aicamera_lpr'], 
                               capture_output=True, text=True, timeout=10)
         
         if result.returncode == 0:
@@ -176,7 +176,7 @@ def check_logs():
     
     try:
         # Check systemd logs
-        result = subprocess.run(['journalctl', '-u', 'aicamera_v1.3', '--since', '5 minutes ago', '-n', '20'], 
+        result = subprocess.run(['journalctl', '-u', 'aicamera_lpr', '--since', '5 minutes ago', '-n', '20'], 
                               capture_output=True, text=True, timeout=10)
         
         if result.returncode == 0:

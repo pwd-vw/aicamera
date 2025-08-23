@@ -216,7 +216,7 @@ def main():
     print("   1. Review any warnings or errors above")
     print(f"   2. Edit {env_file} file if needed")
     print("   3. Run ./install.sh to complete installation")
-    print("   4. Start the service with: sudo systemctl start aicamera_v1.3.service")
+    print("   4. Start the service with: sudo systemctl start aicamera_lpr.service")
 
 if __name__ == "__main__":
     main()
