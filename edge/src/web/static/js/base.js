@@ -65,9 +65,13 @@ const AICameraUtils = {
     },
 
     /**
-     * Show toast notification
+     * Show toast notification (SILENT MODE - Disabled)
      */
     showToast: function(message, type = 'info') {
+        // SILENT MODE: Toast notifications are disabled
+        // Uncomment the code below to re-enable toast notifications
+        
+        /*
         // Create toast if it doesn't exist
         let toastContainer = document.getElementById('toast-container');
         if (!toastContainer) {
@@ -101,6 +105,10 @@ const AICameraUtils = {
         document.getElementById(toastId).addEventListener('hidden.bs.toast', function() {
             this.remove();
         });
+        */
+        
+        // Silent mode: Only log to console for debugging
+        console.log(`[TOAST ${type.toUpperCase()}] ${message}`);
     },
 
     /**
