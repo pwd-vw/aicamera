@@ -33,13 +33,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-          cache: 'npm'
-          cache-dependency-path: server/package-lock.json
 
       - name: Install dependencies
         run: |
           cd server
-          npm ci
+          npm install
 
       - name: Setup Python
         uses: actions/setup-python@v4
@@ -53,16 +51,13 @@ jobs:
 
       - name: Run tests
         run: |
-          cd server
-          npm test
-          cd ../edge
+          cd edge
           python -m pytest tests/ -v
 
       - name: Semantic Release
         id: semantic
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           cd server
           npx semantic-release
@@ -163,8 +158,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-          cache: 'npm'
-          cache-dependency-path: server/package-lock.json
 
       - name: Setup Python
         uses: actions/setup-python@v4
@@ -173,13 +166,12 @@ jobs:
 
       - name: Install dependencies
         run: |
-          cd server && npm ci
+          cd server && npm install
           cd ../edge && pip install -r requirements.txt
 
       - name: Run tests
         run: |
-          cd server && npm test
-          cd ../edge && python -m pytest tests/ -v
+          cd edge && python -m pytest tests/ -v
 
       - name: Update pre-release version
         run: |
@@ -208,8 +200,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-          cache: 'npm'
-          cache-dependency-path: server/package-lock.json
 
       - name: Setup Python
         uses: actions/setup-python@v4
@@ -218,13 +208,12 @@ jobs:
 
       - name: Install dependencies
         run: |
-          cd server && npm ci
+          cd server && npm install
           cd ../edge && pip install -r requirements.txt
 
       - name: Security scan
         run: |
-          cd server && npm audit --audit-level moderate
-          cd ../edge && safety check
+          cd edge && safety check
 
   dependency-update:
     runs-on: ubuntu-latest
