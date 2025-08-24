@@ -422,7 +422,7 @@ const DetectionManager = {
         // Update detection interval with fallback
         const interval = status.detection_interval || 0.1;
         const intervalElement = document.getElementById('detection-interval');
-        const intervalSetting = document.getElementById('interval-setting');
+        const intervalSetting = document.getElementById('detection-interval');
         if (intervalElement) intervalElement.textContent = `${interval}s`;
         if (intervalSetting) intervalSetting.value = interval;
         
@@ -1201,12 +1201,27 @@ const DetectionManager = {
     },
 
     /**
+     * Update configuration form with data from API
+     */
+    updateConfigForm: function(config) {
+        const intervalElement = document.getElementById('detection-interval');
+        const vehicleConfElement = document.getElementById('vehicle-confidence');
+        const plateConfElement = document.getElementById('plate-confidence');
+        const autoStartElement = document.getElementById('auto-start-setting');
+        
+        if (intervalElement) intervalElement.value = config.detection_interval || 0.1;
+        if (vehicleConfElement) vehicleConfElement.value = config.vehicle_confidence || 0.5;
+        if (plateConfElement) plateConfElement.value = config.plate_confidence || 0.3;
+        if (autoStartElement) autoStartElement.checked = config.auto_start || false;
+    },
+
+    /**
      * Handle configuration form submission
      */
     handleConfigSubmit: function(e) {
         e.preventDefault();
         
-        const interval = parseFloat(document.getElementById('interval-setting').value);
+        const interval = parseFloat(document.getElementById('detection-interval').value);
         const autoStart = document.getElementById('auto-start-setting').checked;
         
         AICameraUtils.apiRequest('/detection/config', {

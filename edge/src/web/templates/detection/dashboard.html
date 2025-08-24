@@ -51,6 +51,14 @@
                     <span>Detection Interval:</span>
                     <span id="detection-interval" class="badge bg-info">0.1s</span>
                 </div>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span>Auto Start:</span>
+                    <span id="auto-start" class="badge bg-info">Enabled</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span>Last Detection:</span>
+                    <span id="last-detection" class="badge bg-secondary">Never</span>
+                </div>
                 <div class="btn-group w-100" role="group">
                     <button id="start-detection" class="btn btn-success btn-control">
                         <i class="fas fa-play"></i> Start
@@ -121,26 +129,35 @@
                 <form id="detection-config-form">
                     <div class="row g-3 align-items-end">
                         <div class="col-md-3">
-                            <label for="interval-setting" class="form-label">Detection Interval (seconds)</label>
-                            <input type="number" class="form-control" id="interval-setting" 
+                            <label for="detection-interval" class="form-label">Detection Interval (seconds)</label>
+                            <input type="number" class="form-control" id="detection-interval" 
                                    min="0.1" max="10.0" step="0.1" value="0.1">
                             <div class="form-text">Time between detection runs</div>
                         </div>
                         <div class="col-md-3">
-                            <label for="vehicle-confidence-setting" class="form-label">Vehicle Confidence</label>
-                            <input type="number" class="form-control" id="vehicle-confidence-setting" 
+                            <label for="vehicle-confidence" class="form-label">Vehicle Confidence</label>
+                            <input type="number" class="form-control" id="vehicle-confidence" 
                                    min="0.1" max="1.0" step="0.1" value="0.5">
                             <div class="form-text">Min confidence for vehicles</div>
                         </div>
                         <div class="col-md-3">
-                            <label for="plate-confidence-setting" class="form-label">Plate Confidence</label>
-                            <input type="number" class="form-control" id="plate-confidence-setting" 
+                            <label for="plate-confidence" class="form-label">Plate Confidence</label>
+                            <input type="number" class="form-control" id="plate-confidence" 
                                    min="0.1" max="1.0" step="0.1" value="0.3">
                             <div class="form-text">Min confidence for plates</div>
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-2">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="auto-start-setting" checked>
+                                <label class="form-check-label" for="auto-start-setting">
+                                    Auto Start Detection
+                                </label>
+                                <div class="form-text">Start detection automatically</div>
+                            </div>
+                        </div>
+                        <div class="col-md-1">
                             <button type="submit" class="btn btn-primary btn-lg w-100" style="background-color: #007bff; border-color: #007bff; box-shadow: 0 2px 4px rgba(0,123,255,0.3);">
-                                <i class="fas fa-save"></i> Update Configuration
+                                <i class="fas fa-save"></i> Update
                             </button>
                         </div>
                     </div>
@@ -166,8 +183,8 @@
                                         <i class="fas fa-search"></i>
                                     </div>
                                     <div class="ms-2">
-                                        <div class="stats-number" id="total-detections" style="font-size: 1.25rem;">{{ stats.total_detections or 0 }}</div>
-                                        <div class="stats-label" style="font-size: 0.75rem;">Total Detections</div>
+                                        <div class="stats-number" id="frames-processed" style="font-size: 1.25rem;">{{ stats.total_frames_processed or 0 }}</div>
+                                        <div class="stats-label" style="font-size: 0.75rem;">Frames Processed</div>
                                     </div>
                                 </div>
                             </div>
@@ -182,8 +199,8 @@
                                         <i class="fas fa-car"></i>
                                     </div>
                                     <div class="ms-2">
-                                        <div class="stats-number" id="total-vehicles" style="font-size: 1.25rem;">{{ stats.total_vehicles or 0 }}</div>
-                                        <div class="stats-label" style="font-size: 0.75rem;">Vehicles</div>
+                                        <div class="stats-number" id="vehicles-detected" style="font-size: 1.25rem;">{{ stats.total_vehicles_detected or 0 }}</div>
+                                        <div class="stats-label" style="font-size: 0.75rem;">Vehicles Detected</div>
                                     </div>
                                 </div>
                             </div>
@@ -198,8 +215,8 @@
                                         <i class="fas fa-id-card"></i>
                                     </div>
                                     <div class="ms-2">
-                                        <div class="stats-number" id="total-plates" style="font-size: 1.25rem;">{{ stats.total_plates or 0 }}</div>
-                                        <div class="stats-label" style="font-size: 0.75rem;">Plates</div>
+                                        <div class="stats-number" id="plates-detected" style="font-size: 1.25rem;">{{ stats.total_plates_detected or 0 }}</div>
+                                        <div class="stats-label" style="font-size: 0.75rem;">Plates Detected</div>
                                     </div>
                                 </div>
                             </div>
@@ -230,8 +247,8 @@
                                         <i class="fas fa-tachometer-alt"></i>
                                     </div>
                                     <div class="ms-2">
-                                        <div class="stats-number" id="current-fps" style="font-size: 1.25rem;">0.0</div>
-                                        <div class="stats-label" style="font-size: 0.75rem;">FPS</div>
+                                        <div class="stats-number" id="detection-rate" style="font-size: 1.25rem;">0.0%</div>
+                                        <div class="stats-label" style="font-size: 0.75rem;">Detection Rate</div>
                                     </div>
                                 </div>
                             </div>
@@ -246,8 +263,8 @@
                                         <i class="fas fa-exclamation-triangle"></i>
                                     </div>
                                     <div class="ms-2">
-                                        <div class="stats-number" id="detection-errors" style="font-size: 1.25rem;">0</div>
-                                        <div class="stats-label" style="font-size: 0.75rem;">Errors</div>
+                                        <div class="stats-number" id="successful-ocr" style="font-size: 1.25rem;">0</div>
+                                        <div class="stats-label" style="font-size: 0.75rem;">Successful OCR</div>
                                     </div>
                                 </div>
                             </div>
@@ -268,12 +285,15 @@
                     <h5 class="mb-0">
                         <i class="fas fa-table me-2"></i>Detection Results
                     </h5>
-                    <div class="d-flex align-items-center gap-2">
-                        <span class="text-muted" id="results-count">Loading...</span>
-                        <div class="d-flex align-items-center gap-1">
-                            <button type="button" class="btn btn-success btn-sm" id="export-results-btn">
-                                <i class="fas fa-download"></i> Export
-                            </button>
+                                            <div class="d-flex align-items-center gap-2">
+                            <span class="text-muted" id="results-count">Loading...</span>
+                            <div class="d-flex align-items-center gap-1">
+                                <button type="button" class="btn btn-primary btn-sm" id="refresh-results-btn">
+                                    <i class="fas fa-sync-alt"></i> Refresh
+                                </button>
+                                <button type="button" class="btn btn-success btn-sm" id="export-results-btn">
+                                    <i class="fas fa-download"></i> Export
+                                </button>
                             <label for="per-page-select" class="form-label mb-0 text-muted">Show:</label>
                             <select class="form-select form-select-sm" id="per-page-select" style="width: auto;">
                                 <option value="10">10</option>
