@@ -18,6 +18,24 @@
 
 {% block additional_css %}
 <link href="{{ url_for('static', filename='css/dashboard.css', v=timestamp) }}" rel="stylesheet">
+<style>
+.status-card a {
+    color: inherit;
+    text-decoration: none;
+    display: block;
+    transition: transform 0.2s ease-in-out;
+}
+
+.status-card a:hover {
+    transform: translateY(-2px);
+    text-decoration: none;
+}
+
+.status-card a:hover .feature-icon {
+    transform: scale(1.1);
+    transition: transform 0.2s ease-in-out;
+}
+</style>
 {% endblock %}
 
 {% block page_header %}
@@ -28,19 +46,23 @@
         <div class="row mb-4">
             <div class="col-md-3">
                 <div class="status-card text-center">
-                    <i class="fas fa-camera feature-icon text-primary"></i>
-                    <h5>Camera Status</h5>
-                    <span id="main-camera-status" class="status-indicator status-offline"></span>
-                    <span id="main-camera-status-text">Offline</span>
+                    <a href="/camera" class="text-decoration-none">
+                        <i class="fas fa-camera feature-icon text-primary"></i>
+                        <h5>Camera Status</h5>
+                        <span id="main-camera-status" class="status-indicator status-offline"></span>
+                        <span id="main-camera-status-text">Offline</span>
+                    </a>
                 </div>
             </div>
 
             <div class="col-md-3">
                 <div class="status-card text-center">
-                    <i class="fas fa-brain feature-icon text-primary"></i>
-                    <h5>AI Detection</h5>
-                    <span id="main-detection-status" class="status-indicator status-inactive"></span>
-                    <span id="main-detection-status-text">Inactive</span>
+                    <a href="/detection" class="text-decoration-none">
+                        <i class="fas fa-brain feature-icon text-primary"></i>
+                        <h5>AI Detection</h5>
+                        <span id="main-detection-status" class="status-indicator status-inactive"></span>
+                        <span id="main-detection-status-text">Inactive</span>
+                    </a>
                 </div>
             </div>
 
@@ -67,19 +89,23 @@
         <div class="row">
             <div class="col-md-3">
                 <div class="status-card text-center" id="health-status-card">
-                    <i class="fas fa-heartbeat feature-icon text-success"></i>
-                    <h5>Health Monitor</h5>
-                    <span id="main-health-status" class="status-indicator status-offline"></span>
-                    <span id="main-health-status-text">Offline</span>
+                    <a href="/health" class="text-decoration-none">
+                        <i class="fas fa-heartbeat feature-icon text-success"></i>
+                        <h5>Health Monitor</h5>
+                        <span id="main-health-status" class="status-indicator status-offline"></span>
+                        <span id="main-health-status-text">Offline</span>
+                    </a>
                 </div>
             </div>
 
             <div class="col-md-3">
                 <div class="status-card text-center" id="experiment-status-card">
-                    <i class="fas fa-flask feature-icon text-warning"></i>
-                    <h5>Experiments</h5>
-                    <span id="main-experiment-status" class="status-indicator status-offline"></span>
-                    <span id="main-experiment-status-text">Offline</span>
+                    <a href="/experiments" class="text-decoration-none">
+                        <i class="fas fa-flask feature-icon text-warning"></i>
+                        <h5>Experiments</h5>
+                        <span id="main-experiment-status" class="status-indicator status-offline"></span>
+                        <span id="main-experiment-status-text">Offline</span>
+                    </a>
                 </div>
             </div>
 
