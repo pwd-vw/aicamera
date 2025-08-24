@@ -342,6 +342,9 @@ class DetectionManager:
                 frame, vehicle_boxes, plate_boxes, ocr_results
             )
             
+            # Calculate processing time
+            processing_time = time.time() - start_time
+            
             # Step 6: Store results in database
             detection_record = {
                 'timestamp': datetime.now().isoformat(),
@@ -428,7 +431,6 @@ class DetectionManager:
                 self.database_manager.insert_detection_result(detection_record)
             
             # Update statistics
-            processing_time = time.time() - start_time
             self._update_processing_stats(processing_time)
             self.detection_stats['last_detection'] = datetime.now().isoformat()
             
