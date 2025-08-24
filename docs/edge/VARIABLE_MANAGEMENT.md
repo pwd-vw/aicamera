@@ -1,7 +1,7 @@
 # AI Camera v2.0 - Variable Management Standards
 
 **Version:** 2.0.0  
-**Last Updated:** 2025-08-23  
+**Last Updated:** 2025-08-24  
 **Author:** AI Camera Team  
 **Category:** Development Standards  
 **Status:** Active
@@ -843,6 +843,245 @@ Response:
 """
 ```
 
+## Detection API Variable Mapping
+
+### **Detection Status API (`/detection/status`)**
+
+#### **Backend Response Structure:**
+```python
+{
+    "success": True,
+    "detection_status": {
+        "service_running": bool,
+        "detection_processor_status": {
+            "models_loaded": bool,
+            "vehicle_model_available": bool,
+            "lp_detection_model_available": bool,
+            "lp_ocr_model_available": bool,
+            "easyocr_available": bool,
+            "confidence_threshold": float,
+            "detection_resolution": [int, int]
+        },
+        "detection_interval": float,
+        "auto_start": bool
+    },
+    "timestamp": "2025-08-24T10:02:28Z"
+}
+```
+
+#### **Frontend Variable Mapping:**
+```javascript
+// Detection status mapping
+const status = data.detection_status;
+const serviceRunning = status.service_running;
+const processorStatus = status.detection_processor_status;
+const modelsLoaded = processorStatus.models_loaded;
+const detectionInterval = status.detection_interval;
+const autoStart = status.auto_start;
+
+// Update UI elements
+document.getElementById('service-status').textContent = 
+    serviceRunning ? 'Running' : 'Stopped';
+document.getElementById('models-status').textContent = 
+    modelsLoaded ? 'Loaded' : 'Not Loaded';
+```
+
+### **Detection Configuration API (`/detection/config`)**
+
+#### **Backend Response Structure:**
+```python
+{
+    "success": True,
+    "config": {
+        "detection_interval": float,
+        "vehicle_confidence": float,
+        "plate_confidence": float,
+        "detection_resolution": [int, int]
+    },
+    "timestamp": "2025-08-24T10:02:28Z"
+}
+```
+
+#### **Frontend Variable Mapping:**
+```javascript
+// Configuration mapping
+const config = data.config;
+const interval = config.detection_interval;
+const vehicleConf = config.vehicle_confidence;
+const plateConf = config.plate_confidence;
+const resolution = config.detection_resolution;
+
+// Update form fields
+document.getElementById('detection-interval').value = interval;
+document.getElementById('vehicle-confidence').value = vehicleConf;
+document.getElementById('plate-confidence').value = plateConf;
+```
+
+### **Detection Statistics API (`/detection/statistics`)**
+
+#### **Backend Response Structure:**
+```python
+{
+    "success": True,
+    "statistics": {
+        "total_frames_processed": int,
+        "total_vehicles_detected": int,
+        "total_plates_detected": int,
+        "successful_ocr": int,
+        "detection_rate_percent": float,
+        "avg_processing_time_ms": float
+    },
+    "timestamp": "2025-08-24T10:02:28Z"
+}
+```
+
+#### **Frontend Variable Mapping:**
+```javascript
+// Statistics mapping
+const stats = data.statistics;
+const framesProcessed = stats.total_frames_processed;
+const vehiclesDetected = stats.total_vehicles_detected;
+const platesDetected = stats.total_plates_detected;
+const successfulOcr = stats.successful_ocr;
+const detectionRate = stats.detection_rate_percent;
+const avgProcessingTime = stats.avg_processing_time_ms;
+
+// Update statistics display
+document.getElementById('frames-processed').textContent = framesProcessed;
+document.getElementById('vehicles-detected').textContent = vehiclesDetected;
+document.getElementById('plates-detected').textContent = platesDetected;
+```
+
+### **Detection Results API (`/detection/results/recent`)**
+
+#### **Backend Response Structure:**
+```python
+{
+    "success": True,
+    "results": [
+        {
+            "id": int,
+            "timestamp": str,
+            "image_path": str,
+            "vehicles_detected": int,
+            "plates_detected": int,
+            "confidence_scores": list,
+            "processing_time_ms": float
+        }
+    ],
+    "count": int,
+    "timestamp": "2025-08-24T10:02:28Z"
+}
+```
+
+#### **Frontend Variable Mapping:**
+```javascript
+// Results mapping
+const results = data.results;
+const resultCount = data.count;
+
+// Process each result
+results.forEach(result => {
+    const id = result.id;
+    const timestamp = result.timestamp;
+    const imagePath = result.image_path;
+    const vehiclesDetected = result.vehicles_detected;
+    const platesDetected = result.plates_detected;
+    const confidenceScores = result.confidence_scores;
+    const processingTime = result.processing_time_ms;
+    
+    // Create result display element
+    createResultElement(result);
+});
+```
+
+### **Detection Control APIs**
+
+#### **Start Detection (`POST /detection/start`):**
+```python
+# Backend Response
+{
+    "success": True,
+    "message": "Detection service started successfully",
+    "timestamp": "2025-08-24T10:02:28Z"
+}
+```
+
+#### **Stop Detection (`POST /detection/stop`):**
+```python
+# Backend Response
+{
+    "success": True,
+    "message": "Detection service stopped successfully",
+    "timestamp": "2025-08-24T10:02:28Z"
+}
+```
+
+#### **Process Frame (`POST /detection/process_frame`):**
+```python
+# Backend Response
+{
+    "success": True,
+    "detection_result": {
+        "vehicles_detected": int,
+        "plates_detected": int,
+        "processing_time_ms": float,
+        "confidence_scores": list
+    },
+    "timestamp": "2025-08-24T10:02:28Z"
+}
+```
+
+### **WebSocket Event Mapping**
+
+#### **Detection Status Updates:**
+```javascript
+// WebSocket event handling
+socket.on('detection_status_update', (data) => {
+    if (data && data.success && data.detection_status) {
+        updateDetectionStatus(data.detection_status);
+    } else {
+        console.error('Invalid detection status update:', data);
+    }
+});
+```
+
+#### **Detection Control Events:**
+```javascript
+// Request status update
+socket.emit('detection_status_request');
+
+// Control detection
+socket.emit('detection_control', {
+    action: 'start' | 'stop' | 'process_frame'
+});
+```
+
+### **Error Handling for Detection APIs**
+
+#### **Frontend Error Handling:**
+```javascript
+// Standard error response mapping
+if (!data.success) {
+    const error = data.error;
+    const timestamp = data.timestamp;
+    
+    // Display error to user
+    AICameraUtils.showToast(error, 'error');
+    console.error('Detection API error:', error);
+}
+```
+
+#### **Backend Error Response:**
+```python
+# Standard error response structure
+return jsonify({
+    'success': False,
+    'error': str(e),
+    'timestamp': datetime.now().isoformat()
+}), 500
+```
+
 ## Compliance Checklist
 
 ### Development Compliance:
@@ -854,6 +1093,7 @@ Response:
 - [ ] Implement performance optimization
 - [ ] Write comprehensive tests
 - [ ] Document code properly
+- [ ] Follow detection API variable mapping standards
 
 ### Code Review Compliance:
 - [ ] No direct camera access violations
@@ -862,3 +1102,4 @@ Response:
 - [ ] Performance considerations
 - [ ] Test coverage adequate
 - [ ] Documentation complete
+- [ ] Detection API responses follow standard format

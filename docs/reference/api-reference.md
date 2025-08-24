@@ -1,7 +1,7 @@
 # AI Camera Edge System - API Reference
 
 **Version:** 2.0.0  
-**Last Updated:** 2025-08-23  
+**Last Updated:** 2025-08-24  
 **Author:** AI Camera Team  
 **Category:** API Documentation  
 **Status:** Active
@@ -285,16 +285,130 @@ Detection service status
 {
   "success": true,
   "detection_status": {
-    "is_running": boolean,
-    "model_loaded": boolean,
-    "current_fps": number,
-    "total_detections": number,
-    "last_detection": string,
-    "processing_time": number,
-    "error_count": number,
-    "config": {...}
+    "service_running": boolean,
+    "detection_processor_status": {
+      "models_loaded": boolean,
+      "vehicle_model_available": boolean,
+      "lp_detection_model_available": boolean,
+      "lp_ocr_model_available": boolean,
+      "easyocr_available": boolean,
+      "confidence_threshold": number,
+      "detection_resolution": [number, number]
+    },
+    "detection_interval": number,
+    "auto_start": boolean
   },
-  "timestamp": "2025-08-20T08:51:30Z"
+  "timestamp": "2025-08-24T10:02:28Z"
+}
+```
+
+#### POST /detection/start
+Start detection service
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Detection service started successfully",
+  "timestamp": "2025-08-24T10:02:28Z"
+}
+```
+
+#### POST /detection/stop
+Stop detection service
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Detection service stopped successfully",
+  "timestamp": "2025-08-24T10:02:28Z"
+}
+```
+
+#### POST /detection/process_frame
+Process single frame for detection
+
+**Response:**
+```json
+{
+  "success": true,
+  "detection_result": {
+    "vehicles_detected": number,
+    "plates_detected": number,
+    "processing_time_ms": number,
+    "confidence_scores": [...]
+  },
+  "timestamp": "2025-08-24T10:02:28Z"
+}
+```
+
+#### GET/POST /detection/config
+Detection configuration management
+
+**GET Response:**
+```json
+{
+  "success": true,
+  "config": {
+    "detection_interval": number,
+    "vehicle_confidence": number,
+    "plate_confidence": number,
+    "detection_resolution": [number, number]
+  },
+  "timestamp": "2025-08-24T10:02:28Z"
+}
+```
+
+**POST Request:**
+```json
+{
+  "detection_interval": 0.1,
+  "vehicle_confidence": 0.5,
+  "plate_confidence": 0.3,
+  "detection_resolution": [640, 640]
+}
+```
+
+#### GET /detection/statistics
+Detection statistics
+
+**Response:**
+```json
+{
+  "success": true,
+  "statistics": {
+    "total_frames_processed": number,
+    "total_vehicles_detected": number,
+    "total_plates_detected": number,
+    "successful_ocr": number,
+    "detection_rate_percent": number,
+    "avg_processing_time_ms": number
+  },
+  "timestamp": "2025-08-24T10:02:28Z"
+}
+```
+
+#### GET /detection/results/recent
+Recent detection results
+
+**Response:**
+```json
+{
+  "success": true,
+  "results": [
+    {
+      "id": number,
+      "timestamp": string,
+      "image_path": string,
+      "vehicles_detected": number,
+      "plates_detected": number,
+      "confidence_scores": [...],
+      "processing_time_ms": number
+    }
+  ],
+  "count": number,
+  "timestamp": "2025-08-24T10:02:28Z"
 }
 ```
 
