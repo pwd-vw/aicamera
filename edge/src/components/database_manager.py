@@ -92,8 +92,8 @@ class DatabaseManager:
                     vehicles_count INTEGER DEFAULT 0,
                     plates_count INTEGER DEFAULT 0,
                     ocr_results TEXT,
-                    annotated_image_path TEXT,
-                    image_path TEXT,
+                    vehicle_detected_image_path TEXT,
+                    plate_image_path TEXT,
                     cropped_plates_paths TEXT,
                     vehicle_detections TEXT,
                     plate_detections TEXT,
@@ -194,7 +194,7 @@ class DatabaseManager:
             cursor.execute("""
                 INSERT INTO detection_results (
                     timestamp, vehicles_count, plates_count, ocr_results,
-                    annotated_image_path, image_path, cropped_plates_paths,
+                    vehicle_detected_image_path, plate_image_path, cropped_plates_paths,
                     vehicle_detections, plate_detections, processing_time_ms,
                     hailo_ocr_results, easyocr_results, best_ocr_method,
                     ocr_processing_time_ms, parallel_ocr_success,
@@ -207,8 +207,8 @@ class DatabaseManager:
                 detection_data.get('vehicles_count', 0),
                 detection_data.get('plates_count', 0),
                 ocr_results_json,
-                detection_data.get('annotated_image_path', ''),
-                detection_data.get('image_path', ''),
+                detection_data.get('vehicle_detected_image_path', ''),
+                detection_data.get('plate_image_path', ''),
                 cropped_paths_json,
                 vehicle_detections_json,
                 plate_detections_json,
@@ -458,7 +458,7 @@ class DatabaseManager:
             cursor = self.connection.cursor()
             cursor.execute("""
                 SELECT id, timestamp, vehicles_count, plates_count, ocr_results, 
-                       annotated_image_path, image_path, processing_time_ms, created_at
+                       vehicle_detected_image_path, plate_image_path, processing_time_ms, created_at
                 FROM detection_results
                 ORDER BY created_at DESC
             """)
@@ -472,8 +472,8 @@ class DatabaseManager:
                     'timestamp': row[1],
                     'vehicles_count': row[2],
                     'plates_count': row[3],
-                    'annotated_image_path': row[5],
-                    'image_path': row[6],
+                    'vehicle_detected_image_path': row[5],
+                    'plate_image_path': row[6],
                     'processing_time_ms': row[7],
                     'created_at': row[8]
                 }
@@ -511,7 +511,7 @@ class DatabaseManager:
             cursor = self.connection.cursor()
             cursor.execute("""
                 SELECT id, timestamp, vehicles_count, plates_count, ocr_results, 
-                       annotated_image_path, image_path, processing_time_ms, created_at
+                       vehicle_detected_image_path, plate_image_path, processing_time_ms, created_at
                 FROM detection_results
                 ORDER BY created_at DESC
                 LIMIT ?
@@ -526,8 +526,8 @@ class DatabaseManager:
                     'timestamp': row[1],
                     'vehicles_count': row[2],
                     'plates_count': row[3],
-                    'annotated_image_path': row[5],
-                    'image_path': row[6],
+                    'vehicle_detected_image_path': row[5],
+                    'plate_image_path': row[6],
                     'processing_time_ms': row[7],
                     'created_at': row[8]
                 }

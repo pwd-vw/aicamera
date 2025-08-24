@@ -530,9 +530,9 @@ class DetectionProcessor:
         return ocr_results
     
     def save_detection_results(self, original_frame: np.ndarray, vehicle_boxes: List[Dict], 
-                             plate_boxes: List[Dict], ocr_results: List[Dict]) -> Tuple[str, List[str]]:
+                             plate_boxes: List[Dict], ocr_results: List[Dict]) -> Tuple[str, str, List[str]]:
         """
-        Save original image with detection results and cropped license plates.
+        Save original image, vehicle detection image, and license plate detection image with cropped plates.
         
         Args:
             original_frame: Original image frame
@@ -541,40 +541,49 @@ class DetectionProcessor:
             ocr_results: OCR results
             
         Returns:
-            Tuple[str, List[str]]: Path to saved image with boxes, list of cropped plate paths
+            Tuple[str, str, List[str]]: Path to vehicle detection image, path to plate detection image, list of cropped plate paths
         """
         try:
+            # Generate timestamp for filename
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
             
             # Create directories if they don't exist
             Path(IMAGE_SAVE_DIR).mkdir(parents=True, exist_ok=True)
             
-            # Draw bounding boxes on original frame
-            annotated_frame = original_frame.copy()
+            # Step 1: Save original image with datetime format filename
+            original_filename = f"detection_{timestamp}.jpg"
+            original_path = os.path.join(IMAGE_SAVE_DIR, original_filename)
+            cv2.imwrite(original_path, original_frame)
             
-            # Draw vehicle boxes (green)
+            # Step 2: Create vehicle detection image (original + vehicle bounding boxes only)
+            vehicle_detected_frame = original_frame.copy()
+            
+            # Draw vehicle boxes (green) only
             for vehicle_box in vehicle_boxes:
                 if 'bbox' in vehicle_box:
                     x1, y1, x2, y2 = vehicle_box['bbox']
-                    cv2.rectangle(annotated_frame, (int(x1), int(y1)), (int(x2), int(y2)), 
+                    cv2.rectangle(vehicle_detected_frame, (int(x1), int(y1)), (int(x2), int(y2)), 
                                 (0, 255, 0), 2)
                     
                     # Add vehicle label
                     label = vehicle_box.get('label', 'Vehicle')
                     confidence = vehicle_box.get('score', 0)
-                    cv2.putText(annotated_frame, f"{label} {confidence:.2f}", 
+                    cv2.putText(vehicle_detected_frame, f"{label} {confidence:.2f}", 
                               (int(x1), int(y1) - 10), cv2.FONT_HERSHEY_SIMPLEX, 
                               0.5, (0, 255, 0), 2)
+            
+            # Step 3: Create license plate detection image (original + plate bounding boxes only)
+            plate_detected_frame = original_frame.copy()
             
             # Draw license plate boxes (blue) and add OCR text
             for plate_box in plate_boxes:
                 x1, y1, x2, y2 = plate_box['bbox']
-                cv2.rectangle(annotated_frame, (int(x1), int(y1)), (int(x2), int(y2)), 
+                cv2.rectangle(plate_detected_frame, (int(x1), int(y1)), (int(x2), int(y2)), 
                             (255, 0, 0), 2)
                 
                 # Add plate confidence score
                 plate_confidence = plate_box.get('score', 0)
-                cv2.putText(annotated_frame, f"LP {plate_confidence:.2f}", 
+                cv2.putText(plate_detected_frame, f"LP {plate_confidence:.2f}", 
                           (int(x1), int(y1) - 10), cv2.FONT_HERSHEY_SIMPLEX, 
                           0.5, (255, 0, 0), 2)
                 
@@ -590,15 +599,21 @@ class DetectionProcessor:
                 
                 if ocr_text:
                     # Display OCR text with confidence
-                    cv2.putText(annotated_frame, f"{ocr_text} ({ocr_confidence:.2f})", 
+                    cv2.putText(plate_detected_frame, f"{ocr_text} ({ocr_confidence:.2f})", 
                               (int(x1), int(y2) + 20), cv2.FONT_HERSHEY_SIMPLEX, 
                               0.6, (255, 0, 0), 2)
             
-            # Save annotated image
-            annotated_path = os.path.join(IMAGE_SAVE_DIR, f"detection_{timestamp}.jpg")
-            cv2.imwrite(annotated_path, annotated_frame)
+            # Step 4: Save vehicle detection image
+            vehicle_detected_filename = f"vehicle_detected_{timestamp}.jpg"
+            vehicle_detected_path = os.path.join(IMAGE_SAVE_DIR, vehicle_detected_filename)
+            cv2.imwrite(vehicle_detected_path, vehicle_detected_frame)
             
-            # Save cropped license plates
+            # Step 5: Save license plate detection image
+            plate_detected_filename = f"plate_detected_{timestamp}.jpg"
+            plate_detected_path = os.path.join(IMAGE_SAVE_DIR, plate_detected_filename)
+            cv2.imwrite(plate_detected_path, plate_detected_frame)
+            
+            # Step 6: Save cropped license plates
             cropped_paths = []
             for i, plate_box in enumerate(plate_boxes):
                 try:
@@ -613,8 +628,8 @@ class DetectionProcessor:
                 except Exception as e:
                     self.logger.warning(f"Failed to save cropped plate {i}: {e}")
             
-            self.logger.info(f"Saved detection results: {annotated_path}, {len(cropped_paths)} plates")
-            return annotated_path, cropped_paths
+            self.logger.info(f"Saved detection results: vehicle={vehicle_detected_path}, plate={plate_detected_path}, {len(cropped_paths)} plates")
+            return vehicle_detected_path, plate_detected_path, cropped_paths
             
         except Exception as e:
             self.logger.error(f"Error saving detection results: {e}")
