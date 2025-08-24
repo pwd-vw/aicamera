@@ -1915,3 +1915,58 @@ class CameraHandler:
         if cls._instance is None:
             cls._instance = cls(**kwargs)
         return cls._instance
+
+    def safe_camera_operation(self, operation_func):
+        """
+        Execute camera operations safely with proper error handling and resource management.
+        
+        This method provides:
+        - Thread-safe camera access using locks
+        - Proper error handling and recovery
+        - Resource cleanup on failure
+        - Logging of operation results
+        
+        Args:
+            operation_func: Function to execute (should be a lambda or inner function)
+            
+        Returns:
+            bool: True if operation successful, False otherwise
+        """
+        try:
+            # Acquire camera access lock for thread safety
+            with self._camera_lock:
+                self.logger.debug("Acquired camera access lock")
+                
+                # Execute the operation
+                result = operation_func()
+                
+                self.logger.debug(f"Camera operation completed with result: {result}")
+                return result
+                
+        except Exception as e:
+            self.logger.error(f"Camera operation failed: {e}")
+            
+            # Attempt to recover from failure
+            try:
+                self.logger.info("Attempting camera operation recovery...")
+                
+                # Reset camera state on failure
+                self.initialized = False
+                self.streaming = False
+                
+                # Clean up any existing camera resources
+                if self.picam2:
+                    try:
+                        if getattr(self.picam2, 'started', False):
+                            self.picam2.stop()
+                        self.picam2.close()
+                    except:
+                        pass
+                    self.picam2 = None
+                
+                self.logger.info("Camera operation recovery completed")
+                
+            except Exception as recovery_error:
+                self.logger.error(f"Camera operation recovery failed: {recovery_error}")
+            
+            return False

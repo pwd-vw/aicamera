@@ -338,7 +338,7 @@ class DetectionManager:
                     self.detection_stats['successful_ocr'] += len(ocr_results)
             
             # Step 5: Save detection results (images with bounding boxes)
-            vehicle_detected_path, plate_detected_path, cropped_paths = self.detection_processor.save_detection_results(
+            original_path, vehicle_detected_path, plate_detected_path, cropped_paths = self.detection_processor.save_detection_results(
                 frame, vehicle_boxes, plate_boxes, ocr_results
             )
             
@@ -348,6 +348,7 @@ class DetectionManager:
                 'vehicles_count': len(vehicle_boxes),
                 'plates_count': len(plate_boxes),
                 'ocr_results': ocr_results,
+                'original_image_path': f"captured_images/{os.path.basename(original_path)}" if original_path else '',
                 'vehicle_detected_image_path': f"captured_images/{os.path.basename(vehicle_detected_path)}" if vehicle_detected_path else '',
                 'plate_image_path': f"captured_images/{os.path.basename(plate_detected_path)}" if plate_detected_path else '',
                 'cropped_plates_paths': cropped_paths,

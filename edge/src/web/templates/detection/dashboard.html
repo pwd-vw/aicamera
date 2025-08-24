@@ -496,7 +496,322 @@
     </div>
 </div>
 </div>
+<!-- Comprehensive Output Display Section -->
+<div class="row mt-4" id="comprehensive-output-section">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-chart-line me-2"></i>Comprehensive Detection Output Analysis
+                </h5>
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="output-display-toggle" checked>
+                    <label class="form-check-label" for="output-display-toggle">
+                        <small class="text-muted">Toggle Display</small>
+                    </label>
+                </div>
+            </div>
+            <div class="card-body" id="comprehensive-output-content">
+                <!-- Real-time Detection Metrics -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h6 class="text-primary mb-3">
+                            <i class="fas fa-tachometer-alt me-2"></i>Real-time Detection Metrics
+                        </h6>
+                        <div class="row">
+                            <div class="col-md-3 mb-3">
+                                <div class="card bg-primary text-white">
+                                    <div class="card-body text-center">
+                                        <h4 id="vehicle-detection-rate">0%</h4>
+                                        <small>Vehicle Detection Rate</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <div class="card bg-success text-white">
+                                    <div class="card-body text-center">
+                                        <h4 id="plate-detection-rate">0%</h4>
+                                        <small>Plate Detection Rate</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <div class="card bg-info text-white">
+                                    <div class="card-body text-center">
+                                        <h4 id="ocr-success-rate">0%</h4>
+                                        <small>OCR Success Rate</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <div class="card bg-warning text-white">
+                                    <div class="card-body text-center">
+                                        <h4 id="processing-efficiency">0ms</h4>
+                                        <small>Avg Processing Time</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
+                <!-- Performance Analytics -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h6 class="text-success mb-3">
+                            <i class="fas fa-chart-bar me-2"></i>Performance Analytics
+                        </h6>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h6 class="mb-0">Detection Throughput</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between">
+                                            <span>Frames/Second:</span>
+                                            <strong id="detection-throughput">0 FPS</strong>
+                                        </div>
+                                        <div class="d-flex justify-content-between">
+                                            <span>Total Frames:</span>
+                                            <strong id="total-frames-processed">0</strong>
+                                        </div>
+                                        <div class="d-flex justify-content-between">
+                                            <span>Detection Errors:</span>
+                                            <strong id="detection-errors-count">0</strong>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h6 class="mb-0">OCR Method Comparison</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between">
+                                            <span>Hailo OCR Success:</span>
+                                            <strong id="hailo-ocr-success">0%</strong>
+                                        </div>
+                                        <div class="d-flex justify-content-between">
+                                            <span>EasyOCR Success:</span>
+                                            <strong id="easyocr-success">0%</strong>
+                                        </div>
+                                        <div class="d-flex justify-content-between">
+                                            <span>Best Method:</span>
+                                            <strong id="best-ocr-method">N/A</strong>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quality Metrics -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h6 class="text-info mb-3">
+                            <i class="fas fa-award me-2"></i>Quality Metrics
+                        </h6>
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h6 class="mb-0">Detection Accuracy</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="progress mb-2">
+                                            <div class="progress-bar bg-success" id="detection-accuracy-bar" style="width: 0%"></div>
+                                        </div>
+                                        <small class="text-muted">Based on confidence thresholds</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h6 class="mb-0">OCR Accuracy</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="progress mb-2">
+                                            <div class="progress-bar bg-info" id="ocr-accuracy-bar" style="width: 0%"></div>
+                                        </div>
+                                        <small class="text-muted">Text recognition confidence</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h6 class="mb-0">System Reliability</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="progress mb-2">
+                                            <div class="progress-bar bg-warning" id="system-reliability-bar" style="width: 0%"></div>
+                                        </div>
+                                        <small class="text-muted">Uptime and error rates</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Operational Insights -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h6 class="text-warning mb-3">
+                            <i class="fas fa-lightbulb me-2"></i>Operational Insights
+                        </h6>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h6 class="mb-0">Peak Detection Times</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="peak-detection-times">
+                                            <p class="text-muted">No peak detection data available</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h6 class="mb-0">Resource Utilization</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between">
+                                            <span>CPU Usage:</span>
+                                            <strong id="cpu-usage">N/A</strong>
+                                        </div>
+                                        <div class="d-flex justify-content-between">
+                                            <span>Memory Usage:</span>
+                                            <strong id="memory-usage">N/A</strong>
+                                        </div>
+                                        <div class="d-flex justify-content-between">
+                                            <span>Storage Used:</span>
+                                            <strong id="storage-used">N/A</strong>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Image Output Analysis -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <h6 class="text-danger mb-3">
+                            <i class="fas fa-images me-2"></i>Image Output Analysis
+                        </h6>
+                        <div class="row">
+                            <div class="col-md-3 mb-3">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h6 class="mb-0">Original Images</h6>
+                                    </div>
+                                    <div class="card-body text-center">
+                                        <i class="fas fa-camera fa-3x text-info mb-2"></i>
+                                        <h5 id="original-images-count">0</h5>
+                                        <small class="text-muted">Raw captured images</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h6 class="mb-0">Vehicle Detection Images</h6>
+                                    </div>
+                                    <div class="card-body text-center">
+                                        <i class="fas fa-car fa-3x text-primary mb-2"></i>
+                                        <h5 id="vehicle-detection-count">0</h5>
+                                        <small class="text-muted">Images with vehicle bounding boxes</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h6 class="mb-0">Plate Detection Images</h6>
+                                    </div>
+                                    <div class="card-body text-center">
+                                        <i class="fas fa-id-card fa-3x text-success mb-2"></i>
+                                        <h5 id="plate-detection-count">0</h5>
+                                        <small class="text-muted">Images with plate bounding boxes & OCR</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h6 class="mb-0">Cropped Plates</h6>
+                                    </div>
+                                    <div class="card-body text-center">
+                                        <i class="fas fa-crop fa-3x text-warning mb-2"></i>
+                                        <h5 id="cropped-plates-count">0</h5>
+                                        <small class="text-muted">Extracted license plate images</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Experimental Controls -->
+                <div class="row">
+                    <div class="col-12">
+                        <div class="card border-warning">
+                            <div class="card-header bg-warning text-dark">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-flask me-2"></i>Experimental Controls
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="form-check form-switch mb-2">
+                                            <input class="form-check-input" type="checkbox" id="real-time-updates-toggle" checked>
+                                            <label class="form-check-label" for="real-time-updates-toggle">
+                                                Real-time Updates
+                                            </label>
+                                        </div>
+                                        <div class="form-check form-switch mb-2">
+                                            <input class="form-check-input" type="checkbox" id="detailed-logging-toggle">
+                                            <label class="form-check-label" for="detailed-logging-toggle">
+                                                Detailed Logging
+                                            </label>
+                                        </div>
+                                        <div class="form-check form-switch mb-2">
+                                            <input class="form-check-input" type="checkbox" id="performance-monitoring-toggle" checked>
+                                            <label class="form-check-label" for="performance-monitoring-toggle">
+                                                Performance Monitoring
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <button type="button" class="btn btn-outline-primary btn-sm mb-2" onclick="DetectionManager.refreshComprehensiveData()">
+                                            <i class="fas fa-sync-alt"></i> Refresh Data
+                                        </button>
+                                        <button type="button" class="btn btn-outline-success btn-sm mb-2" onclick="DetectionManager.exportComprehensiveReport()">
+                                            <i class="fas fa-file-export"></i> Export Report
+                                        </button>
+                                        <button type="button" class="btn btn-outline-warning btn-sm mb-2" onclick="DetectionManager.resetComprehensiveMetrics()">
+                                            <i class="fas fa-undo"></i> Reset Metrics
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block additional_js %}

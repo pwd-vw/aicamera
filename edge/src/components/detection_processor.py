@@ -530,7 +530,7 @@ class DetectionProcessor:
         return ocr_results
     
     def save_detection_results(self, original_frame: np.ndarray, vehicle_boxes: List[Dict], 
-                             plate_boxes: List[Dict], ocr_results: List[Dict]) -> Tuple[str, str, List[str]]:
+                             plate_boxes: List[Dict], ocr_results: List[Dict]) -> Tuple[str, str, str, List[str]]:
         """
         Save original image, vehicle detection image, and license plate detection image with cropped plates.
         
@@ -541,7 +541,7 @@ class DetectionProcessor:
             ocr_results: OCR results
             
         Returns:
-            Tuple[str, str, List[str]]: Path to vehicle detection image, path to plate detection image, list of cropped plate paths
+            Tuple[str, str, str, List[str]]: Path to original image, vehicle detection image, plate detection image, list of cropped plate paths
         """
         try:
             # Generate timestamp for filename
@@ -628,12 +628,12 @@ class DetectionProcessor:
                 except Exception as e:
                     self.logger.warning(f"Failed to save cropped plate {i}: {e}")
             
-            self.logger.info(f"Saved detection results: vehicle={vehicle_detected_path}, plate={plate_detected_path}, {len(cropped_paths)} plates")
-            return vehicle_detected_path, plate_detected_path, cropped_paths
+            self.logger.info(f"Saved detection results: original={original_path}, vehicle={vehicle_detected_path}, plate={plate_detected_path}, {len(cropped_paths)} plates")
+            return original_path, vehicle_detected_path, plate_detected_path, cropped_paths
             
         except Exception as e:
             self.logger.error(f"Error saving detection results: {e}")
-            return "", []
+            return "", "", "", []
     
     def get_status(self) -> Dict[str, Any]:
         """

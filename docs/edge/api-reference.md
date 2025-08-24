@@ -627,42 +627,128 @@ API endpoint สำหรับ metadata summary สำหรับ experimental
 }
 ```
 
-#### GET /detection/results
-รับผลการตรวจจับ
+## Detection API Endpoints
 
-**Query Parameters:**
-- `limit` (optional): จำนวนผลลัพธ์ (default: 50, max: 100)
-- `offset` (optional): เริ่มจากตำแหน่ง (default: 0)
+### Get All Detection Results
+**GET** `/detection/results`
+
+Returns all detection results from the database.
 
 **Response:**
 ```json
 {
   "success": true,
-  "data": {
-    "results": [
+  "results": [
+    {
+      "id": 1,
+      "timestamp": "2025-08-22 16:57:25",
+      "vehicles_count": 1,
+      "plates_count": 2,
+      "original_image_path": "captured_images/detection_20250824_101530_123.jpg",
+      "vehicle_detected_image_path": "captured_images/vehicle_detected_20250824_101530_123.jpg",
+      "plate_image_path": "captured_images/plate_detected_20250824_101530_123.jpg",
+      "cropped_plates_paths": [
+        "captured_images/plate_20250824_101530_123_0.jpg",
+        "captured_images/plate_20250824_101530_123_1.jpg"
+      ],
+      "ocr_results": [
+        {
+          "text": "ABC-123",
+          "confidence": 0.95,
+          "language": "en"
+        }
+      ],
+      "processing_time_ms": 150.5,
+      "created_at": "2025-08-22 16:57:25"
+    }
+  ],
+  "count": 1,
+  "timestamp": "2025-08-24T10:15:30.123Z"
+}
+```
+
+### Get Detection Result by ID
+**GET** `/detection/results/{id}`
+
+Returns a specific detection result by ID.
+
+**Parameters:**
+- `id` (integer): Detection result ID
+
+**Response:**
+```json
+{
+  "success": true,
+  "result": {
+    "id": 1,
+    "timestamp": "2025-08-22 16:57:25",
+    "vehicles_count": 1,
+    "plates_count": 2,
+    "original_image_path": "captured_images/detection_20250824_101530_123.jpg",
+    "vehicle_detected_image_path": "captured_images/vehicle_detected_20250824_101530_123.jpg",
+    "plate_image_path": "captured_images/plate_detected_20250824_101530_123.jpg",
+    "cropped_plates_paths": [
+      "captured_images/plate_20250824_101530_123_0.jpg",
+      "captured_images/plate_20250824_101530_123_1.jpg"
+    ],
+    "ocr_results": [
       {
-        "id": 1,
-        "timestamp": "2025-08-20T10:25:30.123456",
-        "detections": [
-          {
-            "type": "vehicle",
-            "confidence": 0.95,
-            "bbox": [100, 150, 300, 250],
-            "license_plate": {
-              "text": "ABC-1234",
-              "confidence": 0.87,
-              "bbox": [150, 200, 250, 230]
-            }
-          }
-        ],
-        "image_path": "/home/camuser/aicamera/edge/captured_images/detection_20250820_102530.jpg"
+        "text": "ABC-123",
+        "confidence": 0.95,
+        "language": "en",
+        "method": "hailo"
       }
     ],
-    "total_count": 156,
-    "limit": 50,
-    "offset": 0
+    "processing_time_ms": 150.5,
+    "created_at": "2025-08-22 16:57:25"
   },
-  "timestamp": "2025-08-23T10:30:00Z"
+  "timestamp": "2025-08-24T10:15:30.123Z"
+}
+```
+
+**Error Response (404):**
+```json
+{
+  "success": false,
+  "error": "Detection result with ID 999 not found"
+}
+```
+
+### Image Storage Pipeline
+
+The detection system stores 4 types of images for each detection:
+
+1. **Original Image** (`original_image_path`)
+   - **Content**: Raw captured image frame
+   - **Filename**: `detection_{timestamp}.jpg`
+   - **Purpose**: Reference to the original captured image
+
+2. **Vehicle Detection Image** (`vehicle_detected_image_path`)
+   - **Content**: Original image + green vehicle bounding boxes + confidence scores
+   - **Filename**: `vehicle_detected_{timestamp}.jpg`
+   - **Purpose**: Shows vehicle detection results with annotations
+
+3. **Plate Detection Image** (`plate_image_path`)
+   - **Content**: Original image + blue plate bounding boxes + OCR text + confidence scores
+   - **Filename**: `plate_detected_{timestamp}.jpg`
+   - **Purpose**: Shows license plate detection and OCR results
+
+4. **Cropped Plates** (`cropped_plates_paths`)
+   - **Content**: Individual cropped license plate images
+   - **Filename**: `plate_{timestamp}_{index}.jpg`
+   - **Purpose**: Extracted license plate images for detailed analysis
+
+### Image Path Examples
+
+```json
+{
+  "original_image_path": "captured_images/detection_20250824_101530_123.jpg",
+  "vehicle_detected_image_path": "captured_images/vehicle_detected_20250824_101530_123.jpg",
+  "plate_image_path": "captured_images/plate_detected_20250824_101530_123.jpg",
+  "cropped_plates_paths": [
+    "captured_images/plate_20250824_101530_123_0.jpg",
+    "captured_images/plate_20250824_101530_123_1.jpg"
+  ]
 }
 ```
 

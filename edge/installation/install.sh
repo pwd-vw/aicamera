@@ -596,6 +596,53 @@ else
     exit 1
 fi
 
+# Run database schema migrations to ensure latest schema
+echo "🔧 Running database schema migrations..."
+echo "   📋 Applying schema migration v2 (enhanced OCR support)..."
+if python edge/src/database/schema_migration_v2.py; then
+    echo "   ✅ Schema migration v2 completed"
+else
+    echo "   ⚠️  Schema migration v2 failed or not needed"
+fi
+
+echo "   📋 Applying schema migration v3 (complete image storage pipeline)..."
+if python edge/src/database/schema_migration_v3.py; then
+    echo "   ✅ Schema migration v3 completed"
+else
+    echo "   ⚠️  Schema migration v3 failed or not needed"
+fi
+
+# Verify complete image storage pipeline schema
+echo "🔍 Verifying complete image storage pipeline schema..."
+if python -c "
+import sqlite3
+from edge.src.core.config import DATABASE_PATH
+try:
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    cursor.execute('PRAGMA table_info(detection_results)')
+    columns = [row[1] for row in cursor.fetchall()]
+    required_columns = ['original_image_path', 'vehicle_detected_image_path', 'plate_image_path', 'cropped_plates_paths']
+    missing_columns = [col for col in required_columns if col not in columns]
+    if missing_columns:
+        print(f'❌ Missing required columns: {missing_columns}')
+        exit(1)
+    else:
+        print('✅ All image storage columns present')
+        exit(0)
+except Exception as e:
+    print(f'❌ Database verification failed: {e}')
+    exit(1)
+"; then
+    echo "✅ Complete image storage pipeline schema verified"
+else
+    echo "❌ Database schema verification failed - manual intervention required"
+    echo "📋 Please run the schema migrations manually:"
+    echo "   python edge/src/database/schema_migration_v2.py"
+    echo "   python edge/src/database/schema_migration_v3.py"
+    exit 1
+fi
+
 # Validate database setup
 echo "🔍 Validating database setup..."
 if python edge/scripts/validate_database.py; then

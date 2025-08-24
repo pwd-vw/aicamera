@@ -786,7 +786,7 @@ const CameraManager = {
                     
                     // Metadata descriptions in Thai
                     const thaiDescriptions = {
-                        // Camera Properties
+                    // Camera Properties
                         'Model': 'รุ่นของกล้อง',
                         'Location': 'ตำแหน่งของกล้อง',
                         'Revision': 'เวอร์ชันของฮาร์ดแวร์',

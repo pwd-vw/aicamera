@@ -37,6 +37,7 @@ const DetectionManager = {
         this.setupEventHandlers();
         this.setupFormHandlers();
         this.setupResultsEventHandlers();
+        this.setupComprehensiveOutputToggle();
         this.startPeriodicUpdates();
         this.loadResults();
         this.loadStatistics();
@@ -114,6 +115,8 @@ const DetectionManager = {
      * Setup event handlers for detection results
      */
     setupResultsEventHandlers: function() {
+        // Setup modal event handlers
+        this.setupModalEventHandlers();
         // Refresh button
         const refreshBtn = document.getElementById('refresh-results-btn');
         if (refreshBtn) {
@@ -217,6 +220,34 @@ const DetectionManager = {
                 this.handleSort(sortBy);
             });
         });
+    },
+
+    /**
+     * Setup modal event handlers
+     */
+    setupModalEventHandlers: function() {
+        const detailModal = document.getElementById('detail-modal');
+        if (detailModal) {
+            // Handle modal hidden event
+            detailModal.addEventListener('hidden.bs.modal', () => {
+                // Clear modal content
+                const modalBody = document.getElementById('detail-modal-body');
+                if (modalBody) {
+                    modalBody.innerHTML = '';
+                }
+                
+                // Clear modal instance
+                this.currentDetailModal = null;
+                
+                // Ensure dashboard remains active
+                console.log('Detail modal closed, dashboard remains active');
+            });
+            
+            // Handle modal shown event
+            detailModal.addEventListener('shown.bs.modal', () => {
+                console.log('Detail modal opened');
+            });
+        }
     },
 
     /**
@@ -524,7 +555,9 @@ const DetectionManager = {
             .then(data => {
                 console.log('Recent results response:', data);
                 if (data.success) {
-                    this.displayRecentResults(data.results);
+                    // Take only the first 10 results for recent display
+                    const recentResults = data.results.slice(0, 10);
+                    this.displayRecentResults(recentResults);
                 } else {
                     throw new Error(data.error || 'Failed to load results');
                 }
@@ -559,11 +592,17 @@ const DetectionManager = {
         if (this.currentFilters.hasPlates) params.append('has_plates', this.currentFilters.hasPlates);
         
         console.log('Loading detection results...');
-        AICameraUtils.apiRequest(`/detection/results`)
+        AICameraUtils.apiRequest('/detection/results')
             .then(data => {
                 console.log('Results response:', data);
                 if (data.success) {
-                    this.displayResults(data);
+                    // Apply client-side filtering and pagination
+                    const filteredResults = this.filterResults(data.results);
+                    const paginatedResults = this.paginateResults(filteredResults);
+                    this.displayResults({
+                        results: paginatedResults,
+                        count: filteredResults.length
+                    });
                 } else {
                     throw new Error(data.error || 'Failed to load results');
                 }
@@ -600,6 +639,7 @@ const DetectionManager = {
         
         this.updateResultsCount(count || results.length);
         this.renderResultsTable(results);
+        this.renderPagination();
         
         if (!results || results.length === 0) {
             this.showEmptyState();
@@ -652,206 +692,9 @@ const DetectionManager = {
         ).join('');
     },
 
-    /**
-     * Show detail modal
-     */
-    showDetail: function(resultId) {
-        // For now, we'll use the result data from the table since we don't have a single result endpoint
-        // In the future, we can add a /detection/results/{id} endpoint
-        AICameraUtils.showToast('Detail view not implemented yet', 'info');
-    },
 
-    /**
-     * Display detail modal
-     */
-    displayDetailModal: function(result) {
-        const modalBody = document.getElementById('detail-modal-body');
-        if (!modalBody) return;
-        
-        modalBody.innerHTML = `
-            <!-- OCR Results Section - Emphasized -->
-            <div class="row mb-4">
-                <div class="col-12">
-                    <div class="card border-primary">
-                        <div class="card-header bg-primary text-white">
-                            <h5 class="mb-0"><i class="fas fa-id-card me-2"></i>License Plate Recognition (LPR) Results</h5>
-                        </div>
-                        <div class="card-body">
-                            ${this.formatOcrResultsDetail(result.ocr_results)}
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Image Preview Section - Emphasized -->
-            <div class="row mb-4">
-                <div class="col-12">
-                    <div class="card border-success">
-                        <div class="card-header bg-success text-white">
-                            <h5 class="mb-0"><i class="fas fa-image me-2"></i>Detection Image Preview</h5>
-                        </div>
-                        <div class="card-body">
-                            ${this.formatImagePreview(result)}
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Metadata Section - Normal -->
-            <div class="row">
-                <div class="col-12">
-                    <div class="card">
-                        <div class="card-header">
-                            <h6 class="mb-0"><i class="fas fa-info-circle me-2"></i>Detection Metadata</h6>
-                        </div>
-                        <div class="card-body">
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <table class="table table-sm table-borderless">
-                                        <tr><td><strong>Detection ID:</strong></td><td>#${result.id}</td></tr>
-                                        <tr><td><strong>Timestamp:</strong></td><td>${AICameraUtils.formatTimestamp(result.created_at)}</td></tr>
-                                        <tr><td><strong>Processing Time:</strong></td><td>${result.processing_time_ms}ms</td></tr>
-                                    </table>
-                                </div>
-                                <div class="col-md-6">
-                                    <table class="table table-sm table-borderless">
-                                        <tr><td><strong>Vehicles Detected:</strong></td><td><span class="badge bg-info">${result.vehicles_count}</span></td></tr>
-                                        <tr><td><strong>License Plates:</strong></td><td><span class="badge bg-warning">${result.plates_count}</span></td></tr>
-                                        <tr><td><strong>OCR Confidence:</strong></td><td><span class="badge bg-success">${this.calculateAverageConfidence(result.ocr_results)}%</span></td></tr>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        const modal = new bootstrap.Modal(document.getElementById('detail-modal'));
-        modal.show();
-    },
 
-    /**
-     * Format OCR results for detail view - Enhanced
-     */
-    formatOcrResultsDetail: function(ocrResults) {
-        if (!ocrResults || ocrResults.length === 0) {
-            return `
-                <div class="text-center py-4">
-                    <i class="fas fa-exclamation-triangle fa-3x text-muted mb-3"></i>
-                    <h6 class="text-muted">No License Plates Detected</h6>
-                    <p class="text-muted">No OCR results available for this detection.</p>
-                </div>
-            `;
-        }
-        
-        return `
-            <div class="row">
-                ${ocrResults.map((ocr, index) => `
-                    <div class="col-md-6 mb-3">
-                        <div class="card h-100 border-${this.getConfidenceColor(ocr.confidence)}">
-                            <div class="card-header bg-${this.getConfidenceColor(ocr.confidence)} text-white">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <h6 class="mb-0">Plate #${index + 1}</h6>
-                                    <span class="badge bg-light text-dark">${(ocr.confidence * 100).toFixed(1)}%</span>
-                                </div>
-                            </div>
-                            <div class="card-body text-center">
-                                <div class="ocr-text-display mb-3">
-                                    <h4 class="text-primary font-weight-bold">${ocr.text}</h4>
-                                </div>
-                                <div class="ocr-details">
-                                    <small class="text-muted">
-                                        <i class="fas fa-language me-1"></i>Language: ${ocr.language === 'th' ? 'Thai' : 'English'}
-                                    </small>
-                                    <br>
-                                    <small class="text-muted">
-                                        <i class="fas fa-chart-line me-1"></i>Confidence: ${(ocr.confidence * 100).toFixed(1)}%
-                                    </small>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                `).join('')}
-            </div>
-        `;
-    },
 
-    /**
-     * Format image preview
-     */
-    formatImagePreview: function(result) {
-        if (!result.annotated_image_path) {
-            return `
-                <div class="text-center py-4">
-                    <i class="fas fa-image fa-3x text-muted mb-3"></i>
-                    <h6 class="text-muted">No Image Available</h6>
-                    <p class="text-muted">Detection image not available for this record.</p>
-                </div>
-            `;
-        }
-        
-        // Extract filename from path
-        const annotatedFilename = result.annotated_image_path.split('/').pop();
-        
-        return `
-            <div class="row">
-                <div class="col-md-8">
-                    <div class="main-image-container">
-                        <img src="/detection_results/images/${annotatedFilename}" class="img-fluid rounded shadow" alt="Detection Result" 
-                             style="max-height: 400px; width: 100%; object-fit: contain;">
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <h6 class="mb-3">Cropped License Plates</h6>
-                    ${this.formatCroppedPlates(result.cropped_plates_paths)}
-                </div>
-            </div>
-        `;
-    },
-
-    /**
-     * Format cropped plates
-     */
-    formatCroppedPlates: function(croppedPlatesPaths) {
-        if (!croppedPlatesPaths || croppedPlatesPaths.length === 0) {
-            return '<p class="text-muted">No cropped plates available</p>';
-        }
-        
-        return `
-            <div class="cropped-plates-container">
-                ${croppedPlatesPaths.map((path, index) => {
-                    // Extract filename from path
-                    const filename = path.split('/').pop();
-                    return `
-                        <div class="cropped-plate-item mb-2">
-                            <img src="/detection_results/images/${filename}" class="img-fluid rounded border" alt="Cropped Plate ${index + 1}"
-                                 style="max-height: 80px; width: 100%; object-fit: contain;">
-                            <small class="text-muted d-block text-center">Plate ${index + 1}</small>
-                        </div>
-                    `;
-                }).join('')}
-            </div>
-        `;
-    },
-
-    /**
-     * Get confidence color based on confidence level
-     */
-    getConfidenceColor: function(confidence) {
-        if (confidence >= 0.9) return 'success';
-        if (confidence >= 0.7) return 'warning';
-        return 'danger';
-    },
-
-    /**
-     * Calculate average confidence from OCR results
-     */
-    calculateAverageConfidence: function(ocrResults) {
-        if (!ocrResults || ocrResults.length === 0) return 0;
-        const total = ocrResults.reduce((sum, ocr) => sum + ocr.confidence, 0);
-        return (total / ocrResults.length * 100).toFixed(1);
-    },
 
     /**
      * Handle sorting
@@ -1142,6 +985,72 @@ const DetectionManager = {
     },
 
     /**
+     * Filter results based on current filters
+     */
+    filterResults: function(results) {
+        let filtered = results;
+        
+        // Search filter
+        if (this.currentFilters.search) {
+            const searchTerm = this.currentFilters.search.toLowerCase();
+            filtered = filtered.filter(result => {
+                const ocrText = result.ocr_text || '';
+                const timestamp = result.timestamp || '';
+                return ocrText.toLowerCase().includes(searchTerm) || 
+                       timestamp.toLowerCase().includes(searchTerm);
+            });
+        }
+        
+        // Date filters
+        if (this.currentFilters.dateFrom) {
+            filtered = filtered.filter(result => {
+                const resultDate = new Date(result.timestamp || result.created_at);
+                const fromDate = new Date(this.currentFilters.dateFrom);
+                return resultDate >= fromDate;
+            });
+        }
+        
+        if (this.currentFilters.dateTo) {
+            filtered = filtered.filter(result => {
+                const resultDate = new Date(result.timestamp || result.created_at);
+                const toDate = new Date(this.currentFilters.dateTo);
+                toDate.setHours(23, 59, 59); // End of day
+                return resultDate <= toDate;
+            });
+        }
+        
+        // Vehicle filter
+        if (this.currentFilters.hasVehicles) {
+            const hasVehicles = this.currentFilters.hasVehicles === 'true';
+            filtered = filtered.filter(result => {
+                const hasVehiclesResult = (result.vehicles_count || 0) > 0;
+                return hasVehiclesResult === hasVehicles;
+            });
+        }
+        
+        // Plates filter
+        if (this.currentFilters.hasPlates) {
+            const hasPlates = this.currentFilters.hasPlates === 'true';
+            filtered = filtered.filter(result => {
+                const hasPlatesResult = (result.plates_count || 0) > 0;
+                return hasPlatesResult === hasPlates;
+            });
+        }
+        
+        return filtered;
+    },
+
+    /**
+     * Paginate results
+     */
+    paginateResults: function(results) {
+        const startIndex = (this.currentPage - 1) * this.perPage;
+        const endIndex = startIndex + this.perPage;
+        this.totalPages = Math.ceil(results.length / this.perPage);
+        return results.slice(startIndex, endIndex);
+    },
+
+    /**
      * Display recent detection results
      */
     displayRecentResults: function(results) {
@@ -1157,14 +1066,14 @@ const DetectionManager = {
         
         results.slice(0, 10).forEach(result => {
             const resultDiv = document.createElement('div');
-            const hasDetections = result.vehicles_count > 0;
+            const hasDetections = (result.vehicles_count || 0) > 0;
             resultDiv.className = `detection-result ${hasDetections ? 'success' : 'no-detection'}`;
             
             resultDiv.innerHTML = `
                 <div class="d-flex justify-content-between align-items-center mb-2">
-                    <small class="text-muted">${AICameraUtils.formatTimestamp(result.timestamp)}</small>
+                    <small class="text-muted">${AICameraUtils.formatTimestamp(result.timestamp || result.created_at)}</small>
                     <div class="badge bg-${hasDetections ? 'success' : 'warning'}">
-                        ${result.vehicles_count} vehicles, ${result.plates_count} plates
+                        ${result.vehicles_count || 0} vehicles, ${result.plates_count || 0} plates
                     </div>
                 </div>
                 ${result.ocr_results && result.ocr_results.length > 0 ? 
@@ -1308,7 +1217,511 @@ const DetectionManager = {
         if (this.statusUpdateInterval) {
             clearInterval(this.statusUpdateInterval);
         }
+    },
+
+        /**
+     * Show detail modal for a specific result
+     */
+    showDetail: function(resultId) {
+        // Store current modal instance
+        this.currentDetailModal = new bootstrap.Modal(document.getElementById('detail-modal'));
+        const modalBody = document.getElementById('detail-modal-body');
+        
+        // Show loading in modal
+        modalBody.innerHTML = `
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <div class="mt-2">Loading detection details...</div>
+            </div>
+        `;
+        
+        // Show modal
+        this.currentDetailModal.show();
+
+        // Load detailed data from specific detection endpoint
+        AICameraUtils.apiRequest(`/detection/results/${resultId}`)
+            .then(data => {
+                if (data && data.success) {
+                    this.displayDetailModal(data.result);
+                } else {
+                    modalBody.innerHTML = `
+                        <div class="alert alert-danger">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            Error loading details: ${data?.error || 'Unknown error'}
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('Error loading detail:', error);
+                modalBody.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Network error occurred while loading details.
+                    </div>
+                `;
+            });
+    },
+
+/**
+ * Display detail modal content
+ */
+displayDetailModal: function(result) {
+    const modalBody = document.getElementById('detail-modal-body');
+    
+    modalBody.innerHTML = `
+        <!-- OCR Results Section - Emphasized -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card border-primary">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0"><i class="fas fa-id-card me-2"></i>License Plate Recognition (LPR) Results</h5>
+                    </div>
+                    <div class="card-body">
+                        ${this.formatOcrResultsForDetail(result.ocr_results)}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Image Preview Section - Emphasized -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card border-success">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0"><i class="fas fa-image me-2"></i>Detection Image Preview</h5>
+                    </div>
+                    <div class="card-body">
+                        ${this.formatImagePreview(result)}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Metadata Section - Normal -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0"><i class="fas fa-info-circle me-2"></i>Detection Metadata</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <table class="table table-sm table-borderless">
+                                    <tr><td><strong>Detection ID:</strong></td><td>#${result.id}</td></tr>
+                                    <tr><td><strong>Timestamp:</strong></td><td>${AICameraUtils.formatTimestamp(result.timestamp || result.created_at)}</td></tr>
+                                    <tr><td><strong>Processing Time:</strong></td><td>${result.processing_time_ms || 0}ms</td></tr>
+                                </table>
+                            </div>
+                            <div class="col-md-6">
+                                <table class="table table-sm table-borderless">
+                                    <tr><td><strong>Vehicles Detected:</strong></td><td><span class="badge bg-info">${result.vehicles_count || 0}</span></td></tr>
+                                    <tr><td><strong>License Plates:</strong></td><td><span class="badge bg-warning">${result.plates_count || 0}</span></td></tr>
+                                    <tr><td><strong>OCR Confidence:</strong></td><td><span class="badge bg-success">${this.calculateAverageConfidence(result.ocr_results)}%</span></td></tr>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+},
+
+/**
+ * Format OCR results for detail view - Enhanced
+ */
+formatOcrResultsForDetail: function(ocrResults) {
+    if (!ocrResults || ocrResults.length === 0) {
+        return `
+            <div class="text-center py-4">
+                <i class="fas fa-exclamation-triangle fa-3x text-muted mb-3"></i>
+                <h6 class="text-muted">No License Plates Detected</h6>
+                <p class="text-muted">No OCR results available for this detection.</p>
+            </div>
+        `;
     }
+    
+    return `
+        <div class="row">
+            ${ocrResults.map((ocr, index) => `
+                <div class="col-md-6 mb-3">
+                    <div class="card h-100 border-${this.getConfidenceColor(ocr.confidence)}">
+                        <div class="card-header bg-${this.getConfidenceColor(ocr.confidence)} text-white">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h6 class="mb-0">Plate #${index + 1}</h6>
+                                <span class="badge bg-light text-dark">${(ocr.confidence * 100).toFixed(1)}%</span>
+                            </div>
+                        </div>
+                        <div class="card-body text-center">
+                            <div class="ocr-text-display mb-3">
+                                <h4 class="text-primary font-weight-bold">${ocr.text}</h4>
+                            </div>
+                            <div class="ocr-details">
+                                <small class="text-muted">
+                                    <i class="fas fa-language me-1"></i>Language: ${ocr.language === 'th' ? 'Thai' : 'English'}
+                                </small>
+                                <br>
+                                <small class="text-muted">
+                                    <i class="fas fa-chart-line me-1"></i>Confidence: ${(ocr.confidence * 100).toFixed(1)}%
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+    `;
+},
+
+/**
+ * Format image preview for detail modal
+ */
+formatImagePreview: function(result) {
+    const images = [];
+    
+    // Add original image if available
+    if (result.original_image_path && result.original_image_path !== 'None') {
+        images.push({
+            type: 'original',
+            path: result.original_image_path,
+            title: 'Original Captured Image',
+            icon: 'fas fa-camera',
+            color: 'info'
+        });
+    }
+    
+    // Add vehicle detection image if available
+    if (result.vehicle_detected_image_path && result.vehicle_detected_image_path !== 'None') {
+        images.push({
+            type: 'vehicle',
+            path: result.vehicle_detected_image_path,
+            title: 'Vehicle Detection Image',
+            icon: 'fas fa-car',
+            color: 'primary'
+        });
+    }
+    
+    // Add plate detection image if available
+    if (result.plate_image_path && result.plate_image_path !== 'None') {
+        images.push({
+            type: 'plate',
+            path: result.plate_image_path,
+            title: 'License Plate Detection Image',
+            icon: 'fas fa-id-card',
+            color: 'success'
+        });
+    }
+    
+    // Add cropped plates if available
+    if (result.cropped_plates_paths && result.cropped_plates_paths.length > 0) {
+        result.cropped_plates_paths.forEach((platePath, index) => {
+            if (platePath && platePath !== 'None') {
+                images.push({
+                    type: 'cropped',
+                    path: platePath,
+                    title: `Cropped Plate ${index + 1}`,
+                    icon: 'fas fa-crop',
+                    color: 'warning'
+                });
+            }
+        });
+    }
+    
+    if (images.length === 0) {
+        return `
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>
+                <strong>No Images Available</strong><br>
+                <small class="text-muted">
+                    Original: ${result.original_image_path || 'Not available'}<br>
+                    Vehicle Detection: ${result.vehicle_detected_image_path || 'Not available'}<br>
+                    Plate Detection: ${result.plate_image_path || 'Not available'}<br>
+                    Cropped Plates: ${result.cropped_plates_paths?.length || 0} available
+                </small>
+            </div>
+        `;
+    }
+    
+    // Create responsive grid layout
+    let imageGrid = '';
+    images.forEach((image, index) => {
+        const colClass = images.length === 1 ? 'col-12' : 
+                       images.length === 2 ? 'col-md-6' : 
+                       images.length === 3 ? 'col-md-4' : 'col-md-6 col-lg-3';
+        
+        imageGrid += `
+            <div class="${colClass} mb-3">
+                <div class="card h-100 border-${image.color}">
+                    <div class="card-header bg-${image.color} text-white">
+                        <h6 class="mb-0">
+                            <i class="${image.icon} me-2"></i>${image.title}
+                        </h6>
+                    </div>
+                    <div class="card-body text-center p-2">
+                        <img src="/images/${image.path}" 
+                             class="img-fluid rounded" 
+                             style="max-height: 200px; object-fit: contain;"
+                             alt="${image.title}"
+                             onerror="this.parentElement.innerHTML='<div class=\\'text-muted\\'><i class=\\'fas fa-image fa-2x mb-2\\'></i><br>Image not found</div>'">
+                    </div>
+                    <div class="card-footer text-center">
+                        <small class="text-muted">${image.path}</small>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    return `
+        <div class="row">
+            ${imageGrid}
+        </div>
+        <div class="mt-3">
+            <small class="text-muted">
+                <i class="fas fa-info-circle me-1"></i>
+                Showing ${images.length} of ${this.getTotalImageCount(result)} available images
+            </small>
+        </div>
+    `;
+},
+    
+    /**
+     * Get total image count for a result
+     */
+    getTotalImageCount: function(result) {
+        let count = 0;
+        if (result.original_image_path && result.original_image_path !== 'None') count++;
+        if (result.vehicle_detected_image_path && result.vehicle_detected_image_path !== 'None') count++;
+        if (result.plate_image_path && result.plate_image_path !== 'None') count++;
+        if (result.cropped_plates_paths && result.cropped_plates_paths.length > 0) {
+            count += result.cropped_plates_paths.filter(path => path && path !== 'None').length;
+        }
+        return count;
+    },
+
+/**
+ * Get confidence color based on confidence level
+ */
+getConfidenceColor: function(confidence) {
+    if (confidence >= 0.9) return 'success';
+    if (confidence >= 0.7) return 'warning';
+    return 'danger';
+},
+
+/**
+ * Calculate average confidence from OCR results
+ */
+calculateAverageConfidence: function(ocrResults) {
+    if (!ocrResults || ocrResults.length === 0) return 0;
+    const total = ocrResults.reduce((sum, ocr) => sum + ocr.confidence, 0);
+    return (total / ocrResults.length * 100).toFixed(1);
+},
+
+/**
+ * Setup comprehensive output display toggle
+ */
+setupComprehensiveOutputToggle: function() {
+    const toggle = document.getElementById('output-display-toggle');
+    const content = document.getElementById('comprehensive-output-content');
+    
+    if (toggle && content) {
+        toggle.addEventListener('change', (e) => {
+            if (e.target.checked) {
+                content.style.display = 'block';                this.refreshComprehensiveData();
+            } else {
+                content.style.display = 'none';
+            }
+        });
+    }
+},
+
+/**
+ * Refresh comprehensive data
+ */
+refreshComprehensiveData: function() {
+    this.updateRealTimeMetrics();
+    this.updatePerformanceAnalytics();
+    this.updateQualityMetrics();
+    this.updateOperationalInsights();
+    this.updateImageAnalysis();
+},
+
+/**
+ * Update real-time detection metrics
+ */
+updateRealTimeMetrics: function() {
+    const stats = this.lastStatusUpdate || {};
+    
+    // Calculate rates
+    const totalFrames = stats.total_frames_processed || 0;
+    const totalVehicles = stats.total_vehicles_detected || 0;
+    const totalPlates = stats.total_plates_detected || 0;
+    const successfulOcr = stats.successful_ocr || 0;
+    
+    const vehicleRate = totalFrames > 0 ? ((totalVehicles / totalFrames) * 100).toFixed(1) : '0';
+    const plateRate = totalVehicles > 0 ? ((totalPlates / totalVehicles) * 100).toFixed(1) : '0';
+    const ocrRate = totalPlates > 0 ? ((successfulOcr / totalPlates) * 100).toFixed(1) : '0';
+    const avgProcessing = stats.avg_processing_time_ms || 0;
+    
+    // Update display
+    this.updateElement('vehicle-detection-rate', vehicleRate + '%');
+    this.updateElement('plate-detection-rate', plateRate + '%');
+    this.updateElement('ocr-success-rate', ocrRate + '%');
+    this.updateElement('processing-efficiency', avgProcessing + 'ms');
+},
+
+/**
+ * Update performance analytics
+ */
+updatePerformanceAnalytics: function() {
+    const stats = this.lastStatusUpdate || {};
+    
+    // Detection throughput
+    const fps = stats.current_fps || 0;
+    const totalFrames = stats.total_frames_processed || 0;
+    const errors = stats.detection_errors || 0;
+    
+    // OCR method comparison
+    const hailoSuccess = stats.hailo_ocr_success_rate || 0;
+    const easyocrSuccess = stats.easyocr_success_rate || 0;
+    const bestMethod = hailoSuccess > easyocrSuccess ? 'Hailo' : 'EasyOCR';
+    
+    this.updateElement('detection-throughput', fps + ' FPS');
+    this.updateElement('total-frames-processed', totalFrames);
+    this.updateElement('detection-errors-count', errors);
+    this.updateElement('hailo-ocr-success', hailoSuccess + '%');
+    this.updateElement('easyocr-success', easyocrSuccess + '%');
+    this.updateElement('best-ocr-method', bestMethod);
+},
+
+/**
+ * Update quality metrics
+ */
+updateQualityMetrics: function() {
+    const stats = this.lastStatusUpdate || {};
+    
+    // Detection accuracy based on confidence
+    const detectionAccuracy = stats.detection_accuracy || 0;
+    const ocrAccuracy = stats.ocr_accuracy || 0;
+    const systemReliability = stats.system_reliability || 0;
+    
+    // Update progress bars
+    this.updateProgressBar('detection-accuracy-bar', detectionAccuracy);
+    this.updateProgressBar('ocr-accuracy-bar', ocrAccuracy);
+    this.updateProgressBar('system-reliability-bar', systemReliability);
+},
+
+/**
+ * Update operational insights
+ */
+updateOperationalInsights: function() {
+    const stats = this.lastStatusUpdate || {};
+    
+    // Peak detection times
+    const peakTimes = stats.peak_detection_times || [];
+    const peakTimesElement = document.getElementById('peak-detection-times');
+    if (peakTimesElement) {
+        if (peakTimes.length > 0) {
+            peakTimesElement.innerHTML = peakTimes.map(time => 
+                `<div class="badge bg-primary me-1">${time}</div>`
+            ).join('');
+        } else {
+            peakTimesElement.innerHTML = '<p class="text-muted">No peak detection data available</p>';
+        }
+    }
+    
+    // Resource utilization
+    this.updateElement('cpu-usage', stats.cpu_usage || 'N/A');
+    this.updateElement('memory-usage', stats.memory_usage || 'N/A');
+    this.updateElement('storage-used', stats.storage_used || 'N/A');
+},
+
+/**
+ * Update image analysis
+ */
+updateImageAnalysis: function() {
+    // Count images from recent results
+    this.loadRecentResults().then(results => {
+        let originalCount = 0;
+        let vehicleDetectionCount = 0;
+        let plateDetectionCount = 0;
+        let croppedCount = 0;
+        
+        results.forEach(result => {
+            if (result.original_image_path) originalCount++;
+            if (result.vehicle_detected_image_path) vehicleDetectionCount++;
+            if (result.plate_image_path) plateDetectionCount++;
+            if (result.cropped_plates_paths && result.cropped_plates_paths.length > 0) {
+                croppedCount += result.cropped_plates_paths.length;
+            }
+        });
+        
+        this.updateElement('original-images-count', originalCount);
+        this.updateElement('vehicle-detection-count', vehicleDetectionCount);
+        this.updateElement('plate-detection-count', plateDetectionCount);
+        this.updateElement('cropped-plates-count', croppedCount);
+    });
+},
+
+/**
+ * Update element by ID
+ */
+updateElement: function(elementId, value) {
+    const element = document.getElementById(elementId);
+    if (element) {
+        element.textContent = value;
+    }
+},
+
+/**
+ * Update progress bar
+ */
+updateProgressBar: function(elementId, percentage) {
+    const element = document.getElementById(elementId);
+    if (element) {
+        element.style.width = percentage + '%';
+        element.setAttribute('aria-valuenow', percentage);
+    }
+},
+
+/**
+ * Export comprehensive report
+ */
+exportComprehensiveReport: function() {
+    const report = {
+        timestamp: new Date().toISOString(),
+        realTimeMetrics: {
+            vehicleDetectionRate: document.getElementById('vehicle-detection-rate')?.textContent,
+            plateDetectionRate: document.getElementById('plate-detection-rate')?.textContent,
+            ocrSuccessRate: document.getElementById('ocr-success-rate')?.textContent,
+            processingEfficiency: document.getElementById('processing-efficiency')?.textContent
+        },
+        performanceAnalytics: {
+            detectionThroughput: document.getElementById('detection-throughput')?.textContent,
+            totalFramesProcessed: document.getElementById('total-frames-processed')?.textContent,
+            detectionErrors: document.getElementById('detection-errors-count')?.textContent
+        },
+        imageAnalysis: {
+            annotatedImages: document.getElementById('annotated-images-count')?.textContent,
+            originalImages: document.getElementById('original-images-count')?.textContent,
+            croppedPlates: document.getElementById('cropped-plates-count')?.textContent
+        }
+    };
+    
+    // Create download link
+    const dataStr = JSON.stringify(report, null, 2);
+    const dataBlob = new Blob([dataStr], {type: 'application/json'});
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `detection_comprehensive_report_${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+}  
 };
 
 // Initialize detection manager when DOM is ready

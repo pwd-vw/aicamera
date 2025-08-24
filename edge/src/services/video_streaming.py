@@ -3,7 +3,7 @@
 Video Streaming Service for AI Camera v1.3
 
 This service manages video streaming functionality using absolute imports
-and dependency injection pattern.
+and dependency injection pattern with comprehensive fallback mechanisms.
 
 Author: AI Camera Team
 Version: 1.3
@@ -15,7 +15,7 @@ import time
 import queue
 import logging
 from datetime import datetime
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Tuple
 import cv2
 import numpy as np
 import base64
@@ -34,11 +34,13 @@ class VideoStreamingService:
     Video Streaming Service for managing video streaming functionality.
     
     Features:
-    - Real-time video streaming
-    - Frame processing and encoding
+    - Real-time video streaming with fallback mechanisms
+    - Multiple frame sources (camera, cached, placeholder)
+    - Frame processing and encoding with error recovery
     - Thread-safe operations
     - Integration with camera manager
     - WebSocket broadcasting
+    - Graceful degradation on failures
     """
     
     def __init__(self, camera_manager=None, logger=None):
@@ -65,8 +67,21 @@ class VideoStreamingService:
         # Frame queue for processing
         self.frame_queue = queue.Queue(maxsize=10)
         
+        # Fallback mechanisms
+        self.fallback_mode = False
+        self.fallback_frame = None
+        self.last_successful_frame = None
+        self.frame_source_history = []
+        self.error_count = 0
+        self.max_errors = 10
+        self.error_recovery_time = 5.0  # seconds
+        self.last_error_time = 0
+        
         # Statistics
         self.frames_processed = 0
+        self.frames_from_camera = 0
+        self.frames_from_cache = 0
+        self.frames_from_fallback = 0
         self.start_time = None
         self.last_frame_time = None
         self.average_fps = 0.0
@@ -74,11 +89,140 @@ class VideoStreamingService:
         # Thread safety
         self.lock = threading.Lock()
         
-        self.logger.info("VideoStreamingService initialized")
+        # Initialize fallback frame
+        self._initialize_fallback_frame()
+        
+        self.logger.info("VideoStreamingService initialized with fallback mechanisms")
+    
+    def _initialize_fallback_frame(self):
+        """Initialize fallback frame for error states."""
+        try:
+            # Create a simple fallback frame
+            fallback_img = np.zeros((self.height, self.width, 3), dtype=np.uint8)
+            fallback_img[:] = (50, 50, 50)  # Dark gray background
+            
+            # Add text
+            font = cv2.FONT_HERSHEY_SIMPLEX
+            cv2.putText(fallback_img, "AI Camera", (self.width//2 - 100, self.height//2 - 50), 
+                       font, 1.5, (255, 255, 255), 2)
+            cv2.putText(fallback_img, "Video Feed", (self.width//2 - 80, self.height//2), 
+                       font, 1.0, (200, 200, 200), 2)
+            cv2.putText(fallback_img, "Initializing...", (self.width//2 - 70, self.height//2 + 50), 
+                       font, 0.8, (150, 150, 150), 1)
+            
+            self.fallback_frame = fallback_img
+            self.logger.info("Fallback frame initialized")
+            
+        except Exception as e:
+            self.logger.error(f"Error initializing fallback frame: {e}")
+            # Create minimal fallback
+            self.fallback_frame = np.zeros((480, 640, 3), dtype=np.uint8)
+    
+    def _get_frame_with_fallback(self) -> Tuple[Optional[np.ndarray], str]:
+        """
+        Get frame with comprehensive fallback mechanisms.
+        
+        Returns:
+            Tuple[Optional[np.ndarray], str]: Frame data and source description
+        """
+        current_time = time.time()
+        
+        # Check if we're in error recovery mode
+        if self.fallback_mode and (current_time - self.last_error_time) < self.error_recovery_time:
+            return self.fallback_frame, "fallback_recovery"
+        
+        try:
+            # Primary source: Camera manager
+            if self.camera_manager:
+                # Try to get frame from camera manager
+                frame = self.camera_manager.capture_lores_frame()
+                if frame is not None:
+                    # Validate frame
+                    if isinstance(frame, np.ndarray) and frame.size > 0 and len(frame.shape) == 3:
+                        self.error_count = 0
+                        self.fallback_mode = False
+                        self.last_successful_frame = frame.copy()
+                        self.frames_from_camera += 1
+                        return frame, "camera_lores"
+                    else:
+                        self.logger.warning("Invalid frame from camera manager")
+                else:
+                    self.logger.debug("No frame from camera manager")
+            
+            # Secondary source: Last successful frame (cached)
+            if self.last_successful_frame is not None:
+                self.logger.debug("Using cached frame")
+                self.frames_from_cache += 1
+                return self.last_successful_frame.copy(), "cached_frame"
+            
+            # Tertiary source: Fallback frame
+            self.logger.debug("Using fallback frame")
+            self.frames_from_fallback += 1
+            self.fallback_mode = True
+            self.last_error_time = current_time
+            return self.fallback_frame, "fallback_frame"
+            
+        except Exception as e:
+            self.error_count += 1
+            self.logger.error(f"Error getting frame: {e}")
+            self.fallback_mode = True
+            self.last_error_time = current_time
+            
+            # Return fallback frame
+            return self.fallback_frame, "fallback_error"
+    
+    def _process_frame_with_fallback(self, frame: np.ndarray, source: str) -> Optional[Dict[str, Any]]:
+        """
+        Process frame with error handling and fallback mechanisms.
+        
+        Args:
+            frame: Input frame as numpy array
+            source: Source description for tracking
+            
+        Returns:
+            Dict containing processed frame data or None if processing failed
+        """
+        try:
+            # Resize frame if needed
+            if frame.shape[:2] != (self.height, self.width):
+                frame = cv2.resize(frame, (self.width, self.height))
+            
+            # Add source indicator for debugging
+            if source != "camera_lores":
+                # Add small indicator in corner
+                cv2.putText(frame, f"Source: {source}", (10, 30), 
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+            
+            # Encode frame to JPEG with quality adjustment based on source
+            quality = self.quality
+            if source == "fallback_frame":
+                quality = min(quality, 60)  # Lower quality for fallback
+            elif source == "cached_frame":
+                quality = min(quality, 70)  # Medium quality for cached
+            
+            _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, quality])
+            jpeg_data = buffer.tobytes()
+            
+            # Convert to base64
+            base64_frame = base64.b64encode(jpeg_data).decode('utf-8')
+            
+            return {
+                'frame': base64_frame,
+                'timestamp': datetime.now().isoformat(),
+                'width': self.width,
+                'height': self.height,
+                'fps': self.fps,
+                'source': source,
+                'quality': quality
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error processing frame from {source}: {e}")
+            return None
     
     def start_streaming(self) -> bool:
         """
-        Start video streaming.
+        Start video streaming with fallback mechanisms.
         
         Returns:
             bool: True if streaming started successfully
@@ -98,7 +242,12 @@ class VideoStreamingService:
                 self.streaming = True
                 self.start_time = datetime.now()
                 self.frames_processed = 0
-                self.logger.info("Video streaming started successfully")
+                self.frames_from_camera = 0
+                self.frames_from_cache = 0
+                self.frames_from_fallback = 0
+                self.error_count = 0
+                self.fallback_mode = False
+                self.logger.info("Video streaming started successfully with fallback mechanisms")
                 return True
             except Exception as e:
                 self.logger.error(f"Failed to start video streaming: {e}")
@@ -128,18 +277,19 @@ class VideoStreamingService:
                 return False
     
     def _streaming_worker(self):
-        """Video streaming worker thread."""
-        self.logger.info("Video streaming worker started")
+        """Video streaming worker thread with fallback mechanisms."""
+        self.logger.info("Video streaming worker started with fallback mechanisms")
         
         while not self.stop_event.is_set():
             try:
-                # Get frame from camera manager
-                if self.camera_manager:
-                    frame = self.camera_manager.capture_frame()
-                    if frame is not None:
-                        # Process frame
-                        processed_frame = self._process_frame(frame)
-                        
+                # Get frame with fallback
+                frame, source = self._get_frame_with_fallback()
+                
+                if frame is not None:
+                    # Process frame
+                    processed_frame = self._process_frame_with_fallback(frame, source)
+                    
+                    if processed_frame:
                         # Add to queue (non-blocking)
                         try:
                             self.frame_queue.put_nowait(processed_frame)
@@ -155,6 +305,11 @@ class VideoStreamingService:
                         self.frames_processed += 1
                         self.last_frame_time = datetime.now()
                         
+                        # Track source history
+                        self.frame_source_history.append(source)
+                        if len(self.frame_source_history) > 100:
+                            self.frame_source_history = self.frame_source_history[-100:]
+                        
                         # Calculate average FPS
                         if self.start_time:
                             elapsed = (self.last_frame_time - self.start_time).total_seconds()
@@ -166,43 +321,10 @@ class VideoStreamingService:
                 
             except Exception as e:
                 self.logger.error(f"Error in streaming worker: {e}")
+                self.error_count += 1
                 time.sleep(0.1)  # Brief pause on error
         
         self.logger.info("Video streaming worker stopped")
-    
-    def _process_frame(self, frame: np.ndarray) -> Dict[str, Any]:
-        """
-        Process frame for streaming.
-        
-        Args:
-            frame: Input frame as numpy array
-            
-        Returns:
-            Dict containing processed frame data
-        """
-        try:
-            # Resize frame if needed
-            if frame.shape[:2] != (self.height, self.width):
-                frame = cv2.resize(frame, (self.width, self.height))
-            
-            # Encode frame to JPEG
-            _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, self.quality])
-            jpeg_data = buffer.tobytes()
-            
-            # Convert to base64
-            base64_frame = base64.b64encode(jpeg_data).decode('utf-8')
-            
-            return {
-                'frame': base64_frame,
-                'timestamp': datetime.now().isoformat(),
-                'width': self.width,
-                'height': self.height,
-                'fps': self.fps
-            }
-            
-        except Exception as e:
-            self.logger.error(f"Error processing frame: {e}")
-            return None
     
     def get_frame(self, timeout: float = 1.0) -> Optional[Dict[str, Any]]:
         """
@@ -221,11 +343,24 @@ class VideoStreamingService:
     
     def get_status(self) -> Dict[str, Any]:
         """
-        Get streaming service status.
+        Get streaming service status with fallback information.
         
         Returns:
             Dict containing status information
         """
+        # Calculate source distribution
+        total_frames = self.frames_from_camera + self.frames_from_cache + self.frames_from_fallback
+        source_distribution = {}
+        if total_frames > 0:
+            source_distribution = {
+                'camera': round(self.frames_from_camera / total_frames * 100, 1),
+                'cached': round(self.frames_from_cache / total_frames * 100, 1),
+                'fallback': round(self.frames_from_fallback / total_frames * 100, 1)
+            }
+        
+        # Get recent source history
+        recent_sources = self.frame_source_history[-10:] if self.frame_source_history else []
+        
         return {
             'streaming': self.streaming,
             'frames_processed': self.frames_processed,
@@ -236,7 +371,16 @@ class VideoStreamingService:
             'quality': self.quality,
             'start_time': self.start_time.isoformat() if self.start_time else None,
             'last_frame_time': self.last_frame_time.isoformat() if self.last_frame_time else None,
-            'uptime': (datetime.now() - self.start_time).total_seconds() if self.start_time else 0
+            'uptime': (datetime.now() - self.start_time).total_seconds() if self.start_time else 0,
+            'fallback_mode': self.fallback_mode,
+            'error_count': self.error_count,
+            'source_distribution': source_distribution,
+            'recent_sources': recent_sources,
+            'frame_counts': {
+                'camera': self.frames_from_camera,
+                'cached': self.frames_from_cache,
+                'fallback': self.frames_from_fallback
+            }
         }
     
     def update_settings(self, **settings) -> bool:
@@ -254,6 +398,8 @@ class VideoStreamingService:
                 if 'width' in settings and 'height' in settings:
                     self.width = settings['width']
                     self.height = settings['height']
+                    # Reinitialize fallback frame with new dimensions
+                    self._initialize_fallback_frame()
                 
                 if 'fps' in settings:
                     self.fps = settings['fps']
@@ -269,19 +415,27 @@ class VideoStreamingService:
     
     def health_check(self) -> Dict[str, Any]:
         """
-        Perform health check on streaming service.
+        Perform health check on streaming service with fallback status.
         
         Returns:
             Dict containing health status
         """
         try:
+            # Calculate health metrics
+            total_frames = self.frames_from_camera + self.frames_from_cache + self.frames_from_fallback
+            camera_ratio = self.frames_from_camera / total_frames if total_frames > 0 else 0
+            fallback_ratio = self.frames_from_fallback / total_frames if total_frames > 0 else 0
+            
             status = {
                 'healthy': True,
                 'streaming': self.streaming,
                 'thread_alive': self.streaming_thread.is_alive() if self.streaming_thread else False,
                 'queue_healthy': self.frame_queue.qsize() < 8,  # Not too full
                 'fps_healthy': self.average_fps > 0.5 * self.fps,  # At least 50% of target FPS
-                'last_frame_recent': True
+                'last_frame_recent': True,
+                'camera_health': camera_ratio > 0.5,  # At least 50% frames from camera
+                'fallback_health': fallback_ratio < 0.3,  # Less than 30% fallback frames
+                'error_rate_healthy': self.error_count < self.max_errors
             }
             
             # Check if last frame was recent
@@ -289,13 +443,23 @@ class VideoStreamingService:
                 time_since_last = (datetime.now() - self.last_frame_time).total_seconds()
                 status['last_frame_recent'] = time_since_last < 5.0  # Within 5 seconds
             
+            # Overall health assessment
             status['healthy'] = all([
                 status['streaming'],
                 status['thread_alive'],
                 status['queue_healthy'],
                 status['fps_healthy'],
-                status['last_frame_recent']
+                status['last_frame_recent'],
+                status['error_rate_healthy']
             ])
+            
+            # Add detailed metrics
+            status['metrics'] = {
+                'camera_ratio': round(camera_ratio * 100, 1),
+                'fallback_ratio': round(fallback_ratio * 100, 1),
+                'error_count': self.error_count,
+                'fallback_mode': self.fallback_mode
+            }
             
             return status
             
@@ -305,6 +469,24 @@ class VideoStreamingService:
                 'healthy': False,
                 'error': str(e)
             }
+    
+    def reset_fallback_mode(self) -> bool:
+        """
+        Reset fallback mode and error counters.
+        
+        Returns:
+            bool: True if reset successful
+        """
+        try:
+            with self.lock:
+                self.fallback_mode = False
+                self.error_count = 0
+                self.last_error_time = 0
+                self.logger.info("Fallback mode reset")
+                return True
+        except Exception as e:
+            self.logger.error(f"Error resetting fallback mode: {e}")
+            return False
     
     def cleanup(self):
         """Cleanup resources."""

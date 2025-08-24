@@ -370,6 +370,49 @@ def get_all_results():
         }), 500
 
 
+@detection_bp.route('/results/<int:result_id>')
+def get_result_by_id(result_id):
+    """
+    Get a specific detection result by ID.
+    
+    Args:
+        result_id: ID of the detection result
+        
+    Returns:
+        dict: JSON response with the specific detection result
+    """
+    try:
+        database_manager = get_service('database_manager')
+        if not database_manager:
+            return jsonify({
+                'success': False,
+                'error': 'Database manager not available'
+            }), 500
+        
+        # Get specific detection result by ID
+        result = database_manager.get_detection_result_by_id(result_id)
+        
+        if result:
+            return jsonify({
+                'success': True,
+                'result': make_json_serializable(result),
+                'timestamp': datetime.now().isoformat()
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': f'Detection result with ID {result_id} not found'
+            }), 404
+        
+    except Exception as e:
+        logger.error(f"Error getting result by ID {result_id}: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'timestamp': int(time.time())
+        }), 500
+
+
 @detection_bp.route('/models/status')
 def get_models_status():
     """

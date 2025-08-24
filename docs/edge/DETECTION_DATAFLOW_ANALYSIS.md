@@ -374,7 +374,7 @@ db_record = {
     'easyocr_processing_time_ms': 123.0,
     'hailo_ocr_error': '',
     'easyocr_error': '',
-    'created_at': '2025-08-24T10:15:30Z'
+    'created_at': '2025-08-24T10:15:30Z' 
 }
 ```
 
@@ -741,5 +741,87 @@ const detectionConfig = {
 - **Resource Management**: Efficient resource allocation
 - **Load Balancing**: Distributed processing capabilities
 - **Storage Optimization**: Efficient data storage and retrieval
+
+## Image Storage Pipeline
+
+### **Actual Image Storage Process**
+
+The detection processor saves images in the following sequence:
+
+1. **Original Image**: `detection_{timestamp}.jpg`
+   - **Location**: `IMAGE_SAVE_DIR` (e.g., `/home/camuser/aicamera/edge/captured_images/`)
+   - **Content**: Raw captured image frame
+   - **Database Storage**: ✅ **NOW stored as `original_image_path`**
+
+2. **Vehicle Detection Image**: `vehicle_detected_{timestamp}.jpg`
+   - **Location**: `IMAGE_SAVE_DIR`
+   - **Content**: Original image + green vehicle bounding boxes + confidence scores
+   - **Database Storage**: ✅ Stored as `vehicle_detected_image_path`
+
+3. **Plate Detection Image**: `plate_detected_{timestamp}.jpg`
+   - **Location**: `IMAGE_SAVE_DIR`
+   - **Content**: Original image + blue plate bounding boxes + OCR text + confidence scores
+   - **Database Storage**: ✅ Stored as `plate_image_path`
+
+4. **Cropped Plates**: `plate_{timestamp}_{i}.jpg` (multiple files)
+   - **Location**: `IMAGE_SAVE_DIR`
+   - **Content**: Individual cropped license plate images
+   - **Database Storage**: ✅ Stored as `cropped_plates_paths` (JSON array)
+
+### **Database Schema for Image Paths**
+
+```sql
+-- Updated database schema for complete image storage
+CREATE TABLE detection_results (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp TEXT NOT NULL,
+    vehicles_count INTEGER DEFAULT 0,
+    plates_count INTEGER DEFAULT 0,
+    ocr_results TEXT,
+    original_image_path TEXT,           -- Path to original captured image
+    vehicle_detected_image_path TEXT,   -- Path to vehicle detection image
+    plate_image_path TEXT,              -- Path to plate detection image
+    cropped_plates_paths TEXT,          -- JSON array of cropped plate paths
+    vehicle_detections TEXT,
+    plate_detections TEXT,
+    processing_time_ms REAL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    -- ... additional OCR fields
+);
+```
+
+### **Image Path Examples**
+
+```json
+{
+    "id": 123,
+    "timestamp": "2025-08-24T10:15:30.123Z",
+    "original_image_path": "captured_images/detection_20250824_101530_123.jpg",
+    "vehicle_detected_image_path": "captured_images/vehicle_detected_20250824_101530_123.jpg",
+    "plate_image_path": "captured_images/plate_detected_20250824_101530_123.jpg",
+    "cropped_plates_paths": [
+        "captured_images/plate_20250824_101530_123_0.jpg",
+        "captured_images/plate_20250824_101530_123_1.jpg"
+    ]
+}
+```
+
+### **Image Storage Directory Structure**
+
+```
+edge/captured_images/
+├── detection_20250824_101530_123.jpg          # Original image (now in DB)
+├── vehicle_detected_20250824_101530_123.jpg   # Vehicle detection image
+├── plate_detected_20250824_101530_123.jpg     # Plate detection image
+├── plate_20250824_101530_123_0.jpg           # Cropped plate 1
+└── plate_20250824_101530_123_1.jpg           # Cropped plate 2
+```
+
+### **Total Image Paths: 4 Types**
+
+1. **Original Image Path**: `original_image_path`
+2. **Vehicle Detection Image Path**: `vehicle_detected_image_path`
+3. **Plate Detection Image Path**: `plate_image_path`
+4. **Cropped Plates Paths**: `cropped_plates_paths` (array)
 
 This comprehensive analysis provides a complete mapping of the detection data flow pipeline, enabling developers to understand all possible outputs at each node and identify opportunities for variable mapping and system optimization.

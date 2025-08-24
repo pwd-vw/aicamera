@@ -92,6 +92,7 @@ class DatabaseManager:
                     vehicles_count INTEGER DEFAULT 0,
                     plates_count INTEGER DEFAULT 0,
                     ocr_results TEXT,
+                    original_image_path TEXT,
                     vehicle_detected_image_path TEXT,
                     plate_image_path TEXT,
                     cropped_plates_paths TEXT,
@@ -441,7 +442,15 @@ class DatabaseManager:
             
         except Exception as e:
             self.logger.error(f"Error getting paginated detection results: {e}")
-            return {'results': [], 'total': 0, 'page': 1, 'per_page': per_page, 'total_pages': 0}
+            return {
+                'results': [], 
+                'total': 0, 
+                'page': 1, 
+                'per_page': per_page, 
+                'total_pages': 0,
+                'has_next': False,
+                'has_prev': False
+            }
     
     def get_all_detections(self) -> List[Dict[str, Any]]:
         """
@@ -458,7 +467,8 @@ class DatabaseManager:
             cursor = self.connection.cursor()
             cursor.execute("""
                 SELECT id, timestamp, vehicles_count, plates_count, ocr_results, 
-                       vehicle_detected_image_path, plate_image_path, processing_time_ms, created_at
+                       original_image_path, vehicle_detected_image_path, plate_image_path, cropped_plates_paths, 
+                       processing_time_ms, created_at
                 FROM detection_results
                 ORDER BY created_at DESC
             """)
@@ -472,10 +482,13 @@ class DatabaseManager:
                     'timestamp': row[1],
                     'vehicles_count': row[2],
                     'plates_count': row[3],
-                    'vehicle_detected_image_path': row[5],
-                    'plate_image_path': row[6],
-                    'processing_time_ms': row[7],
-                    'created_at': row[8]
+                    'annotated_image_path': row[4],
+                    'image_path': row[5],
+                    'vehicle_detected_image_path': row[6],
+                    'plate_image_path': row[7],
+                    'cropped_plates_paths': row[8],
+                    'processing_time_ms': row[9],
+                    'created_at': row[10]
                 }
                 
                 # Deserialize JSON fields
@@ -511,7 +524,8 @@ class DatabaseManager:
             cursor = self.connection.cursor()
             cursor.execute("""
                 SELECT id, timestamp, vehicles_count, plates_count, ocr_results, 
-                       vehicle_detected_image_path, plate_image_path, processing_time_ms, created_at
+                       original_image_path, vehicle_detected_image_path, plate_image_path, cropped_plates_paths, 
+                       processing_time_ms, created_at
                 FROM detection_results
                 ORDER BY created_at DESC
                 LIMIT ?
@@ -526,18 +540,21 @@ class DatabaseManager:
                     'timestamp': row[1],
                     'vehicles_count': row[2],
                     'plates_count': row[3],
-                    'vehicle_detected_image_path': row[5],
-                    'plate_image_path': row[6],
-                    'processing_time_ms': row[7],
-                    'created_at': row[8]
+                    'original_image_path': row[5],
+                    'vehicle_detected_image_path': row[6],
+                    'plate_image_path': row[7],
+                    'processing_time_ms': row[9],
+                    'created_at': row[10]
                 }
                 
                 # Deserialize JSON fields
                 try:
                     result['ocr_results'] = json.loads(row[4] or '[]')
+                    result['cropped_plates_paths'] = json.loads(row[8] or '[]')
                 except json.JSONDecodeError as e:
-                    self.logger.warning(f"Error deserializing OCR results for record {row[0]}: {e}")
+                    self.logger.warning(f"Error deserializing JSON for record {row[0]}: {e}")
                     result['ocr_results'] = []
+                    result['cropped_plates_paths'] = []
                 
                 results.append(result)
             
@@ -563,35 +580,53 @@ class DatabaseManager:
                 return None
             
             cursor = self.connection.cursor()
-            cursor.execute("SELECT * FROM detection_results WHERE id = ?", (result_id,))
+            
+            # Debug: Check if the table exists and has data
+            cursor.execute("SELECT COUNT(*) as count FROM detection_results")
+            count_result = cursor.fetchone()
+            self.logger.debug(f"Total records in detection_results: {count_result[0] if count_result else 'unknown'}")
+            
+            # Debug: Check if the specific ID exists
+            cursor.execute("SELECT id FROM detection_results WHERE id = ?", (result_id,))
+            id_check = cursor.fetchone()
+            self.logger.debug(f"Looking for ID {result_id}, found: {id_check is not None}")
+            
+            cursor.execute("""
+                SELECT id, timestamp, vehicles_count, plates_count, ocr_results, 
+                       original_image_path, vehicle_detected_image_path, plate_image_path, cropped_plates_paths, 
+                       processing_time_ms, created_at
+                FROM detection_results
+                WHERE id = ?
+            """, (result_id,))
+            
             row = cursor.fetchone()
             
             if not row:
+                self.logger.warning(f"No detection result found with ID {result_id}")
                 return None
             
+            self.logger.debug(f"Found detection result with ID {result_id}")
+            
             result = {
-                'id': row['id'],
-                'timestamp': row['timestamp'],
-                'vehicles_count': row['vehicles_count'],
-                'plates_count': row['plates_count'],
-                'annotated_image_path': row['annotated_image_path'],
-                'image_path': row.get('image_path', ''),
-                'processing_time_ms': row['processing_time_ms'],
-                'created_at': row['created_at']
+                'id': row[0],
+                'timestamp': row[1],
+                'vehicles_count': row[2],
+                'plates_count': row[3],
+                'original_image_path': row[5],
+                'vehicle_detected_image_path': row[6],
+                'plate_image_path': row[7],
+                'processing_time_ms': row[9],
+                'created_at': row[10]
             }
             
             # Deserialize JSON fields with full details
             try:
-                result['ocr_results'] = json.loads(row['ocr_results'] or '[]')
-                result['cropped_plates_paths'] = json.loads(row['cropped_plates_paths'] or '[]')
-                result['vehicle_detections'] = json.loads(row['vehicle_detections'] or '[]')
-                result['plate_detections'] = json.loads(row['plate_detections'] or '[]')
+                result['ocr_results'] = json.loads(row[4] or '[]')
+                result['cropped_plates_paths'] = json.loads(row[8] or '[]')
             except json.JSONDecodeError as e:
                 self.logger.warning(f"Error deserializing JSON for record {result_id}: {e}")
                 result['ocr_results'] = []
                 result['cropped_plates_paths'] = []
-                result['vehicle_detections'] = []
-                result['plate_detections'] = []
             
             return result
             
@@ -863,7 +898,7 @@ class DatabaseManager:
             cursor = self.connection.cursor()
             cursor.execute("""
                 SELECT id, timestamp, vehicles_count, plates_count, ocr_results,
-                       annotated_image_path, cropped_plates_paths, vehicle_detections,
+                       vehicle_detected_image_path, cropped_plates_paths, vehicle_detections,
                        plate_detections, processing_time_ms, created_at
                 FROM detection_results
                 WHERE sent_to_server = 0
@@ -881,7 +916,7 @@ class DatabaseManager:
                     'vehicles_count': row[2],
                     'plates_count': row[3],
                     'ocr_results': row[4],
-                    'annotated_image_path': row[5],
+                    'vehicle_detected_image_path': row[5],
                     'cropped_plates_paths': row[6],
                     'vehicle_detections': row[7],
                     'plate_detections': row[8],
