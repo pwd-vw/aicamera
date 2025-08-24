@@ -51,6 +51,11 @@ const CameraManager = {
         // Load metadata once when dashboard loads
         this.loadMetadataOnce();
         
+        // Debug: Show metadata section after a delay to ensure it's loaded
+        setTimeout(() => {
+            this.toggleMetadataSection(true);
+        }, 3000);
+        
         console.log('Camera Manager initialized successfully (cached data mode)');
     },
 
@@ -689,6 +694,74 @@ const CameraManager = {
     },
 
     /**
+     * Show or hide metadata section
+     */
+    toggleMetadataSection: function(show = true) {
+        const metadataSection = document.getElementById('metadata-section');
+        if (metadataSection) {
+            metadataSection.style.display = show ? 'block' : 'none';
+            console.log(`Metadata section ${show ? 'shown' : 'hidden'}`);
+        }
+    },
+
+    /**
+     * Toggle metadata section visibility (called from HTML onclick)
+     */
+    toggleMetadata: function() {
+        const metadataSection = document.getElementById('metadata-section');
+        const metadataContent = document.getElementById('metadata-content');
+        const toggleIcon = document.getElementById('metadata-toggle-icon');
+        
+        if (metadataSection && metadataContent) {
+            const isVisible = metadataContent.style.display !== 'none';
+            
+            if (isVisible) {
+                metadataContent.style.display = 'none';
+                if (toggleIcon) toggleIcon.className = 'fas fa-chevron-right';
+            } else {
+                metadataContent.style.display = 'block';
+                if (toggleIcon) toggleIcon.className = 'fas fa-chevron-down';
+            }
+            
+            console.log(`Metadata content ${isVisible ? 'hidden' : 'shown'}`);
+        }
+    },
+
+    /**
+     * Refresh metadata (called from HTML onclick)
+     */
+    refreshMetadata: function() {
+        console.log('Refreshing metadata...');
+        AICameraUtils.addLogMessage('log-container', 'Refreshing camera metadata...', 'info');
+        
+        // Reset metadata loaded flag to force reload
+        this.metadataLoaded = false;
+        this.loadMetadataOnce();
+    },
+
+    /**
+     * Export metadata (called from HTML onclick)
+     */
+    exportMetadata: function() {
+        if (this.cachedMetadata) {
+            const dataStr = JSON.stringify(this.cachedMetadata, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `camera_metadata_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.json`;
+            link.click();
+            URL.revokeObjectURL(url);
+            
+            console.log('Metadata exported successfully');
+            AICameraUtils.addLogMessage('log-container', 'Metadata exported successfully', 'success');
+        } else {
+            console.log('No metadata available to export');
+            AICameraUtils.addLogMessage('log-container', 'No metadata available to export', 'warning');
+        }
+    },
+
+    /**
      * Update metadata display with comprehensive table view and Thai descriptions
      */
     updateMetadataDisplay: function(metadata) {
@@ -703,6 +776,9 @@ const CameraManager = {
             // Update metadata section if it exists
             const metadataSection = document.getElementById('metadata-section');
             if (metadataSection) {
+                // Show the metadata section
+                metadataSection.style.display = 'block';
+                
                 const metadataContent = document.getElementById('metadata-content');
                 if (metadataContent) {
                     // Format and display metadata in table format
