@@ -797,6 +797,469 @@ Health status update
 | `detection_status` | object | Detection service status and statistics | Detection | `detection_manager.get_status()` |
 | `stats` | object | Detection statistics from database | Detection, Results | `database_manager.get_detection_statistics()` |
 | `title` | string | Page title | All pages | Hardcoded in blueprints |
+
+## Detection Dashboard API Reference Extraction Overview
+
+### **Data Flow Architecture**
+
+```
+Detection Manager → Detection Blueprint → Dashboard JS → HTML Elements
+     ↓                    ↓                    ↓              ↓
+  Raw Data           API Response        JS Variables    UI Display
+```
+
+### **1. Detection Manager Output (Backend Service)**
+
+#### **DetectionManager.get_status() Output:**
+```python
+# edge/src/services/detection_manager.py
+{
+    "service_running": True,
+    "detection_processor_status": {
+        "models_loaded": True,
+        "vehicle_model_available": True,
+        "lp_detection_model_available": True,
+        "lp_ocr_model_available": True,
+        "easyocr_available": True,
+        "confidence_threshold": 0.7,
+        "detection_resolution": [640, 640]
+    },
+    "detection_interval": 0.1,
+    "auto_start": True,
+    "total_frames_processed": 1250,
+    "total_vehicles_detected": 45,
+    "total_plates_detected": 23,
+    "successful_ocr": 18,
+    "detection_rate_percent": 85.2,
+    "avg_processing_time_ms": 45.3
+}
+```
+
+#### **DetectionManager.get_statistics() Output:**
+```python
+# edge/src/services/detection_manager.py
+{
+    "total_frames_processed": 1250,
+    "total_vehicles_detected": 45,
+    "total_plates_detected": 23,
+    "successful_ocr": 18,
+    "detection_rate_percent": 85.2,
+    "avg_processing_time_ms": 45.3,
+    "last_detection_time": "2025-08-24T10:15:30Z",
+    "current_fps": 10.0,
+    "error_count": 2,
+    "success_rate_percent": 98.4
+}
+```
+
+### **2. Detection Blueprint Output (API Endpoints)**
+
+#### **GET /detection/status Response:**
+```json
+{
+    "success": true,
+    "detection_status": {
+        "service_running": true,
+        "detection_processor_status": {
+            "models_loaded": true,
+            "vehicle_model_available": true,
+            "lp_detection_model_available": true,
+            "lp_ocr_model_available": true,
+            "easyocr_available": true,
+            "confidence_threshold": 0.7,
+            "detection_resolution": [640, 640]
+        },
+        "detection_interval": 0.1,
+        "auto_start": true
+    },
+    "timestamp": "2025-08-24T10:15:30Z"
+}
+```
+
+#### **GET /detection/statistics Response:**
+```json
+{
+    "success": true,
+    "statistics": {
+        "total_frames_processed": 1250,
+        "total_vehicles_detected": 45,
+        "total_plates_detected": 23,
+        "successful_ocr": 18,
+        "detection_rate_percent": 85.2,
+        "avg_processing_time_ms": 45.3
+    },
+    "timestamp": "2025-08-24T10:15:30Z"
+}
+```
+
+#### **GET /detection/config Response:**
+```json
+{
+    "success": true,
+    "config": {
+        "detection_interval": 0.1,
+        "vehicle_confidence": 0.7,
+        "plate_confidence": 0.5,
+        "detection_resolution": [640, 640]
+    },
+    "timestamp": "2025-08-24T10:15:30Z"
+}
+```
+
+#### **GET /detection/results/recent Response:**
+```json
+{
+    "success": true,
+    "results": [
+        {
+            "id": 123,
+            "timestamp": "2025-08-24T10:15:25Z",
+            "image_path": "captured_images/detection_20250824_101525_123.jpg",
+            "vehicles_detected": 2,
+            "plates_detected": 1,
+            "confidence_scores": [0.85, 0.92],
+            "processing_time_ms": 45.2,
+            "ocr_results": [
+                {
+                    "text": "ABC123",
+                    "confidence": 0.95,
+                    "language": "en"
+                }
+            ]
+        }
+    ],
+    "count": 1,
+    "timestamp": "2025-08-24T10:15:30Z"
+}
+```
+
+### **3. Dashboard JavaScript Output (Frontend Processing)**
+
+#### **Detection Status Variables (detection.js):**
+```javascript
+// edge/src/web/static/js/detection.js
+const detectionStatus = {
+    serviceRunning: true,
+    processorStatus: {
+        modelsLoaded: true,
+        vehicleModelAvailable: true,
+        lpDetectionModelAvailable: true,
+        lpOcrModelAvailable: true,
+        easyocrAvailable: true,
+        confidenceThreshold: 0.7,
+        detectionResolution: [640, 640]
+    },
+    detectionInterval: 0.1,
+    autoStart: true
+};
+
+const detectionStatistics = {
+    totalFramesProcessed: 1250,
+    totalVehiclesDetected: 45,
+    totalPlatesDetected: 23,
+    successfulOcr: 18,
+    detectionRatePercent: 85.2,
+    avgProcessingTimeMs: 45.3
+};
+
+const detectionConfig = {
+    detectionInterval: 0.1,
+    vehicleConfidence: 0.7,
+    plateConfidence: 0.5,
+    detectionResolution: [640, 640]
+};
+
+const recentResults = [
+    {
+        id: 123,
+        timestamp: "2025-08-24T10:15:25Z",
+        imagePath: "captured_images/detection_20250824_101525_123.jpg",
+        vehiclesDetected: 2,
+        platesDetected: 1,
+        confidenceScores: [0.85, 0.92],
+        processingTimeMs: 45.2,
+        ocrResults: [
+            {
+                text: "ABC123",
+                confidence: 0.95,
+                language: "en"
+            }
+        ]
+    }
+];
+```
+
+#### **JavaScript Processing Functions:**
+```javascript
+// edge/src/web/static/js/detection.js
+function updateDetectionStatus(status) {
+    // Update service status
+    const serviceRunning = status.service_running;
+    document.getElementById('service-status').textContent = 
+        serviceRunning ? 'Running' : 'Stopped';
+    
+    // Update models status
+    const processorStatus = status.detection_processor_status;
+    const modelsLoaded = processorStatus.models_loaded;
+    document.getElementById('models-status').textContent = 
+        modelsLoaded ? 'Loaded' : 'Not Loaded';
+    
+    // Update detection interval
+    const interval = status.detection_interval;
+    document.getElementById('detection-interval').textContent = 
+        `${interval}s`;
+}
+
+function updateStatistics(stats) {
+    document.getElementById('frames-processed').textContent = 
+        stats.total_frames_processed;
+    document.getElementById('vehicles-detected').textContent = 
+        stats.total_vehicles_detected;
+    document.getElementById('plates-detected').textContent = 
+        stats.total_plates_detected;
+    document.getElementById('successful-ocr').textContent = 
+        stats.successful_ocr;
+    document.getElementById('detection-rate').textContent = 
+        `${stats.detection_rate_percent}%`;
+    document.getElementById('avg-processing-time').textContent = 
+        `${stats.avg_processing_time_ms}ms`;
+}
+
+function updateConfigForm(config) {
+    document.getElementById('detection-interval').value = 
+        config.detection_interval;
+    document.getElementById('vehicle-confidence').value = 
+        config.vehicle_confidence;
+    document.getElementById('plate-confidence').value = 
+        config.plate_confidence;
+}
+
+function displayRecentResults(results) {
+    const resultsContainer = document.getElementById('recent-results');
+    resultsContainer.innerHTML = '';
+    
+    results.forEach(result => {
+        const resultElement = createResultElement(result);
+        resultsContainer.appendChild(resultElement);
+    });
+}
+```
+
+### **4. HTML Elements and IDs (UI Display)**
+
+#### **Detection Dashboard HTML Structure:**
+```html
+<!-- edge/src/web/templates/detection/dashboard.html -->
+<div class="detection-dashboard">
+    <!-- Service Status Section -->
+    <div class="card status-card">
+        <div class="card-header">
+            <h5>Detection Service Status</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <strong>Service Status:</strong>
+                    <span id="service-status" class="badge bg-success">Running</span>
+                </div>
+                <div class="col-md-6">
+                    <strong>Models Status:</strong>
+                    <span id="models-status" class="badge bg-success">Loaded</span>
+                </div>
+            </div>
+            <div class="row mt-2">
+                <div class="col-md-6">
+                    <strong>Detection Interval:</strong>
+                    <span id="detection-interval">0.1s</span>
+                </div>
+                <div class="col-md-6">
+                    <strong>Auto Start:</strong>
+                    <span id="auto-start">Enabled</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Section -->
+    <div class="card">
+        <div class="card-header">
+            <h5>Detection Statistics</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="stat-item">
+                        <strong>Frames Processed:</strong>
+                        <span id="frames-processed">1250</span>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="stat-item">
+                        <strong>Vehicles Detected:</strong>
+                        <span id="vehicles-detected">45</span>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="stat-item">
+                        <strong>Plates Detected:</strong>
+                        <span id="plates-detected">23</span>
+                    </div>
+                </div>
+            </div>
+            <div class="row mt-2">
+                <div class="col-md-4">
+                    <div class="stat-item">
+                        <strong>Successful OCR:</strong>
+                        <span id="successful-ocr">18</span>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="stat-item">
+                        <strong>Detection Rate:</strong>
+                        <span id="detection-rate">85.2%</span>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="stat-item">
+                        <strong>Avg Processing Time:</strong>
+                        <span id="avg-processing-time">45.3ms</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Configuration Section -->
+    <div class="card">
+        <div class="card-header">
+            <h5>Detection Configuration</h5>
+        </div>
+        <div class="card-body">
+            <form id="detection-config-form">
+                <div class="row">
+                    <div class="col-md-3">
+                        <label for="detection-interval">Detection Interval (s):</label>
+                        <input type="number" id="detection-interval" 
+                               class="form-control" step="0.1" min="0.1" max="10.0">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="vehicle-confidence">Vehicle Confidence:</label>
+                        <input type="number" id="vehicle-confidence" 
+                               class="form-control" step="0.1" min="0.1" max="1.0">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="plate-confidence">Plate Confidence:</label>
+                        <input type="number" id="plate-confidence" 
+                               class="form-control" step="0.1" min="0.1" max="1.0">
+                    </div>
+                    <div class="col-md-3">
+                        <button type="submit" class="btn btn-primary">Update Config</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Recent Results Section -->
+    <div class="card">
+        <div class="card-header">
+            <h5>Recent Detection Results</h5>
+        </div>
+        <div class="card-body">
+            <div id="recent-results">
+                <!-- Results will be dynamically populated -->
+            </div>
+        </div>
+    </div>
+</div>
+```
+
+### **5. JSON Extraction Data Dictionary**
+
+#### **Complete Data Flow Mapping:**
+
+| **Component** | **Data Source** | **Key Fields** | **HTML ID** | **JavaScript Variable** |
+|---------------|-----------------|----------------|-------------|-------------------------|
+| **Service Status** | `detection_status.service_running` | `service_running` | `#service-status` | `detectionStatus.serviceRunning` |
+| **Models Status** | `detection_status.detection_processor_status.models_loaded` | `models_loaded` | `#models-status` | `detectionStatus.processorStatus.modelsLoaded` |
+| **Detection Interval** | `detection_status.detection_interval` | `detection_interval` | `#detection-interval` | `detectionStatus.detectionInterval` |
+| **Auto Start** | `detection_status.auto_start` | `auto_start` | `#auto-start` | `detectionStatus.autoStart` |
+| **Frames Processed** | `statistics.total_frames_processed` | `total_frames_processed` | `#frames-processed` | `detectionStatistics.totalFramesProcessed` |
+| **Vehicles Detected** | `statistics.total_vehicles_detected` | `total_vehicles_detected` | `#vehicles-detected` | `detectionStatistics.totalVehiclesDetected` |
+| **Plates Detected** | `statistics.total_plates_detected` | `total_plates_detected` | `#plates-detected` | `detectionStatistics.totalPlatesDetected` |
+| **Successful OCR** | `statistics.successful_ocr` | `successful_ocr` | `#successful-ocr` | `detectionStatistics.successfulOcr` |
+| **Detection Rate** | `statistics.detection_rate_percent` | `detection_rate_percent` | `#detection-rate` | `detectionStatistics.detectionRatePercent` |
+| **Avg Processing Time** | `statistics.avg_processing_time_ms` | `avg_processing_time_ms` | `#avg-processing-time` | `detectionStatistics.avgProcessingTimeMs` |
+| **Config Interval** | `config.detection_interval` | `detection_interval` | `#detection-interval` | `detectionConfig.detectionInterval` |
+| **Config Vehicle Confidence** | `config.vehicle_confidence` | `vehicle_confidence` | `#vehicle-confidence` | `detectionConfig.vehicleConfidence` |
+| **Config Plate Confidence** | `config.plate_confidence` | `plate_confidence` | `#plate-confidence` | `detectionConfig.plateConfidence` |
+| **Recent Results** | `results[]` | `id, timestamp, image_path, vehicles_detected, plates_detected` | `#recent-results` | `recentResults[]` |
+
+#### **Data Transformation Rules:**
+
+```javascript
+// Backend to Frontend Transformation
+const transformDetectionStatus = (apiResponse) => {
+    return {
+        serviceRunning: apiResponse.detection_status.service_running,
+        processorStatus: {
+            modelsLoaded: apiResponse.detection_status.detection_processor_status.models_loaded,
+            vehicleModelAvailable: apiResponse.detection_status.detection_processor_status.vehicle_model_available,
+            lpDetectionModelAvailable: apiResponse.detection_status.detection_processor_status.lp_detection_model_available,
+            lpOcrModelAvailable: apiResponse.detection_status.detection_processor_status.lp_ocr_model_available,
+            easyocrAvailable: apiResponse.detection_status.detection_processor_status.easyocr_available,
+            confidenceThreshold: apiResponse.detection_status.detection_processor_status.confidence_threshold,
+            detectionResolution: apiResponse.detection_status.detection_processor_status.detection_resolution
+        },
+        detectionInterval: apiResponse.detection_status.detection_interval,
+        autoStart: apiResponse.detection_status.auto_start
+    };
+};
+
+const transformStatistics = (apiResponse) => {
+    return {
+        totalFramesProcessed: apiResponse.statistics.total_frames_processed,
+        totalVehiclesDetected: apiResponse.statistics.total_vehicles_detected,
+        totalPlatesDetected: apiResponse.statistics.total_plates_detected,
+        successfulOcr: apiResponse.statistics.successful_ocr,
+        detectionRatePercent: apiResponse.statistics.detection_rate_percent,
+        avgProcessingTimeMs: apiResponse.statistics.avg_processing_time_ms
+    };
+};
+
+const transformConfig = (apiResponse) => {
+    return {
+        detectionInterval: apiResponse.config.detection_interval,
+        vehicleConfidence: apiResponse.config.vehicle_confidence,
+        plateConfidence: apiResponse.config.plate_confidence,
+        detectionResolution: apiResponse.config.detection_resolution
+    };
+};
+```
+
+#### **Error Handling Data Flow:**
+
+```javascript
+// Error Response Structure
+const errorResponse = {
+    success: false,
+    error: "Detection manager not available",
+    timestamp: "2025-08-24T10:15:30Z"
+};
+
+// Error Display Mapping
+const displayError = (errorData) => {
+    const errorMessage = errorData.error;
+    const timestamp = errorData.timestamp;
+    
+    // Display in UI
+    document.getElementById('error-message').textContent = errorMessage;
+    document.getElementById('error-timestamp').textContent = timestamp;
+    
+    // Log to console
+    console.error('Detection API Error:', errorMessage, timestamp);
+};
+```
 | `results` | array | Detection results for display | Results | `database_manager.get_detection_results_paginated()` |
 | `pagination` | object | Pagination information | Results | Calculated in blueprints |
 
