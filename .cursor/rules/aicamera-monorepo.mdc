@@ -103,6 +103,43 @@ ExperimentService → (independent)
 - **MANDATORY**: Modularize Web UI with Flask Blueprints
 - **MANDATORY**: Separate concerns: CameraManager, DetectionManager, VideoStreaming, HealthMonitor, WebsocketSender, FlaskApp
 
+### 🚀 RESOURCE MANAGEMENT - CRITICAL REQUIREMENT
+**⚠️ CRITICAL**: This system implements a Core Components Priority strategy to ensure optimal performance and resource usage.
+
+#### **Core Components Priority Strategy:**
+- **Core Components (High Priority - Full Performance)**: Camera Handler, Camera Manager, Detection Processor, Detection Manager, Video Streaming
+- **Non-Essential Services (Reduced Resource Usage)**: Health Monitor, WebSocket Sender, Storage Monitor, UI Updates
+
+#### **Resource Usage Guidelines:**
+- **CPU Usage Target**: < 30% for background services
+- **Memory Usage Target**: < 2GB total system usage
+- **Core Components**: MUST maintain full performance (30 FPS video, 10 FPS detection)
+- **Non-Essential Services**: MUST use reduced intervals (2 hours for health, 5-30 minutes for WebSocket, 30-60 seconds for UI)
+
+#### **Optimized Intervals (MANDATORY):**
+```python
+# Core components - FULL PERFORMANCE
+DETECTION_INTERVAL = 0.1  # 10 FPS detection processing
+CAMERA_FPS = 30          # 30 FPS video streaming
+
+# Non-essential services - REDUCED RESOURCE USAGE
+HEALTH_CHECK_INTERVAL = 7200      # 2 hours (was 1 hour)
+SENDER_INTERVAL = 300.0           # 5 minutes (was 1 minute)
+HEALTH_SENDER_INTERVAL = 1800.0   # 30 minutes (was 5 minutes)
+STORAGE_MONITOR_INTERVAL = 1800   # 30 minutes (was 5 minutes)
+
+# UI components - REDUCED POLLING
+statusUpdateThrottle: 30000,      # 30 seconds (was 5 seconds)
+videoRefreshCooldown: 15000,      # 15 seconds (was 5 seconds)
+dashboardUpdates: 60000,          # 60 seconds (was 10 seconds)
+```
+
+#### **Development Requirements:**
+- **NEVER** reduce performance for core components
+- **ALWAYS** use longer intervals for non-essential services
+- **MANDATORY** monitor resource usage during development
+- **REQUIRED** document optimization rationale in code comments
+
 ### Python (Edge) Development
 - **MANDATORY**: Use `venv_hailo` virtual environment
 - **MANDATORY**: Follow PEP 8 style guidelines
@@ -361,6 +398,42 @@ setup_import_paths()
 - Implement caching where beneficial
 - Monitor memory usage
 - Optimize startup time
+
+### 🚀 PERFORMANCE MONITORING - CRITICAL REQUIREMENT
+**⚠️ CRITICAL**: All development must include performance monitoring and resource usage validation.
+
+#### **Performance Monitoring Commands:**
+```bash
+# Monitor CPU usage
+ps aux | grep -E "(gunicorn|python)" | grep -v grep
+
+# Monitor memory usage
+free -h && ps aux | grep -E "(gunicorn|python)" | awk '{print $6}' | sort -n
+
+# Monitor system resources
+htop
+iotop
+```
+
+#### **Performance Targets (MANDATORY):**
+- **CPU Usage**: < 30% for background processes
+- **Memory Usage**: < 2GB total system usage
+- **Response Time**: < 100ms for core API endpoints
+- **Video Streaming**: 30 FPS maintained
+- **Detection Processing**: 10 FPS maintained
+
+#### **Resource Usage Validation:**
+- **Before Changes**: Measure baseline resource usage
+- **After Changes**: Verify resource usage improvements
+- **Core Components**: Ensure performance is maintained
+- **Non-Essential Services**: Verify reduced resource usage
+
+#### **Development Workflow:**
+1. **Baseline Measurement**: Measure current resource usage
+2. **Implementation**: Make changes following optimization guidelines
+3. **Validation**: Test resource usage impact
+4. **Documentation**: Update performance documentation
+5. **Monitoring**: Continuous performance monitoring
 
 ## Security Best Practices
 - Validate all inputs

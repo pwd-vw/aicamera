@@ -1,10 +1,29 @@
 # AI Camera Edge System - Development Guide
 
-**Version:** 1.0.0  
-**Last Updated:** 2024-08-16  
+**Version:** 2.0.0  
+**Last Updated:** 2025-08-23  
 **Author:** AI Camera Team  
 **Category:** Development  
 **Status:** Active
+
+## 🚀 System Optimization Notice
+
+**CORE COMPONENTS PRIORITY STRATEGY**
+
+This system has been optimized to prioritize core camera and detection functionality while reducing resource usage for non-essential services. All development must follow these optimization principles:
+
+### **Core Components (High Priority - Full Performance)**
+- **Camera Handler** - Low-level camera operations
+- **Camera Manager** - High-level camera service management  
+- **Detection Processor** - AI inference pipeline
+- **Detection Manager** - Detection orchestration
+- **Video Streaming** - Real-time video feed
+
+### **Non-Essential Services (Reduced Resource Usage)**
+- **Health Monitor** - 2-hour intervals (was 1 hour)
+- **WebSocket Sender** - 5-30 minute intervals (was 1-5 minutes)
+- **Storage Monitor** - 30-minute intervals (was 5 minutes)
+- **UI Updates** - 30-60 second intervals (was 5-10 seconds)
 
 ## Table of Contents
 
@@ -14,7 +33,8 @@
 4. [Testing](#testing)
 5. [Debugging](#debugging)
 6. [Performance Optimization](#performance-optimization)
-7. [Best Practices](#best-practices)
+7. [Resource Management](#resource-management)
+8. [Best Practices](#best-practices)
 
 ## Overview
 
@@ -875,6 +895,105 @@ def expensive_operation(x: int) -> int:
     import time
     time.sleep(0.1)
     return x * x
+```
+
+## Resource Management
+
+### **🚨 CRITICAL: Core Components Priority Strategy**
+
+**MANDATORY**: All development must follow the Core Components Priority strategy to ensure optimal system performance.
+
+#### **Core Components (High Priority - Full Resources)**
+```python
+# These components MUST maintain full performance
+DETECTION_INTERVAL = 0.1  # 10 FPS detection processing
+CAMERA_FPS = 30          # 30 FPS video streaming
+VIDEO_STREAMING_QUALITY = "high"  # Full quality video
+
+# NEVER reduce performance for these components
+# - Camera Handler operations
+# - Detection processing
+# - Video streaming
+# - Real-time AI inference
+```
+
+#### **Non-Essential Services (Reduced Resource Usage)**
+```python
+# Background services MUST use reduced intervals
+HEALTH_CHECK_INTERVAL = 7200      # 2 hours (was 1 hour)
+SENDER_INTERVAL = 300.0           # 5 minutes (was 1 minute)
+HEALTH_SENDER_INTERVAL = 1800.0   # 30 minutes (was 5 minutes)
+STORAGE_MONITOR_INTERVAL = 1800   # 30 minutes (was 5 minutes)
+
+# UI components MUST use reduced polling
+statusUpdateThrottle: 30000,      # 30 seconds (was 5 seconds)
+videoRefreshCooldown: 15000,      # 15 seconds (was 5 seconds)
+dashboardUpdates: 60000,          # 60 seconds (was 10 seconds)
+```
+
+### **Resource Usage Guidelines**
+
+#### **CPU Usage Optimization**
+- **Target**: < 30% CPU usage for background services
+- **Core Components**: Maintain full performance
+- **Background Services**: Use longer intervals
+- **UI Updates**: Reduce polling frequency
+
+#### **Memory Usage Optimization**
+- **Target**: < 2GB memory usage
+- **Polling Frequency**: Optimize for resource efficiency
+- **UI Updates**: Reduce frequency for better performance
+- **Background Services**: Minimal memory footprint
+
+#### **Network Traffic Optimization**
+- **WebSocket Communication**: Reduced frequency for non-essential data
+- **API Polling**: Longer intervals for status updates
+- **File Transfers**: Optimized for bandwidth efficiency
+
+### **Performance Monitoring**
+
+#### **Monitoring Commands**
+```bash
+# Monitor CPU usage
+ps aux | grep -E "(gunicorn|python)" | grep -v grep
+
+# Monitor memory usage
+free -h && ps aux | grep -E "(gunicorn|python)" | awk '{print $6}' | sort -n
+
+# Monitor system resources
+htop
+iotop
+```
+
+#### **Performance Targets**
+- **CPU Usage**: < 30% for background processes
+- **Memory Usage**: < 2GB total system usage
+- **Response Time**: < 100ms for core API endpoints
+- **Video Streaming**: 30 FPS maintained
+- **Detection Processing**: 10 FPS maintained
+
+### **Development Guidelines**
+
+#### **When Adding New Services**
+1. **Determine Priority**: Core vs Non-Essential
+2. **Set Appropriate Intervals**: Use optimization guidelines
+3. **Monitor Resource Usage**: Test with performance tools
+4. **Document Intervals**: Update configuration documentation
+
+#### **When Modifying Existing Services**
+1. **Check Component Type**: Core vs Non-Essential
+2. **Maintain Performance**: Don't reduce core component performance
+3. **Optimize Intervals**: Use longer intervals for non-essential services
+4. **Test Impact**: Verify resource usage changes
+
+#### **Configuration Management**
+```python
+# Always use environment variables for intervals
+HEALTH_CHECK_INTERVAL = int(os.getenv("HEALTH_CHECK_INTERVAL", "7200"))
+SENDER_INTERVAL = float(os.getenv("SENDER_INTERVAL", "300.0"))
+
+# Document optimization rationale
+# OPTIMIZED: Reduced frequency for non-essential monitoring
 ```
 
 ## Best Practices

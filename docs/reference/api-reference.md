@@ -1,10 +1,35 @@
 # AI Camera Edge System - API Reference
 
-**Version:** 1.3.9  
-**Last Updated:** 2025-08-20  
+**Version:** 2.0.0  
+**Last Updated:** 2025-08-23  
 **Author:** AI Camera Team  
 **Category:** API Documentation  
 **Status:** Active
+
+## System Optimization Notice
+
+**🚀 OPTIMIZED FOR CORE COMPONENTS PRIORITY**
+
+This system has been optimized to prioritize core camera and detection functionality while reducing resource usage for non-essential services:
+
+### **Core Components (High Priority - Full Performance)**
+- **Camera Handler** - Low-level camera operations
+- **Camera Manager** - High-level camera service management  
+- **Detection Processor** - AI inference pipeline
+- **Detection Manager** - Detection orchestration
+- **Video Streaming** - Real-time video feed
+
+### **Non-Essential Services (Reduced Resource Usage)**
+- **Health Monitor** - 2-hour intervals (was 1 hour)
+- **WebSocket Sender** - 5-30 minute intervals (was 1-5 minutes)
+- **Storage Monitor** - 30-minute intervals (was 5 minutes)
+- **UI Updates** - 30-60 second intervals (was 5-10 seconds)
+
+### **Resource Usage Reduction**
+- **CPU Usage**: Significantly reduced background processing
+- **Memory Usage**: Optimized polling frequencies
+- **Network Traffic**: Reduced non-essential communication
+- **System Stability**: Enhanced with prioritized core components
 
 ## Overview
 
@@ -19,9 +44,52 @@ API Reference สำหรับ AI Camera Edge System v1.3.9 ครอบคล
 
 API ใช้ Tailscale authentication โดยอัตโนมัติ
 
-## System Architecture
+## Performance Optimization
 
-### Blueprint Structure
+### **Resource Management Strategy**
+
+The system implements a **Core Components Priority** strategy to ensure optimal performance:
+
+#### **High Priority Components (Full Resources)**
+```python
+# Core camera and detection services maintain full performance
+DETECTION_INTERVAL = 0.1  # 10 FPS detection processing
+CAMERA_FPS = 30          # 30 FPS video streaming
+VIDEO_STREAMING_QUALITY = "high"  # Full quality video
+```
+
+#### **Optimized Non-Essential Services**
+```python
+# Reduced frequency for background services
+HEALTH_CHECK_INTERVAL = 7200      # 2 hours (was 1 hour)
+SENDER_INTERVAL = 300.0           # 5 minutes (was 1 minute)
+HEALTH_SENDER_INTERVAL = 1800.0   # 30 minutes (was 5 minutes)
+STORAGE_MONITOR_INTERVAL = 1800   # 30 minutes (was 5 minutes)
+```
+
+#### **UI Optimization**
+```javascript
+// Reduced polling frequency for UI components
+statusUpdateThrottle: 30000,      // 30 seconds (was 5 seconds)
+videoRefreshCooldown: 15000,      // 15 seconds (was 5 seconds)
+dashboardUpdates: 60000,          // 60 seconds (was 10 seconds)
+```
+
+### **Performance Monitoring**
+
+#### **CPU Usage Optimization**
+- **Before**: 46.6% CPU (high background load)
+- **After**: Significantly reduced CPU usage
+- **Core components**: Maintained full performance
+- **Background services**: Minimal resource impact
+
+#### **Memory Usage Optimization**
+- **Before**: 3.4GB memory usage
+- **After**: Reduced memory usage
+- **Polling frequency**: Optimized for resource efficiency
+- **UI updates**: Reduced frequency for better performance
+
+## System Architecture
 ```
 v1_3/src/web/blueprints/
 ├── main.py              # Main dashboard (/)
