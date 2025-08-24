@@ -520,7 +520,7 @@ const DetectionManager = {
      */
     loadRecentResults: function() {
         console.log('Loading recent detection results...');
-        AICameraUtils.apiRequest('/detection/results/recent')
+        AICameraUtils.apiRequest('/detection/results')
             .then(data => {
                 console.log('Recent results response:', data);
                 if (data.success) {
@@ -559,7 +559,7 @@ const DetectionManager = {
         if (this.currentFilters.hasPlates) params.append('has_plates', this.currentFilters.hasPlates);
         
         console.log('Loading detection results...');
-        AICameraUtils.apiRequest(`/detection/results/recent`)
+        AICameraUtils.apiRequest(`/detection/results`)
             .then(data => {
                 console.log('Results response:', data);
                 if (data.success) {

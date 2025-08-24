@@ -335,13 +335,13 @@ def get_detection_statistics():
         }), 500
 
 
-@detection_bp.route('/results/recent')
-def get_recent_results():
+@detection_bp.route('/results')
+def get_all_results():
     """
-    Get recent detection results from database.
+    Get all detection results from database.
     
     Returns:
-        dict: JSON response with recent detection results
+        dict: JSON response with all detection results
     """
     try:
         database_manager = get_service('database_manager')
@@ -351,18 +351,18 @@ def get_recent_results():
                 'error': 'Database manager not available'
             }), 500
         
-        # Get recent detection results (limit to last 50)
-        recent_results = database_manager.get_recent_detections(limit=50)
+        # Get all detection results (no limit)
+        all_results = database_manager.get_all_detections()
         
         return jsonify({
             'success': True,
-            'results': make_json_serializable(recent_results),
-            'count': len(recent_results),
+            'results': make_json_serializable(all_results),
+            'count': len(all_results),
             'timestamp': datetime.now().isoformat()
         })
         
     except Exception as e:
-        logger.error(f"Error getting recent results: {e}")
+        logger.error(f"Error getting all results: {e}")
         return jsonify({
             'success': False,
             'error': str(e),

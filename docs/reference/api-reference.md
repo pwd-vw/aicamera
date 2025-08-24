@@ -389,8 +389,8 @@ Detection statistics
 }
 ```
 
-#### GET /detection/results/recent
-Recent detection results
+#### GET /detection/results
+All detection results
 
 **Response:**
 ```json
@@ -906,7 +906,7 @@ Detection Manager → Detection Blueprint → Dashboard JS → HTML Elements
 }
 ```
 
-#### **GET /detection/results/recent Response:**
+#### **GET /detection/results Response:**
 ```json
 {
     "success": true,
