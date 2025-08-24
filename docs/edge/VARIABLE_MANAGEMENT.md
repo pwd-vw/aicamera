@@ -10,6 +10,25 @@
 
 เอกสารนี้กำหนดมาตรฐานการจัดการตัวแปรและการเข้าถึงข้อมูลใน AI Camera v2.0 เพื่อป้องกันความขัดแย้งของตัวแปรและรักษาความเสถียรของระบบ
 
+## 🚀 System Optimization Notice
+
+**CORE COMPONENTS PRIORITY STRATEGY**
+
+This system has been optimized to prioritize core camera and detection functionality while reducing resource usage for non-essential services. All variable mapping must follow these optimization principles:
+
+### **Core Components (High Priority - Full Performance)**
+- **Camera Handler** - Low-level camera operations
+- **Camera Manager** - High-level camera service management  
+- **Detection Processor** - AI inference pipeline
+- **Detection Manager** - Detection orchestration
+- **Video Streaming** - Real-time video feed
+
+### **Non-Essential Services (Reduced Resource Usage)**
+- **Health Monitor** - 2-hour intervals (was 1 hour)
+- **WebSocket Sender** - 5-30 minute intervals (was 1-5 minutes)
+- **Storage Monitor** - 30-minute intervals (was 5 minutes)
+- **UI Updates** - 30-60 second intervals (was 5-10 seconds)
+
 ## Singleton Camera Access Rules
 
 **🚨 CRITICAL**: The camera system uses a singleton pattern to prevent multiple concurrent access to Picamera2. All components must follow these access rules strictly.
@@ -98,6 +117,360 @@ get_config() -> dict              # For configuration
 - [ ] Uses frame buffer methods
 - [ ] Proper error handling
 - [ ] Thread-safe operations
+
+## Backend-Frontend Variable Mapping
+
+### **🚨 CRITICAL: Variable Mapping Standards**
+
+**MANDATORY**: All backend API responses and frontend JavaScript must follow these exact variable mapping standards to prevent UI failures.
+
+### **Standard API Response Format**
+
+#### **Success Response Structure:**
+```json
+{
+    "success": true,
+    "message": "Operation completed successfully",
+    "data": {
+        // Response data here
+    },
+    "timestamp": "2025-08-23T10:30:00Z"
+}
+```
+
+#### **Error Response Structure:**
+```json
+{
+    "success": false,
+    "error": "Error description",
+    "error_code": "ERROR_CODE",
+    "timestamp": "2025-08-23T10:30:00Z"
+}
+```
+
+### **Camera API Variable Mapping**
+
+#### **GET /camera/status - Backend Response:**
+```json
+{
+    "success": true,
+    "camera_status": {
+        "is_running": boolean,
+        "camera_handler": {
+            "camera_properties": {
+                "Model": string,
+                "Location": string,
+                "Revision": string
+            },
+            "current_config": {
+                "resolution": [width, height],
+                "framerate": number,
+                "brightness": number,
+                "contrast": number,
+                "saturation": number,
+                "awb_mode": number
+            },
+            "configuration": {
+                "controls": {
+                    "FrameDurationLimits": [number],
+                    "Brightness": number,
+                    "Contrast": number,
+                    "Saturation": number,
+                    "AwbMode": number
+                }
+            },
+            "sensor_modes": [...],
+            "sensor_modes_count": number
+        },
+        "metadata": {...},
+        "frame_count": number,
+        "average_fps": number,
+        "timestamp": string
+    },
+    "timestamp": "2025-08-23T10:30:00Z"
+}
+```
+
+#### **Frontend JavaScript Mapping:**
+```javascript
+// Camera status mapping
+const status = data.camera_status;
+const isRunning = status.is_running;
+const cameraHandler = status.camera_handler;
+const cameraProperties = cameraHandler.camera_properties;
+const currentConfig = cameraHandler.current_config;
+const controls = cameraHandler.configuration.controls;
+
+// Camera properties mapping
+const model = cameraProperties.Model;
+const location = cameraProperties.Location;
+const revision = cameraProperties.Revision;
+
+// Configuration mapping
+const resolution = currentConfig.resolution;
+const framerate = currentConfig.framerate;
+const brightness = currentConfig.brightness;
+const contrast = currentConfig.contrast;
+const saturation = currentConfig.saturation;
+const awbMode = currentConfig.awb_mode;
+
+// Frame statistics mapping
+const frameCount = status.frame_count;
+const averageFps = status.average_fps;
+```
+
+### **Camera Metadata API Variable Mapping**
+
+#### **GET /camera/api/metadata - Backend Response:**
+```json
+{
+    "success": true,
+    "camera_status": {...},
+    "camera_properties": {
+        "Model": string,
+        "Location": string,
+        "Revision": string
+    },
+    "current_config": {
+        "resolution": [width, height],
+        "framerate": number,
+        "brightness": number,
+        "contrast": number,
+        "saturation": number,
+        "awb_mode": number
+    },
+    "camera_controls": {
+        "FrameDurationLimits": [number],
+        "Brightness": number,
+        "Contrast": number,
+        "Saturation": number,
+        "AwbMode": number
+    },
+    "frame_metadata": {...},
+    "frame_statistics": {
+        "frame_count": number,
+        "average_fps": number,
+        "last_frame_time": string
+    },
+    "available_modes": [...],
+    "sensor_modes_count": number,
+    "timestamp": "2025-08-23T10:30:00Z"
+}
+```
+
+#### **Frontend JavaScript Mapping:**
+```javascript
+// Metadata API mapping
+const cameraProperties = data.camera_properties;
+const currentConfig = data.current_config;
+const cameraControls = data.camera_controls;
+const frameMetadata = data.frame_metadata;
+const frameStatistics = data.frame_statistics;
+const availableModes = data.available_modes;
+const sensorModesCount = data.sensor_modes_count;
+
+// Properties mapping
+const model = cameraProperties.Model;
+const location = cameraProperties.Location;
+const revision = cameraProperties.Revision;
+
+// Configuration mapping
+const resolution = currentConfig.resolution;
+const framerate = currentConfig.framerate;
+const brightness = currentConfig.brightness;
+const contrast = currentConfig.contrast;
+const saturation = currentConfig.saturation;
+const awbMode = currentConfig.awb_mode;
+
+// Controls mapping
+const frameDurationLimits = cameraControls.FrameDurationLimits;
+const brightnessControl = cameraControls.Brightness;
+const contrastControl = cameraControls.Contrast;
+const saturationControl = cameraControls.Saturation;
+const awbModeControl = cameraControls.AwbMode;
+
+// Statistics mapping
+const frameCount = frameStatistics.frame_count;
+const averageFps = frameStatistics.average_fps;
+const lastFrameTime = frameStatistics.last_frame_time;
+```
+
+### **Debug Metadata API Variable Mapping**
+
+#### **GET /camera/debug_metadata - Backend Response:**
+```json
+{
+    "success": true,
+    "debug_info": {
+        "extracted_metadata": {
+            "complete_metadata": {
+                "Camera": {...},
+                "Image": {...},
+                "Sensor": {...},
+                "Lens": {...},
+                "Processing": {...}
+            },
+            "debug_steps": [...],
+            "metadata_keys": [...]
+        },
+        "camera_properties": {...},
+        "current_config": {...},
+        "frame_metadata": {...}
+    },
+    "timestamp": "2025-08-23T10:30:00Z"
+}
+```
+
+#### **Frontend JavaScript Mapping:**
+```javascript
+// Debug metadata mapping
+const debugInfo = data.debug_info;
+const extractedMetadata = debugInfo.extracted_metadata;
+const completeMetadata = extractedMetadata.complete_metadata;
+const debugSteps = extractedMetadata.debug_steps;
+const metadataKeys = extractedMetadata.metadata_keys;
+
+// Complete metadata mapping
+const cameraMetadata = completeMetadata.Camera;
+const imageMetadata = completeMetadata.Image;
+const sensorMetadata = completeMetadata.Sensor;
+const lensMetadata = completeMetadata.Lens;
+const processingMetadata = completeMetadata.Processing;
+```
+
+### **WebSocket Event Variable Mapping**
+
+#### **Camera Status Update Event:**
+```javascript
+// Backend emits: 'camera_status_update'
+socket.on('camera_status_update', function(data) {
+    // Data follows same structure as /camera/status
+    const status = data.camera_status;
+    const isRunning = status.is_running;
+    const cameraHandler = status.camera_handler;
+    // ... same mapping as above
+});
+```
+
+#### **Camera Control Response Event:**
+```javascript
+// Backend emits: 'camera_control_response'
+socket.on('camera_control_response', function(data) {
+    const success = data.success;
+    const message = data.message;
+    const error = data.error;
+    const timestamp = data.timestamp;
+});
+```
+
+#### **Camera Config Response Event:**
+```javascript
+// Backend emits: 'camera_config_response'
+socket.on('camera_config_response', function(data) {
+    const success = data.success;
+    const config = data.config;
+    const message = data.message;
+    const error = data.error;
+    const timestamp = data.timestamp;
+});
+```
+
+### **Configuration Form Variable Mapping**
+
+#### **Frontend Form Submission:**
+```javascript
+// Form data mapping
+const config = {
+    resolution: [width, height],  // Parsed from "(width, height)" string
+    framerate: number,            // Calculated from FrameDurationLimits
+    brightness: number,           // -1.0 to 1.0
+    contrast: number,             // 0.0 to 2.0
+    saturation: number,           // 0.0 to 2.0
+    awb_mode: number             // 0=auto, 1=fluorescent, etc.
+};
+
+// WebSocket emission
+socket.emit('camera_config_update', { config: config });
+```
+
+#### **Backend Configuration Processing:**
+```python
+# Backend receives and processes
+config_data = request.get_json()['config']
+resolution = config_data.get('resolution')  # [width, height]
+framerate = config_data.get('framerate')    # number
+brightness = config_data.get('brightness')  # number
+contrast = config_data.get('contrast')      # number
+saturation = config_data.get('saturation')  # number
+awb_mode = config_data.get('awb_mode')      # number
+```
+
+### **Error Handling Variable Mapping**
+
+#### **Frontend Error Handling:**
+```javascript
+// Standard error response mapping
+if (!data.success) {
+    const error = data.error;
+    const errorCode = data.error_code;
+    const timestamp = data.timestamp;
+    
+    // Display error to user
+    AICameraUtils.showToast(error, 'error');
+}
+```
+
+#### **Backend Error Response:**
+```python
+# Standard error response structure
+return jsonify({
+    'success': False,
+    'error': str(e),
+    'error_code': 'CAMERA_ERROR',
+    'timestamp': datetime.now().isoformat()
+}), 500
+```
+
+### **Performance Optimization Variable Mapping**
+
+#### **UI Update Intervals (Optimized):**
+```javascript
+// Reduced polling frequency for non-essential updates
+statusUpdateThrottle: 30000,      // 30 seconds (was 5 seconds)
+videoRefreshCooldown: 15000,      // 15 seconds (was 5 seconds)
+dashboardUpdates: 60000,          // 60 seconds (was 10 seconds)
+```
+
+#### **Backend Service Intervals (Optimized):**
+```python
+# Reduced frequency for non-essential services
+HEALTH_CHECK_INTERVAL = 7200      # 2 hours (was 1 hour)
+SENDER_INTERVAL = 300.0           # 5 minutes (was 1 minute)
+HEALTH_SENDER_INTERVAL = 1800.0   # 30 minutes (was 5 minutes)
+STORAGE_MONITOR_INTERVAL = 1800   # 30 minutes (was 5 minutes)
+```
+
+### **Variable Mapping Validation**
+
+#### **Required Field Validation:**
+- **success**: Always present in all responses
+- **timestamp**: Always present in all responses (ISO 8601 format)
+- **error**: Present in error responses
+- **message**: Present in success responses
+- **data**: Present in success responses with actual data
+
+#### **Data Type Validation:**
+- **boolean**: is_running, success
+- **number**: frame_count, average_fps, brightness, contrast, saturation, awb_mode
+- **array**: resolution, FrameDurationLimits, sensor_modes
+- **object**: camera_properties, current_config, configuration
+- **string**: Model, Location, timestamp, error, message
+
+#### **Frontend Compatibility:**
+- **JavaScript parsing**: All fields must be parseable by JSON.parse()
+- **Null safety**: Check for undefined/null before accessing nested properties
+- **Type conversion**: Handle number/string conversions appropriately
+- **Error boundaries**: Implement proper error handling for malformed responses
 
 ## Variable Naming Conventions
 
