@@ -44,11 +44,16 @@ const DashboardManager = {
         // Always show server communication sections
         this.showServerCommunicationSections();
         
-        // Set up core status updates
+        // Set up core status updates with immediate loading
         this.updateSystemStatusComprehensive();
         
         // Set up core event handlers
         this.setupCoreEventHandlers();
+        
+        // Force immediate detection status update for instant display
+        setTimeout(() => {
+            this.updateDetectionStatusFromAPI();
+        }, 100);
     },
 
     /**
@@ -232,6 +237,11 @@ const DashboardManager = {
         // Update core status every 60 seconds (increased from 10 seconds for reduced resource usage)
         setInterval(() => {
             this.updateSystemStatusComprehensive();
+        }, 60000);
+        
+        // Update detection status more frequently (every 10 seconds) for real-time display
+        setInterval(() => {
+            this.updateDetectionStatusFromAPI();
         }, 60000);
         
         // Update system info every 300 seconds (increased from 60 seconds for reduced resource usage)
@@ -469,15 +479,25 @@ const DashboardManager = {
         AICameraUtils.apiRequest('/detection/status')
             .then(data => {
                 if (data.success) {
-                    this.updateDetectionStatus(data.status);
+                    this.updateDetectionStatus(data.detection_status);
                 } else {
                     console.log('Detection status not available');
-                    AICameraUtils.updateStatusIndicator('main-detection-status', false, 'Inactive');
+                    const detectionStatusElement = document.getElementById('main-detection-status');
+                    const detectionStatusText = document.getElementById('main-detection-status-text');
+                    if (detectionStatusElement && detectionStatusText) {
+                        detectionStatusElement.className = 'status-indicator status-offline';
+                        detectionStatusText.textContent = 'Inactive';
+                    }
                 }
             })
             .catch(error => {
                 console.log('Failed to fetch detection status:', error.message);
-                AICameraUtils.updateStatusIndicator('main-detection-status', false, 'Inactive');
+                const detectionStatusElement = document.getElementById('main-detection-status');
+                const detectionStatusText = document.getElementById('main-detection-status-text');
+                if (detectionStatusElement && detectionStatusText) {
+                    detectionStatusElement.className = 'status-indicator status-offline';
+                    detectionStatusText.textContent = 'Inactive';
+                }
             });
     },
 
@@ -793,13 +813,44 @@ const DashboardManager = {
      * Update detection status display
      */
     updateDetectionStatus: function(status) {
+        console.log('Updating detection status with:', status);
+        
+        // Check if detection service is running
         const detectionActive = status && status.service_running || false;
-        AICameraUtils.updateStatusIndicator('main-detection-status', detectionActive, 
-            detectionActive ? 'Active' : 'Inactive');
+        
+        // Check if models are loaded
+        const processorStatus = status.detection_processor_status || {};
+        const modelsLoaded = processorStatus.models_loaded || false;
+        
+        // Determine overall detection status
+        let statusText = 'Inactive';
+        let statusClass = 'status-offline';
+        
+        if (detectionActive && modelsLoaded) {
+            statusText = 'Active';
+            statusClass = 'status-online';
+        } else if (detectionActive && !modelsLoaded) {
+            statusText = 'Warning';
+            statusClass = 'status-warning';
+        } else {
+            statusText = 'Inactive';
+            statusClass = 'status-offline';
+        }
+        
+        // Update the status indicator
+        const detectionStatusElement = document.getElementById('main-detection-status');
+        const detectionStatusText = document.getElementById('main-detection-status-text');
+        
+        if (detectionStatusElement && detectionStatusText) {
+            detectionStatusElement.className = `status-indicator ${statusClass}`;
+            detectionStatusText.textContent = statusText;
+        }
         
         // Add log message for detection status
-        if (detectionActive) {
-            AICameraUtils.addLogMessage('main-system-log', 'AI Detection service is running', 'success');
+        if (detectionActive && modelsLoaded) {
+            AICameraUtils.addLogMessage('main-system-log', 'AI Detection service is running with models loaded', 'success');
+        } else if (detectionActive && !modelsLoaded) {
+            AICameraUtils.addLogMessage('main-system-log', 'AI Detection service is running but models not loaded', 'warning');
         } else {
             AICameraUtils.addLogMessage('main-system-log', 'AI Detection service is stopped', 'info');
         }
@@ -865,26 +916,8 @@ const DashboardManager = {
                 }
             }
             
-            // Detection status
-            if (healthData.components.detection) {
-                const detectionStatus = healthData.components.detection;
-                const detectionStatusElement = document.getElementById('main-detection-status');
-                const detectionStatusText = document.getElementById('main-detection-status-text');
-                
-                if (detectionStatusElement && detectionStatusText) {
-                    const status = detectionStatus.status?.toLowerCase() || 'unknown';
-                    if (status === 'healthy') {
-                        detectionStatusElement.className = 'status-indicator status-online';
-                        detectionStatusText.textContent = 'Active';
-                    } else if (status === 'unhealthy') {
-                        detectionStatusElement.className = 'status-indicator status-warning';
-                        detectionStatusText.textContent = 'Warning';
-                    } else {
-                        detectionStatusElement.className = 'status-indicator status-offline';
-                        detectionStatusText.textContent = 'Inactive';
-                    }
-                }
-            }
+            // Detection status - REMOVED: Now handled by direct API call in updateDetectionStatusFromAPI()
+            // This prevents health monitoring from overriding real-time detection status
             
             // Database status
             if (healthData.components.database) {
