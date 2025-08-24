@@ -63,6 +63,11 @@
                                     </div>
                                     <div class="mt-3">
                                         <small class="text-muted" id="videoInfo">Live camera preview - position objects for capture</small>
+                                        <div class="mt-2">
+                                            <button type="button" class="btn btn-sm btn-outline-secondary" id="refreshVideoBtn">
+                                                <i class="fas fa-sync-alt"></i> Refresh Video
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -310,7 +315,7 @@ $(document).ready(function() {
     let experimentConfig = JSON.parse('{{ experiment_config|tojson|safe }}');
     let experimentId = '{{ experiment_id }}';
     let videoStream = null;
-    let videoElement = null;
+    let videoImg = null;
     
     // Join experiment room
     socket.emit('join_experiment', {experiment_id: experimentId});
@@ -318,54 +323,92 @@ $(document).ready(function() {
     // Initialize video feed
     function initializeVideoFeed() {
         try {
-            // Create video element
-            videoElement = document.createElement('video');
-            videoElement.id = 'experimentVideo';
-            videoElement.style.width = '100%';
-            videoElement.style.height = 'auto';
-            videoElement.style.maxHeight = '300px';
-            videoElement.autoplay = true;
-            videoElement.muted = true;
-            videoElement.controls = false;
+            console.log('Initializing video feed...');
             
-            // Set video source to camera stream
-            videoElement.src = '/camera/video_feed';
+            // Create image element for video stream (multipart stream)
+            const videoImg = document.createElement('img');
+            videoImg.id = 'experimentVideo';
+            videoImg.style.width = '100%';
+            videoImg.style.height = 'auto';
+            videoImg.style.maxHeight = '300px';
+            videoImg.style.borderRadius = '0.35rem';
+            videoImg.alt = 'Live Camera Feed';
             
-            // Replace placeholder with video element
+            // Set image source to camera stream with cache busting
+            const timestamp = new Date().getTime();
+            videoImg.src = `/camera/video_feed?t=${timestamp}`;
+            
+            console.log('Video feed source set to:', videoImg.src);
+            
+            // Replace placeholder with image element
             const videoContainer = document.getElementById('videoContainer');
+            if (!videoContainer) {
+                console.error('Video container not found');
+                return;
+            }
+            
             videoContainer.innerHTML = '';
-            videoContainer.appendChild(videoElement);
+            videoContainer.appendChild(videoImg);
             
             // Update video info
-            document.getElementById('videoInfo').textContent = 'Live camera preview - position objects for capture';
+            const videoInfo = document.getElementById('videoInfo');
+            if (videoInfo) {
+                videoInfo.textContent = 'Loading video feed...';
+            }
             
-            // Handle video errors
-            videoElement.onerror = function() {
-                console.error('Video feed error');
-                document.getElementById('videoContainer').innerHTML = `
+            // Handle image load
+            videoImg.onload = function() {
+                console.log('Video feed loaded successfully');
+                if (videoInfo) {
+                    videoInfo.textContent = 'Live camera preview - position objects for capture';
+                }
+            };
+            
+            // Handle image errors
+            videoImg.onerror = function(e) {
+                console.error('Video feed error:', e);
+                videoContainer.innerHTML = `
                     <div class="text-muted">
                         <i class="fas fa-exclamation-triangle fa-3x mb-3 text-warning"></i>
                         <p>Video feed unavailable</p>
                         <small>Camera may not be streaming</small>
                     </div>
                 `;
-                document.getElementById('videoInfo').textContent = 'Video feed unavailable - check camera status';
+                if (videoInfo) {
+                    videoInfo.textContent = 'Video feed unavailable - check camera status';
+                }
             };
             
-            // Handle video load
-            videoElement.onloadeddata = function() {
-                console.log('Video feed loaded successfully');
-            };
+            // Add timeout to check if image loads
+            setTimeout(function() {
+                console.log('Checking video feed status...');
+                console.log('Image complete:', videoImg.complete);
+                console.log('Natural width:', videoImg.naturalWidth);
+                console.log('Natural height:', videoImg.naturalHeight);
+                console.log('Current src:', videoImg.src);
+                
+                if (videoImg.complete && videoImg.naturalWidth === 0) {
+                    console.warn('Video feed image appears to be empty, retrying...');
+                    videoImg.src = `/camera/video_feed?t=${new Date().getTime()}`;
+                } else if (videoImg.complete && videoImg.naturalWidth > 0) {
+                    console.log('Video feed is working correctly');
+                } else {
+                    console.log('Video feed still loading...');
+                }
+            }, 3000);
             
         } catch (error) {
             console.error('Error initializing video feed:', error);
-            document.getElementById('videoContainer').innerHTML = `
-                <div class="text-muted">
-                    <i class="fas fa-exclamation-triangle fa-3x mb-3 text-warning"></i>
-                    <p>Failed to load video feed</p>
-                    <small>${error.message}</small>
-                </div>
-            `;
+            const videoContainer = document.getElementById('videoContainer');
+            if (videoContainer) {
+                videoContainer.innerHTML = `
+                    <div class="text-muted">
+                        <i class="fas fa-exclamation-triangle fa-3x mb-3 text-warning"></i>
+                        <p>Failed to load video feed</p>
+                        <small>${error.message}</small>
+                    </div>
+                `;
+            }
         }
     }
     
@@ -532,6 +575,12 @@ $(document).ready(function() {
     
     // Initialize video feed
     initializeVideoFeed();
+    
+    // Refresh video button
+    $('#refreshVideoBtn').click(function() {
+        console.log('Manual video refresh requested');
+        initializeVideoFeed();
+    });
 });
 </script>
 {% endblock %}
