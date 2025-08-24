@@ -323,7 +323,7 @@ class HealthMonitor:
                 if response.status_code == 200:
                     detection_data = response.json()
                     if detection_data.get('success'):
-                        detection_status = detection_data.get('status', {})
+                        detection_status = detection_data.get('detection_status', {})
                         processor_status = detection_status.get('detection_processor_status', {})
                         
                         details = {

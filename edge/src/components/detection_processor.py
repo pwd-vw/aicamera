@@ -637,23 +637,48 @@ class DetectionProcessor:
     
     def get_status(self) -> Dict[str, Any]:
         """
-        Get current status of the detection processor.
+        Get current status of the detection processor including model availability.
         
         Returns:
-            Dict[str, Any]: Status information
+            Dict containing detection processor status information
         """
-        return {
-            'models_loaded': self.models_loaded,
-            'vehicle_model_available': self.vehicle_model is not None,
-            'lp_detection_model_available': self.lp_detection_model is not None,
-            'lp_ocr_model_available': self.lp_ocr_model is not None,
-            'easyocr_available': self.ocr_reader is not None,
-            'detection_resolution': self.detection_resolution,
-            'confidence_threshold': self.confidence_threshold,
-            'plate_confidence_threshold': self.plate_confidence_threshold,
-            'processing_stats': self.processing_stats.copy(),
-            'last_update': datetime.now().isoformat()
-        }
+        try:
+            # Check model availability
+            vehicle_model_available = self.vehicle_model is not None
+            lp_detection_model_available = self.lp_detection_model is not None
+            lp_ocr_model_available = self.lp_ocr_model is not None
+            
+            # Get OCR status
+            ocr_status = self.get_ocr_status()
+            easyocr_available = ocr_status.get('easyocr_ready', False)
+            
+            return {
+                'models_loaded': self.models_loaded,
+                'vehicle_model_available': vehicle_model_available,
+                'lp_detection_model_available': lp_detection_model_available,
+                'lp_ocr_model_available': lp_ocr_model_available,
+                'easyocr_available': easyocr_available,
+                'detection_resolution': self.detection_resolution,
+                'confidence_threshold': self.confidence_threshold,
+                'plate_confidence_threshold': self.plate_confidence_threshold,
+                'processing_stats': self.processing_stats.copy(),
+                'last_update': datetime.now().isoformat()
+            }
+        except Exception as e:
+            self.logger.error(f"Error getting detection processor status: {e}")
+            return {
+                'models_loaded': False,
+                'vehicle_model_available': False,
+                'lp_detection_model_available': False,
+                'lp_ocr_model_available': False,
+                'easyocr_available': False,
+                'detection_resolution': self.detection_resolution,
+                'confidence_threshold': self.confidence_threshold,
+                'plate_confidence_threshold': self.plate_confidence_threshold,
+                'processing_stats': {},
+                'last_update': datetime.now().isoformat(),
+                'error': str(e)
+            }
     
     def cleanup(self):
         """Clean up resources and models."""

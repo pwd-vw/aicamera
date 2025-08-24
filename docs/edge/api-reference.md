@@ -566,34 +566,157 @@ API endpoint สำหรับ metadata summary สำหรับ experimental
       "vehicle_model_available": true,
       "lp_detection_model_available": true,
       "lp_ocr_model_available": true,
-      "easyocr_available": true,
+      "easyocr_available": false,
       "detection_resolution": [640, 640],
-      "confidence_threshold": 0.8,
-      "plate_confidence_threshold": 0.6,
+      "confidence_threshold": 0.7,
+      "plate_confidence_threshold": 0.5,
       "processing_stats": {
-        "total_processed": 156,
-        "vehicles_detected": 89,
-        "plates_detected": 67,
-        "successful_ocr": 45,
-        "last_detection": "2025-08-20T10:25:30.123456"
+        "total_processed": 6023,
+        "vehicles_detected": 512,
+        "plates_detected": 0,
+        "successful_ocr": 0,
+        "last_detection": null
       },
-      "last_update": "2025-08-20T10:30:00Z"
+      "last_update": "2025-08-24T18:20:35.601865"
     },
     "detection_interval": 0.1,
     "auto_start": true,
     "statistics": {
-      "total_detections": 156,
-      "processing_time_avg": 0.045,
-      "failed_detections": 3,
-      "last_detection": "2025-08-20T10:25:30.123456"
+      "total_frames_processed": 6023,
+      "total_vehicles_detected": 512,
+      "total_plates_detected": 0,
+      "successful_ocr": 0,
+      "failed_detections": 512,
+      "processing_time_avg": 0,
+      "last_detection": null,
+      "started_at": "2025-08-24T18:08:03.714003"
     },
     "queue_size": 0,
     "thread_alive": true,
-    "last_update": "2025-08-20T10:30:00Z"
+    "last_update": "2025-08-24T18:20:35.601884"
   },
-  "timestamp": "2025-08-23T10:30:00Z"
+  "timestamp": "2025-08-24T18:20:35.601904"
 }
 ```
+
+### Get Detection Status
+**GET** `/detection/status`
+
+Returns current detection service status including model availability and processing statistics.
+
+**Response:**
+```json
+{
+  "success": true,
+  "detection_status": {
+    "service_running": true,
+    "detection_processor_status": {
+      "models_loaded": true,
+      "vehicle_model_available": true,
+      "lp_detection_model_available": true,
+      "lp_ocr_model_available": true,
+      "easyocr_available": false,
+      "detection_resolution": [640, 640],
+      "confidence_threshold": 0.7,
+      "plate_confidence_threshold": 0.5,
+      "processing_stats": {
+        "total_processed": 6023,
+        "vehicles_detected": 512,
+        "plates_detected": 0,
+        "successful_ocr": 0,
+        "last_detection": null
+      },
+      "last_update": "2025-08-24T18:20:35.601865"
+    },
+    "detection_interval": 0.1,
+    "auto_start": true,
+    "statistics": {
+      "total_frames_processed": 6023,
+      "total_vehicles_detected": 512,
+      "total_plates_detected": 0,
+      "successful_ocr": 0,
+      "failed_detections": 512,
+      "processing_time_avg": 0,
+      "last_detection": null,
+      "started_at": "2025-08-24T18:08:03.714003"
+    },
+    "queue_size": 0,
+    "thread_alive": true,
+    "last_update": "2025-08-24T18:20:35.601884"
+  },
+  "timestamp": "2025-08-24T18:20:35.601904"
+}
+```
+
+### Detection Processor Status Fields
+
+The `detection_processor_status` object contains detailed information about the AI models and processing:
+
+- **`models_loaded`** (boolean): Overall model loading status
+- **`vehicle_model_available`** (boolean): Vehicle detection model availability
+- **`lp_detection_model_available`** (boolean): License plate detection model availability  
+- **`lp_ocr_model_available`** (boolean): License plate OCR model availability
+- **`easyocr_available`** (boolean): EasyOCR initialization status
+- **`detection_resolution`** (array): Model input resolution [width, height]
+- **`confidence_threshold`** (float): Vehicle detection confidence threshold
+- **`plate_confidence_threshold`** (float): License plate detection confidence threshold
+- **`processing_stats`** (object): Real-time processing statistics
+- **`last_update`** (string): ISO timestamp of last status update
+
+### Health Monitoring Integration
+
+The detection status endpoint is used by the health monitoring system to verify model availability:
+
+- **Health Check**: Monitors `vehicle_model_available` and `lp_detection_model_available`
+- **Status Validation**: Ensures both essential models are loaded before marking as healthy
+- **Fallback Mechanism**: Uses direct degirum model loading if API is unavailable
+- **Real-time Monitoring**: Continuous health checks every 2 hours
+
+## Health Monitoring API Endpoints
+
+### Get System Health Status
+**GET** `/health/status`
+
+Returns system health monitoring status.
+
+**Response:**
+```json
+{
+  "success": true,
+  "status": {
+    "initialized": true,
+    "last_check": "2025-08-24T18:26:40.208073",
+    "monitoring": false
+  },
+  "timestamp": "2025-08-24T18:31:36.202441"
+}
+```
+
+### Health Check Components
+
+The health monitoring system performs comprehensive checks on the following components:
+
+1. **Camera System**: Camera initialization and streaming status
+2. **Detection Models**: AI model availability and loading status via `/detection/status` API
+3. **Database**: Database connectivity and operations
+4. **EasyOCR**: OCR engine initialization and language support
+5. **Network Connectivity**: Internet connectivity and DNS resolution
+6. **Storage Management**: Disk space availability and file operations
+
+**Note**: Detailed health check results are logged to the system journal and can be viewed using:
+```bash
+journalctl -u aicamera_lpr.service | grep -i "health check"
+```
+
+### Detection Models Health Check
+
+The detection models health check specifically validates:
+
+- **Vehicle Detection Model**: Ensures vehicle detection model is loaded and available
+- **License Plate Detection Model**: Ensures license plate detection model is loaded and available
+- **API Integration**: Uses `/detection/status` endpoint for real-time status
+- **Fallback Mechanism**: Direct degirum model loading if API unavailable
+- **Status Reporting**: Detailed logging of model availability and errors
 
 #### POST /detection/start
 เริ่มการตรวจจับ
