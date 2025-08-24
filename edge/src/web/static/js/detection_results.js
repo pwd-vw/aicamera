@@ -625,6 +625,108 @@ const DetectionResultsManager = {
     },
 
     /**
+     * Draw bounding boxes on the original image
+     */
+    drawBoundingBoxes: function(imgElement, vehicleDetections, plateDetections, ocrResults) {
+        try {
+            // Create canvas overlay for drawing bounding boxes
+            const img = imgElement;
+            const container = img.parentElement;
+            
+            // Create canvas element
+            const canvas = document.createElement('canvas');
+            canvas.style.position = 'absolute';
+            canvas.style.top = '0';
+            canvas.style.left = '0';
+            canvas.style.pointerEvents = 'none';
+            canvas.style.zIndex = '10';
+            
+            // Set canvas size to match image
+            canvas.width = img.offsetWidth;
+            canvas.height = img.offsetHeight;
+            
+            // Get canvas context
+            const ctx = canvas.getContext('2d');
+            
+            // Calculate scale factors (image might be resized in display)
+            const scaleX = canvas.width / img.naturalWidth;
+            const scaleY = canvas.height / img.naturalHeight;
+            
+            // Draw vehicle bounding boxes (green)
+            if (vehicleDetections && vehicleDetections.length > 0) {
+                vehicleDetections.forEach(detection => {
+                    if (detection.bbox) {
+                        const [x1, y1, x2, y2] = detection.bbox;
+                        const scaledX1 = x1 * scaleX;
+                        const scaledY1 = y1 * scaleY;
+                        const scaledX2 = x2 * scaleX;
+                        const scaledY2 = y2 * scaleY;
+                        
+                        // Draw rectangle
+                        ctx.strokeStyle = '#00ff00';
+                        ctx.lineWidth = 2;
+                        ctx.strokeRect(scaledX1, scaledY1, scaledX2 - scaledX1, scaledY2 - scaledY1);
+                        
+                        // Draw label
+                        const label = detection.label || 'Vehicle';
+                        const confidence = detection.confidence || detection.score || 0;
+                        const text = `${label} ${(confidence * 100).toFixed(1)}%`;
+                        
+                        ctx.fillStyle = '#00ff00';
+                        ctx.font = '12px Arial';
+                        ctx.fillText(text, scaledX1, scaledY1 - 5);
+                    }
+                });
+            }
+            
+            // Draw license plate bounding boxes (blue) and OCR text
+            if (plateDetections && plateDetections.length > 0) {
+                plateDetections.forEach((detection, index) => {
+                    if (detection.bbox) {
+                        const [x1, y1, x2, y2] = detection.bbox;
+                        const scaledX1 = x1 * scaleX;
+                        const scaledY1 = y1 * scaleY;
+                        const scaledX2 = x2 * scaleX;
+                        const scaledY2 = y2 * scaleY;
+                        
+                        // Draw rectangle
+                        ctx.strokeStyle = '#0000ff';
+                        ctx.lineWidth = 2;
+                        ctx.strokeRect(scaledX1, scaledY1, scaledX2 - scaledX1, scaledY2 - scaledY1);
+                        
+                        // Draw label
+                        const confidence = detection.confidence || detection.score || 0;
+                        const text = `LP ${(confidence * 100).toFixed(1)}%`;
+                        
+                        ctx.fillStyle = '#0000ff';
+                        ctx.font = '12px Arial';
+                        ctx.fillText(text, scaledX1, scaledY1 - 5);
+                        
+                        // Add OCR text if available
+                        if (ocrResults && ocrResults[index]) {
+                            const ocrText = ocrResults[index].text || '';
+                            const ocrConfidence = ocrResults[index].confidence || 0;
+                            
+                            if (ocrText) {
+                                ctx.fillStyle = '#ff0000';
+                                ctx.font = 'bold 14px Arial';
+                                ctx.fillText(`${ocrText} (${(ocrConfidence * 100).toFixed(1)}%)`, scaledX1, scaledY2 + 15);
+                            }
+                        }
+                    }
+                });
+            }
+            
+            // Add canvas to container
+            container.style.position = 'relative';
+            container.appendChild(canvas);
+            
+        } catch (error) {
+            console.error('Error drawing bounding boxes:', error);
+        }
+    },
+
+    /**
      * Show export modal
      */
     showExportModal: function() {

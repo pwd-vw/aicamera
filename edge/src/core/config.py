@@ -77,7 +77,7 @@ DEFAULT_SHARPNESS = float(os.getenv("CAMERA_SHARPNESS", "1.0"))   # 0.0 to 4.0
 DEFAULT_AWB_MODE = int(os.getenv("CAMERA_AWB_MODE", "0"))      # 0=auto, 1=fluorescent, etc.
 
 # Detection Settings - Can be overridden via environment variables
-DETECTION_INTERVAL = float(os.getenv("DETECTION_INTERVAL", "0.1"))
+DETECTION_INTERVAL = float(os.getenv("DETECTION_INTERVAL", "30.0"))  # Optimized to 30.0s for performance
 CONFIDENCE_THRESHOLD = float(os.getenv("DETECTION_CONFIDENCE_THRESHOLD", "0.8"))
 PLATE_CONFIDENCE_THRESHOLD = float(os.getenv("PLATE_CONFIDENCE_THRESHOLD", "0.6"))
 
