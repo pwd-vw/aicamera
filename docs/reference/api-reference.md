@@ -510,7 +510,8 @@ Paginated results with filters
       "ocr_results": [...],
       "vehicle_detections": [...],
       "plate_detections": [...],
-      "annotated_image_path": string,
+      "vehicle_detected_image_path": string,
+      "plate_image_path": string,
       "cropped_plates_paths": [...]
     }
   ],
@@ -549,7 +550,8 @@ Single result detail
     ],
     "vehicle_detections": [...],
     "plate_detections": [...],
-    "annotated_image_path": string,
+    "vehicle_detected_image_path": string,
+    "plate_image_path": string,
     "cropped_plates_paths": [...]
   },
   "timestamp": "2025-08-20T08:51:30Z"
@@ -770,7 +772,8 @@ Health status update
   ],
   "vehicle_detections": [...],
   "plate_detections": [...],
-  "annotated_image_path": string,
+      "vehicle_detected_image_path": string,
+    "plate_image_path": string,
   "cropped_plates_paths": [...]
 }
 ```
@@ -914,7 +917,8 @@ Detection Manager → Detection Blueprint → Dashboard JS → HTML Elements
         {
             "id": 123,
             "timestamp": "2025-08-24T10:15:25Z",
-            "image_path": "captured_images/detection_20250824_101525_123.jpg",
+            "vehicle_detected_image_path": "captured_images/vehicle_detected_20250824_101525_123.jpg",
+            "plate_image_path": "captured_images/plate_detected_20250824_101525_123.jpg",
             "vehicles_detected": 2,
             "plates_detected": 1,
             "confidence_scores": [0.85, 0.92],

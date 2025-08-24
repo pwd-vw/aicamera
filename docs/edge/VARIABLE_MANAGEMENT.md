@@ -1057,6 +1057,50 @@ socket.emit('detection_control', {
 });
 ```
 
+### **Detection Results API Variable Mapping:**
+
+#### **Backend Response Structure:**
+```json
+{
+    "success": true,
+    "results": [
+        {
+            "id": 123,
+            "timestamp": "2025-08-24T10:15:25Z",
+            "vehicle_detected_image_path": "captured_images/vehicle_detected_20250824_101525_123.jpg",
+            "plate_image_path": "captured_images/plate_detected_20250824_101525_123.jpg",
+            "vehicles_count": 2,
+            "plates_count": 1,
+            "processing_time_ms": 45.2,
+            "ocr_results": [
+                {
+                    "text": "ABC123",
+                    "confidence": 0.95,
+                    "language": "en"
+                }
+            ]
+        }
+    ],
+    "count": 1
+}
+```
+
+#### **Frontend Variable Mapping:**
+- `data.results[i].id` → Detection result ID
+- `data.results[i].timestamp` → Detection timestamp
+- `data.results[i].vehicle_detected_image_path` → Vehicle detection image path
+- `data.results[i].plate_image_path` → License plate detection image path
+- `data.results[i].vehicles_count` → Number of vehicles detected
+- `data.results[i].plates_count` → Number of plates detected
+- `data.results[i].processing_time_ms` → Processing time in milliseconds
+- `data.results[i].ocr_results` → OCR results array
+
+#### **Image Path Structure:**
+- **Vehicle Detection Image**: `captured_images/vehicle_detected_YYYYMMDD_HHMMSS_microseconds.jpg`
+- **Plate Detection Image**: `captured_images/plate_detected_YYYYMMDD_HHMMSS_microseconds.jpg`
+- **Original Image**: `captured_images/detection_YYYYMMDD_HHMMSS_microseconds.jpg`
+- **Cropped Plates**: `captured_images/plate_YYYYMMDD_HHMMSS_microseconds_N.jpg`
+
 ### **Error Handling for Detection APIs**
 
 #### **Frontend Error Handling:**

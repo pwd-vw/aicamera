@@ -235,8 +235,8 @@ detection_record = {
             'parallel_processing': {...}
         }
     ],
-    'annotated_image_path': '/path/to/annotated_image.jpg',
-    'image_path': 'edge/captured_images/detection_20250824_101530.jpg',
+    'vehicle_detected_image_path': 'captured_images/vehicle_detected_20250824_101530.jpg',
+    'plate_image_path': 'captured_images/plate_detected_20250824_101530.jpg',
     'cropped_plates_paths': ['/path/to/plate_0.jpg'],
     'vehicle_detections': [
         {
@@ -453,7 +453,8 @@ db_record = {
         {
             "id": 123,
             "timestamp": "2025-08-24T10:15:25Z",
-            "image_path": "captured_images/detection_20250824_101525_123.jpg",
+            "vehicle_detected_image_path": "captured_images/vehicle_detected_20250824_101525_123.jpg",
+            "plate_image_path": "captured_images/plate_detected_20250824_101525_123.jpg",
             "vehicles_detected": 2,
             "plates_detected": 1,
             "confidence_scores": [0.85, 0.92],
@@ -530,7 +531,8 @@ const recentResults = [
     {
         id: 123,
         timestamp: "2025-08-24T10:15:25Z",
-        imagePath: "captured_images/detection_20250824_101525_123.jpg",
+        vehicleDetectedImagePath: "captured_images/vehicle_detected_20250824_101525_123.jpg",
+        plateImagePath: "captured_images/plate_detected_20250824_101525_123.jpg",
         vehiclesDetected: 2,
         platesDetected: 1,
         confidenceScores: [0.85, 0.92],
@@ -663,8 +665,10 @@ const detectionConfig = {
             <div class="result-item">
                 <div class="row">
                     <div class="col-md-3">
-                        <img src="captured_images/detection_20250824_101525_123.jpg" 
-                             class="img-fluid" alt="Detection Result">
+                        <img src="captured_images/vehicle_detected_20250824_101525_123.jpg" 
+                             class="img-fluid" alt="Vehicle Detection">
+                        <img src="captured_images/plate_detected_20250824_101525_123.jpg" 
+                             class="img-fluid" alt="Plate Detection">
                     </div>
                     <div class="col-md-9">
                         <h6>Detection #123</h6>
