@@ -40,6 +40,7 @@ const DetectionManager = {
         this.startPeriodicUpdates();
         this.loadResults();
         this.loadStatistics();
+        this.loadConfiguration();
         console.log('Unified Detection Manager initialized');
     },
 
@@ -74,8 +75,12 @@ const DetectionManager = {
             this.addLogMessage('Disconnected from server', 'warning');
         });
 
-        this.socket.on('detection_status_update', (status) => {
-            this.updateDetectionStatus(status);
+        this.socket.on('detection_status_update', (data) => {
+            if (data && data.success && data.detection_status) {
+                this.updateDetectionStatus(data.detection_status);
+            } else {
+                console.error('Invalid detection status update:', data);
+            }
         });
 
         this.socket.on('detection_control_response', (response) => {
@@ -337,8 +342,10 @@ const DetectionManager = {
     requestStatusViaHTTP: function() {
         AICameraUtils.apiRequest('/detection/status')
             .then(data => {
-                if (data && data.success) {
-                    this.updateDetectionStatus(data.status);
+                if (data && data.success && data.detection_status) {
+                    this.updateDetectionStatus(data.detection_status);
+                } else {
+                    console.error('Invalid status response:', data);
                 }
             })
             .catch(error => {
@@ -360,8 +367,10 @@ const DetectionManager = {
 
         AICameraUtils.apiRequest('/detection/statistics')
             .then(data => {
-                if (data && data.success) {
+                if (data && data.success && data.statistics) {
                     this.updateStatistics(data.statistics);
+                } else {
+                    console.error('Invalid statistics response:', data);
                 }
             })
             .catch(error => {
@@ -1171,6 +1180,24 @@ const DetectionManager = {
             
             container.appendChild(resultDiv);
         });
+    },
+
+    /**
+     * Load detection configuration from API
+     */
+    loadConfiguration: function() {
+        AICameraUtils.apiRequest('/detection/config')
+            .then(data => {
+                if (data && data.success && data.config) {
+                    this.updateConfigForm(data.config);
+                } else {
+                    console.error('Invalid config response:', data);
+                }
+            })
+            .catch(error => {
+                console.error('Failed to load configuration:', error);
+                this.addLogMessage('Failed to load configuration: ' + error.message, 'error');
+            });
     },
 
     /**

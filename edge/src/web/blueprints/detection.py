@@ -80,8 +80,8 @@ def get_detection_status():
         
         return jsonify({
             'success': True,
-            'status': serializable_status,
-            'timestamp': int(time.time())
+            'detection_status': serializable_status,
+            'timestamp': datetime.now().isoformat()
         })
     except Exception as e:
         logger.error(f"Error getting detection status: {e}")
@@ -116,12 +116,13 @@ def start_detection():
             return jsonify({
                 'success': True,
                 'message': 'Detection service started successfully',
-                'timestamp': int(time.time())
+                'timestamp': datetime.now().isoformat()
             })
         else:
             return jsonify({
                 'success': False,
-                'error': 'Failed to start detection service'
+                'error': 'Failed to start detection service',
+                'timestamp': datetime.now().isoformat()
             }), 500
             
     except Exception as e:
@@ -157,12 +158,13 @@ def stop_detection():
             return jsonify({
                 'success': True,
                 'message': 'Detection service stopped successfully',
-                'timestamp': int(time.time())
+                'timestamp': datetime.now().isoformat()
             })
         else:
             return jsonify({
                 'success': False,
-                'error': 'Failed to stop detection service'
+                'error': 'Failed to stop detection service',
+                'timestamp': datetime.now().isoformat()
             }), 500
             
     except Exception as e:
@@ -205,13 +207,13 @@ def process_single_frame():
             return jsonify({
                 'success': True,
                 'detection_result': make_json_serializable(result),
-                'timestamp': int(time.time())
+                'timestamp': datetime.now().isoformat()
             })
         else:
             return jsonify({
                 'success': False,
                 'message': 'No detection results or processing failed',
-                'timestamp': int(time.time())
+                'timestamp': datetime.now().isoformat()
             })
             
     except Exception as e:
@@ -220,6 +222,63 @@ def process_single_frame():
             'success': False,
             'error': str(e),
             'timestamp': int(time.time())
+        }), 500
+
+
+@detection_bp.route('/config', methods=['GET', 'POST'])
+def detection_config():
+    """
+    Get or update detection configuration.
+    
+    Returns:
+        dict: JSON response with detection configuration
+    """
+    try:
+        detection_manager = get_service('detection_manager')
+        if not detection_manager:
+            return jsonify({
+                'success': False,
+                'error': 'Detection manager not available'
+            }), 500
+        
+        if request.method == 'GET':
+            # Get current configuration
+            config = detection_manager.get_configuration()
+            
+            return jsonify({
+                'success': True,
+                'config': config,
+                'timestamp': datetime.now().isoformat()
+            })
+        else:
+            # Update configuration
+            data = request.get_json()
+            if not data:
+                return jsonify({
+                    'success': False,
+                    'error': 'No configuration data provided'
+                }), 400
+            
+            success = detection_manager.update_configuration(data)
+            
+            if success:
+                return jsonify({
+                    'success': True,
+                    'message': 'Configuration updated successfully',
+                    'timestamp': datetime.now().isoformat()
+                })
+            else:
+                return jsonify({
+                    'success': False,
+                    'error': 'Failed to update configuration'
+                }), 500
+                
+    except Exception as e:
+        logger.error(f"Error in detection config: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'timestamp': datetime.now().isoformat()
         }), 500
 
 
@@ -256,7 +315,7 @@ def get_detection_statistics():
         return jsonify({
             'success': True,
             'statistics': enhanced_stats,
-            'timestamp': int(time.time())
+            'timestamp': datetime.now().isoformat()
         })
         
     except Exception as e:
@@ -291,7 +350,7 @@ def get_recent_results():
             'success': True,
             'results': make_json_serializable(recent_results),
             'count': len(recent_results),
-            'timestamp': int(time.time())
+            'timestamp': datetime.now().isoformat()
         })
         
     except Exception as e:
