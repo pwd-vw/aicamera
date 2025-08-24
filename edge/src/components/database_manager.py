@@ -443,6 +443,60 @@ class DatabaseManager:
             self.logger.error(f"Error getting paginated detection results: {e}")
             return {'results': [], 'total': 0, 'page': 1, 'per_page': per_page, 'total_pages': 0}
     
+    def get_recent_detections(self, limit: int = 50) -> List[Dict[str, Any]]:
+        """
+        Get recent detection results from database.
+        
+        Args:
+            limit: Maximum number of results to retrieve
+            
+        Returns:
+            List[Dict[str, Any]]: List of recent detection results
+        """
+        try:
+            if not self.connection:
+                self.logger.error("Database connection not available")
+                return []
+            
+            cursor = self.connection.cursor()
+            cursor.execute("""
+                SELECT id, timestamp, vehicles_count, plates_count, ocr_results, 
+                       annotated_image_path, image_path, processing_time_ms, created_at
+                FROM detection_results
+                ORDER BY created_at DESC
+                LIMIT ?
+            """, (limit,))
+            
+            rows = cursor.fetchall()
+            results = []
+            
+            for row in rows:
+                result = {
+                    'id': row[0],
+                    'timestamp': row[1],
+                    'vehicles_count': row[2],
+                    'plates_count': row[3],
+                    'annotated_image_path': row[5],
+                    'image_path': row[6],
+                    'processing_time_ms': row[7],
+                    'created_at': row[8]
+                }
+                
+                # Deserialize JSON fields
+                try:
+                    result['ocr_results'] = json.loads(row[4] or '[]')
+                except json.JSONDecodeError as e:
+                    self.logger.warning(f"Error deserializing OCR results for record {row[0]}: {e}")
+                    result['ocr_results'] = []
+                
+                results.append(result)
+            
+            return results
+            
+        except Exception as e:
+            self.logger.error(f"Error getting recent detections: {e}")
+            return []
+
     def get_detection_result_by_id(self, result_id: int) -> Optional[Dict[str, Any]]:
         """
         Get single detection result by ID with full details.

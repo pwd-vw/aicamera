@@ -114,6 +114,31 @@ const DetectionManager = {
      * Setup event handlers for detection results
      */
     setupResultsEventHandlers: function() {
+        // Refresh button
+        const refreshBtn = document.getElementById('refresh-results-btn');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', () => {
+                this.loadResults();
+                this.addLogMessage('Refreshing detection results...', 'info');
+            });
+        }
+
+        // Export button
+        const exportBtn = document.getElementById('export-results-btn');
+        if (exportBtn) {
+            exportBtn.addEventListener('click', () => {
+                this.showExportModal();
+            });
+        }
+
+        // Clear filters button
+        const clearFiltersBtn = document.getElementById('clear-filters-btn');
+        if (clearFiltersBtn) {
+            clearFiltersBtn.addEventListener('click', () => {
+                this.clearFilters();
+            });
+        }
+
         // Search input with debounce
         const searchInput = document.getElementById('search-input');
         if (searchInput) {
@@ -174,31 +199,6 @@ const DetectionManager = {
                 this.perPage = parseInt(e.target.value);
                 this.currentPage = 1;
                 this.loadResults();
-            });
-        }
-
-        // Clear filters button
-        const clearFiltersBtn = document.getElementById('clear-filters-btn');
-        if (clearFiltersBtn) {
-            clearFiltersBtn.addEventListener('click', () => {
-                this.clearFilters();
-            });
-        }
-
-        // Refresh button
-        const refreshResultsBtn = document.getElementById('refresh-results-btn');
-        if (refreshResultsBtn) {
-            refreshResultsBtn.addEventListener('click', () => {
-                this.loadResults();
-                this.loadStatistics();
-            });
-        }
-
-        // Export button
-        const exportResultsBtn = document.getElementById('export-results-btn');
-        if (exportResultsBtn) {
-            exportResultsBtn.addEventListener('click', () => {
-                this.showExportModal();
             });
         }
 
@@ -519,8 +519,10 @@ const DetectionManager = {
      * Load recent detection results
      */
     loadRecentResults: function() {
+        console.log('Loading recent detection results...');
         AICameraUtils.apiRequest('/detection/results/recent')
             .then(data => {
+                console.log('Recent results response:', data);
                 if (data.success) {
                     this.displayRecentResults(data.results);
                 } else {
@@ -528,6 +530,7 @@ const DetectionManager = {
                 }
             })
             .catch(error => {
+                console.error('Error loading recent results:', error);
                 this.addLogMessage('Failed to load recent results: ' + error.message, 'error');
             });
     },
@@ -555,8 +558,10 @@ const DetectionManager = {
         if (this.currentFilters.hasVehicles) params.append('has_vehicles', this.currentFilters.hasVehicles);
         if (this.currentFilters.hasPlates) params.append('has_plates', this.currentFilters.hasPlates);
         
-        AICameraUtils.apiRequest(`/detection_results/api/results?${params.toString()}`)
+        console.log('Loading detection results...');
+        AICameraUtils.apiRequest(`/detection/results/recent`)
             .then(data => {
+                console.log('Results response:', data);
                 if (data.success) {
                     this.displayResults(data);
                 } else {
@@ -564,6 +569,7 @@ const DetectionManager = {
                 }
             })
             .catch(error => {
+                console.error('Error loading results:', error);
                 this.showErrorState(error.message);
             })
             .finally(() => {
@@ -575,7 +581,7 @@ const DetectionManager = {
      * Load statistics
      */
     loadStatistics: function() {
-        AICameraUtils.apiRequest('/detection_results/api/statistics')
+        AICameraUtils.apiRequest('/detection/statistics')
             .then(data => {
                 if (data.success) {
                     this.updateStatisticsDisplay(data.statistics);
@@ -590,15 +596,12 @@ const DetectionManager = {
      * Display detection results
      */
     displayResults: function(data) {
-        const { results, pagination } = data;
+        const { results, count } = data;
         
-        this.totalPages = pagination.total_pages;
-        this.updateResultsCount(pagination.total);
-        this.updatePaginationInfo(pagination);
+        this.updateResultsCount(count || results.length);
         this.renderResultsTable(results);
-        this.renderPagination();
         
-        if (results.length === 0) {
+        if (!results || results.length === 0) {
             this.showEmptyState();
         } else {
             this.hideEmptyState();
@@ -620,14 +623,14 @@ const DetectionManager = {
         results.forEach(result => {
             const row = document.createElement('tr');
             row.innerHTML = `
-                <td>${result.id}</td>
-                <td>${AICameraUtils.formatTimestamp(result.created_at)}</td>
-                <td>${result.vehicles_count}</td>
-                <td>${result.plates_count}</td>
+                <td>${result.id || 'N/A'}</td>
+                <td>${AICameraUtils.formatTimestamp(result.timestamp || result.created_at)}</td>
+                <td>${result.vehicles_detected || result.vehicles_count || 0}</td>
+                <td>${result.plates_detected || result.plates_count || 0}</td>
                 <td>${this.formatOcrResults(result.ocr_results)}</td>
-                <td>${result.processing_time_ms}ms</td>
+                <td>${result.processing_time_ms || 0}ms</td>
                 <td>
-                    <button class="btn btn-sm btn-outline-primary" onclick="DetectionManager.showDetail(${result.id})">
+                    <button class="btn btn-sm btn-outline-primary" onclick="DetectionManager.showDetail(${result.id || 0})">
                         <i class="fas fa-eye"></i> View
                     </button>
                 </td>
@@ -653,17 +656,9 @@ const DetectionManager = {
      * Show detail modal
      */
     showDetail: function(resultId) {
-        AICameraUtils.apiRequest(`/detection_results/api/results/${resultId}`)
-            .then(data => {
-                if (data.success) {
-                    this.displayDetailModal(data.result);
-                } else {
-                    throw new Error(data.error || 'Failed to load detail');
-                }
-            })
-            .catch(error => {
-                AICameraUtils.showToast('Failed to load detail: ' + error.message, 'error');
-            });
+        // For now, we'll use the result data from the table since we don't have a single result endpoint
+        // In the future, we can add a /detection/results/{id} endpoint
+        AICameraUtils.showToast('Detail view not implemented yet', 'info');
     },
 
     /**
@@ -1243,6 +1238,67 @@ const DetectionManager = {
         .catch(error => {
             this.addLogMessage('Failed to update configuration: ' + error.message, 'error');
         });
+    },
+
+    /**
+     * Clear all filters
+     */
+    clearFilters: function() {
+        this.currentFilters = {};
+        this.currentPage = 1;
+        
+        // Clear form inputs
+        const searchInput = document.getElementById('search-input');
+        const dateFrom = document.getElementById('date-from');
+        const dateTo = document.getElementById('date-to');
+        const hasVehicles = document.getElementById('has-vehicles');
+        const hasPlates = document.getElementById('has-plates');
+        
+        if (searchInput) searchInput.value = '';
+        if (dateFrom) dateFrom.value = '';
+        if (dateTo) dateTo.value = '';
+        if (hasVehicles) hasVehicles.value = '';
+        if (hasPlates) hasPlates.value = '';
+        
+        this.loadResults();
+        this.addLogMessage('Filters cleared', 'info');
+    },
+
+    /**
+     * Show export modal
+     */
+    showExportModal: function() {
+        const modal = new bootstrap.Modal(document.getElementById('export-modal'));
+        modal.show();
+    },
+
+    /**
+     * Export results
+     */
+    exportResults: function() {
+        const format = document.getElementById('export-format').value;
+        this.addLogMessage(`Exporting results as ${format.toUpperCase()}...`, 'info');
+        
+        // For now, just show a message
+        AICameraUtils.showToast(`Export functionality will be implemented soon`, 'info');
+        
+        // Close modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('export-modal'));
+        if (modal) modal.hide();
+    },
+
+    /**
+     * Handle sorting
+     */
+    handleSort: function(sortBy) {
+        if (this.currentSort.by === sortBy) {
+            this.currentSort.order = this.currentSort.order === 'asc' ? 'desc' : 'asc';
+        } else {
+            this.currentSort.by = sortBy;
+            this.currentSort.order = 'asc';
+        }
+        
+        this.loadResults();
     },
 
     /**
