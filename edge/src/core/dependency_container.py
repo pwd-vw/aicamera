@@ -194,7 +194,7 @@ class DependencyContainer:
             try:
                 from edge.src.services.experiment_service import ExperimentService
                 self.register_service('experiment_service', ExperimentService, 
-                                    singleton=True, dependencies={'logger': 'logger'})
+                                    singleton=True, dependencies={})
                 self.logger.info("Experiment Service registered (enabled in config)")
             except ImportError:
                 self.logger.warning("ExperimentService not available")

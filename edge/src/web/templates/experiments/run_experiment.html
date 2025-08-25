@@ -55,10 +55,15 @@
                                     </h5>
                                 </div>
                                 <div class="card-body text-center">
-                                    <div id="videoContainer" style="min-height: 300px; background-color: #f8f9fa; border: 2px dashed #dee2e6; display: flex; align-items: center; justify-content: center;">
-                                        <div class="text-muted">
-                                            <i class="fas fa-video fa-3x mb-3"></i>
+                                    <div id="videoContainer" style="min-height: 300px; background-color: #f8f9fa; border: 2px dashed #dee2e6; display: flex; align-items: center; justify-content: center; position: relative;">
+                                        <div id="videoLoadingState" class="text-muted">
+                                            <i class="fas fa-spinner fa-spin fa-3x mb-3"></i>
                                             <p>Loading video feed...</p>
+                                        </div>
+                                        <div id="videoErrorState" class="text-muted" style="display: none;">
+                                            <i class="fas fa-exclamation-triangle fa-3x mb-3 text-warning"></i>
+                                            <p>Video feed unavailable</p>
+                                            <small>Camera may not be streaming</small>
                                         </div>
                                     </div>
                                     <div class="mt-3">
@@ -307,13 +312,33 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
 <script>
 $(document).ready(function() {
+    console.log('Document ready - experiments page loaded');
+    
     // Initialize variables
     let socket = io();
     let experimentRunning = false;
     let currentStep = 0;
     let totalSteps = 0;
-    let experimentConfig = JSON.parse('{{ experiment_config|tojson|safe }}');
+    let experimentConfig;
     let experimentId = '{{ experiment_id }}';
+    
+    // Debug: Log experiment configuration
+    console.log('Experiment ID:', experimentId);
+    
+    try {
+        experimentConfig = JSON.parse('{{ experiment_config|tojson|safe }}');
+        console.log('Experiment Config:', experimentConfig);
+    } catch (error) {
+        console.error('Error parsing experiment config:', error);
+        experimentConfig = {
+            camera_type: ['main'],
+            lens_cover: ['none'],
+            start_distance_m: 1,
+            end_distance_m: 10,
+            step_distance_m: 1,
+            is_night_mode: false
+        };
+    }
     let videoStream = null;
     let videoImg = null;
     
@@ -322,10 +347,28 @@ $(document).ready(function() {
     
     // Initialize video feed
     function initializeVideoFeed() {
+        console.log('initializeVideoFeed function called');
         try {
             console.log('Initializing video feed...');
             
-            // Create image element for video stream (multipart stream)
+            // Replace placeholder with simple image element (like camera dashboard)
+            console.log('Looking for videoContainer element...');
+            const videoContainer = document.getElementById('videoContainer');
+            console.log('Video container found:', videoContainer);
+            if (!videoContainer) {
+                console.error('Video container not found - this is the problem!');
+                console.log('Available elements with "video" in ID:', document.querySelectorAll('[id*="video"]'));
+                return;
+            }
+            
+            // Clear loading state and add video element
+            const loadingState = document.getElementById('videoLoadingState');
+            const errorState = document.getElementById('videoErrorState');
+            
+            if (loadingState) loadingState.style.display = 'none';
+            if (errorState) errorState.style.display = 'none';
+            
+            // Add video element
             const videoImg = document.createElement('img');
             videoImg.id = 'experimentVideo';
             videoImg.style.width = '100%';
@@ -333,69 +376,41 @@ $(document).ready(function() {
             videoImg.style.maxHeight = '300px';
             videoImg.style.borderRadius = '0.35rem';
             videoImg.alt = 'Live Camera Feed';
+            videoImg.onload = handleVideoLoad;
+            videoImg.onerror = handleVideoError;
             
-            // Set image source to camera stream with cache busting
-            const timestamp = new Date().getTime();
-            videoImg.src = `/camera/video_feed?t=${timestamp}`;
+            // Set source
+            videoImg.src = '/camera/video_feed';
             
-            console.log('Video feed source set to:', videoImg.src);
-            
-            // Replace placeholder with image element
-            const videoContainer = document.getElementById('videoContainer');
-            if (!videoContainer) {
-                console.error('Video container not found');
-                return;
-            }
-            
-            videoContainer.innerHTML = '';
+            // Add to container
             videoContainer.appendChild(videoImg);
             
             // Update video info
             const videoInfo = document.getElementById('videoInfo');
             if (videoInfo) {
-                videoInfo.textContent = 'Loading video feed...';
+                videoInfo.textContent = 'Live camera preview - position objects for capture';
             }
             
-            // Handle image load
-            videoImg.onload = function() {
-                console.log('Video feed loaded successfully');
-                if (videoInfo) {
-                    videoInfo.textContent = 'Live camera preview - position objects for capture';
-                }
-            };
+            console.log('Video feed initialized with simple img tag');
             
-            // Handle image errors
-            videoImg.onerror = function(e) {
-                console.error('Video feed error:', e);
-                videoContainer.innerHTML = `
-                    <div class="text-muted">
-                        <i class="fas fa-exclamation-triangle fa-3x mb-3 text-warning"></i>
-                        <p>Video feed unavailable</p>
-                        <small>Camera may not be streaming</small>
-                    </div>
-                `;
-                if (videoInfo) {
-                    videoInfo.textContent = 'Video feed unavailable - check camera status';
-                }
-            };
-            
-            // Add timeout to check if image loads
+            // Add a timeout to check if video loads
             setTimeout(function() {
-                console.log('Checking video feed status...');
-                console.log('Image complete:', videoImg.complete);
-                console.log('Natural width:', videoImg.naturalWidth);
-                console.log('Natural height:', videoImg.naturalHeight);
-                console.log('Current src:', videoImg.src);
-                
-                if (videoImg.complete && videoImg.naturalWidth === 0) {
-                    console.warn('Video feed image appears to be empty, retrying...');
+                const videoImg = document.getElementById('experimentVideo');
+                if (videoImg && (!videoImg.complete || videoImg.naturalWidth === 0)) {
+                    console.warn('Video feed not loading, trying alternative approach...');
+                    // Try with cache busting
                     videoImg.src = `/camera/video_feed?t=${new Date().getTime()}`;
-                } else if (videoImg.complete && videoImg.naturalWidth > 0) {
-                    console.log('Video feed is working correctly');
-                } else {
-                    console.log('Video feed still loading...');
                 }
             }, 3000);
+            
+            // Add another timeout to show error if still not loading
+            setTimeout(function() {
+                const videoImg = document.getElementById('experimentVideo');
+                if (videoImg && (!videoImg.complete || videoImg.naturalWidth === 0)) {
+                    console.error('Video feed failed to load after timeout');
+                    handleVideoError();
+                }
+            }, 8000);
             
         } catch (error) {
             console.error('Error initializing video feed:', error);
@@ -414,6 +429,11 @@ $(document).ready(function() {
     
     // Calculate total steps
     function calculateTotalSteps() {
+        if (!experimentConfig || !experimentConfig.camera_type) {
+            console.warn('Experiment config not available, using default values');
+            return 1; // Default to 1 step if no config
+        }
+        
         let cameraTypes = experimentConfig.camera_type.length;
         let lensCovers = experimentConfig.lens_cover.length;
         let distances = Math.ceil((experimentConfig.end_distance_m - experimentConfig.start_distance_m + 1) / experimentConfig.step_distance_m);
@@ -447,15 +467,15 @@ $(document).ready(function() {
         $('#experimentStatus').text('Capturing Image...');
         
         let stepConfig = {
-            current_distance: parseInt($('#currentDistance').val()),
-            current_camera_type: $('#currentCameraType').val(),
-            current_lens_cover: $('#currentLensCover').val(),
-            is_night_mode: experimentConfig.is_night_mode,
-            exposure_time_us: experimentConfig.is_night_mode ? parseInt($('#currentExposureTime').val()) : null,
-            analog_gain: experimentConfig.is_night_mode ? parseFloat($('#currentAnalogGain').val()) : null,
-            lens_position: experimentConfig.is_night_mode ? parseFloat($('#currentLensPosition').val()) : null,
-            sharpness: experimentConfig.is_night_mode ? parseFloat($('#currentSharpness').val()) : null,
-            noise_reduction_mode: experimentConfig.is_night_mode ? parseInt($('#currentNoiseReduction').val()) : null
+            current_distance: parseInt($('#currentDistance').val()) || 1,
+            current_camera_type: $('#currentCameraType').val() || 'main',
+            current_lens_cover: $('#currentLensCover').val() || 'none',
+            is_night_mode: experimentConfig ? experimentConfig.is_night_mode : false,
+            exposure_time_us: (experimentConfig && experimentConfig.is_night_mode) ? parseInt($('#currentExposureTime').val()) : null,
+            analog_gain: (experimentConfig && experimentConfig.is_night_mode) ? parseFloat($('#currentAnalogGain').val()) : null,
+            lens_position: (experimentConfig && experimentConfig.is_night_mode) ? parseFloat($('#currentLensPosition').val()) : null,
+            sharpness: (experimentConfig && experimentConfig.is_night_mode) ? parseFloat($('#currentSharpness').val()) : null,
+            noise_reduction_mode: (experimentConfig && experimentConfig.is_night_mode) ? parseInt($('#currentNoiseReduction').val()) : null
         };
         
         $.ajax({
@@ -573,14 +593,89 @@ $(document).ready(function() {
     // Initialize
     updateProgress();
     
+    // Debug: Check if video feed initialization is called
+    console.log('About to initialize video feed...');
+    
     // Initialize video feed
     initializeVideoFeed();
+    
+    console.log('Video feed initialization called');
     
     // Refresh video button
     $('#refreshVideoBtn').click(function() {
         console.log('Manual video refresh requested');
+        
+        // Remove existing video element
+        const videoImg = document.getElementById('experimentVideo');
+        if (videoImg) videoImg.remove();
+        
+        // Show loading state
+        const loadingState = document.getElementById('videoLoadingState');
+        const errorState = document.getElementById('videoErrorState');
+        
+        if (loadingState) loadingState.style.display = 'flex';
+        if (errorState) errorState.style.display = 'none';
+        
+        // Reinitialize video feed
         initializeVideoFeed();
     });
+    
+    // Video feed event handlers
+    function handleVideoLoad() {
+        console.log('Video feed loaded successfully');
+        
+        // Hide loading state
+        const loadingState = document.getElementById('videoLoadingState');
+        if (loadingState) loadingState.style.display = 'none';
+        
+        // Update info text
+        const videoInfo = document.getElementById('videoInfo');
+        if (videoInfo) {
+            videoInfo.textContent = 'Live camera preview - position objects for capture';
+        }
+    }
+    
+    function handleVideoError() {
+        console.error('Video feed error occurred');
+        
+        // Remove video element
+        const videoImg = document.getElementById('experimentVideo');
+        if (videoImg) videoImg.remove();
+        
+        // Show error state
+        const loadingState = document.getElementById('videoLoadingState');
+        const errorState = document.getElementById('videoErrorState');
+        
+        if (loadingState) loadingState.style.display = 'none';
+        if (errorState) errorState.style.display = 'flex';
+        
+        // Update info text
+        const videoInfo = document.getElementById('videoInfo');
+        if (videoInfo) {
+            videoInfo.textContent = 'Video feed unavailable - check camera status';
+        }
+    }
+    
+    // Test video feed endpoint
+    function testVideoFeedEndpoint() {
+        console.log('Testing video feed endpoint...');
+        fetch('/camera/video_feed')
+            .then(response => {
+                console.log('Video feed response status:', response.status);
+                console.log('Video feed response headers:', response.headers);
+                if (response.ok) {
+                    console.log('Video feed endpoint is accessible');
+                } else {
+                    console.error('Video feed endpoint returned error:', response.status);
+                }
+            })
+            .catch(error => {
+                console.error('Error testing video feed endpoint:', error);
+            });
+    }
+    
+    // Test video feed endpoint on page load
+    setTimeout(testVideoFeedEndpoint, 1000);
 });
 </script>
 {% endblock %}

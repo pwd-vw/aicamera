@@ -98,6 +98,13 @@ WEBSOCKET_MAX_RETRIES = 5  # Maximum connection retries before giving up
 STORAGE_MONITOR_ENABLED = True  # Enable storage monitoring
 STORAGE_MONITOR_INTERVAL = 300  # Storage monitoring interval in seconds (5 minutes)
 STORAGE_MIN_FREE_SPACE_GB = 10.0  # Minimum free space in GB before cleanup
+
+# Experiment service configuration
+EXPERIMENT_ENABLED = True  # Enable experiment service
+EXPERIMENT_RESULTS_DIR = os.path.join(BASE_DIR, 'edge', 'experiment_results')
+
+# Health monitoring configuration
+AUTO_START_HEALTH_MONITOR = True  # Enable automatic health monitoring startup
 STORAGE_RETENTION_DAYS = 7  # Number of days to keep images
 
 # Experiment configuration

@@ -90,12 +90,19 @@ const camera-status = {...};  // kebab-case in JavaScript
 ✅ Correct:
 GET /camera/status
 POST /detection/start
-GET /health/system
+GET /health/            # Dual-purpose: HTML dashboard or JSON API
+GET /health/system      # Comprehensive system health
+GET /health/logs        # System logs with pagination
+GET /health/status      # Basic health status
+GET /health/system-info # System information
 
 ❌ Incorrect:
 GET /camera/getStatus
 POST /detection/startDetection
 GET /health/getSystemHealth
+GET /health/monitor/start    # Removed in v2.0.0 (unused)
+GET /health/monitor/stop     # Removed in v2.0.0 (unused)
+GET /health/check/run        # Removed in v2.0.0 (unused)
 ```
 
 ### 5. WebSocket Events - `snake_case`
@@ -622,6 +629,92 @@ jobs:
 | **Detection Status** | `detection_status_request` | `detection_status_update` | Same as API response |
 | **Detection Control** | `detection_control` | `detection_control_response` | `{command, success, message}` |
 | **System Health** | `system_health_request` | `system_health_update` | Same as API response |
+
+## 🏥 Health System Variable Mapping (Updated v2.0.0)
+
+### Health API Response Structure
+
+The health system has been streamlined to use consistent variable mapping:
+
+**Backend (Python) - Health Service Response:**
+```python
+health_response = {
+    "success": True,
+    "data": {
+        "overall_status": "healthy",  # snake_case
+        "components": {
+            "camera": {
+                "status": "healthy",
+                "message": "Camera initialized and streaming",
+                "last_check": "2025-08-24T22:41:08.439079",
+                "execution_time_ms": 6.42
+            },
+            "detection": {
+                "status": "unhealthy", 
+                "message": "Insufficient models loaded: 0/2 required"
+            }
+        },
+        "system": {
+            "cpu": {
+                "usage_percent": 68.9,
+                "count": 4,
+                "temperature_c": 55.1
+            },
+            "memory": {
+                "usage_percent": 42.9,
+                "total_gb": 8.0,
+                "available_gb": 4.6
+            }
+        }
+    },
+    "timestamp": "2025-08-24T22:41:18.385453"
+}
+```
+
+**Frontend (JavaScript) - Variable Mapping:**
+```javascript
+// ✅ Correct - Consistent mapping
+const healthData = response.data;
+const overallStatus = healthData.overall_status;  // snake_case from backend
+const cameraComponent = healthData.components.camera;
+const cpuUsage = healthData.system.cpu.usage_percent;
+
+// Dashboard display variables (camelCase for DOM)
+const statusElements = {
+    overallStatusIndicator: document.getElementById('overall-status'),
+    cameraStatusText: document.getElementById('camera-status-text'),
+    cpuUsageDisplay: document.getElementById('cpu-usage-display')
+};
+```
+
+### Health System Architecture Changes (v2.0.0)
+
+**Removed Components:**
+- ❌ `UnifiedHealthService` (Created but never used - removed)
+- ❌ `/health/monitor/start` endpoint (Unused - removed)
+- ❌ `/health/monitor/stop` endpoint (Unused - removed) 
+- ❌ `/health/check/run` endpoint (Unused - removed)
+
+**Current Architecture:**
+- ✅ `HealthService` - Service layer for health data aggregation
+- ✅ `HealthMonitor` - Component for running health checks
+- ✅ `/health/` - Dual-purpose endpoint (HTML dashboard + JSON API)
+- ✅ `/health/system` - Comprehensive health data
+- ✅ `/health/logs` - System logs with pagination
+- ✅ `/health/status` - Basic health status
+
+### Component Name Mapping
+
+Health components use standardized names across the system:
+
+| Component | Backend Key | Frontend Display | API Endpoint |
+|-----------|-------------|------------------|--------------|
+| Camera System | `camera` | Camera Status | `/camera/status` |
+| Detection Models | `detection` | AI Models | `/detection/status` |
+| Database | `database` | Database | Internal check |
+| System Resources | `system` | System Info | `/health/system-info` |
+| Storage | `storage` | Storage | Internal check |
+| Network | `network` | Network | Internal check |
 
 ### Error Prevention Checklist
 

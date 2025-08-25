@@ -24,13 +24,19 @@ logger = get_logger(__name__)
 
 
 @health_bp.route('/')
-def health_dashboard():
-    """Render health monitoring dashboard."""
+def health_root():
+    """Handle root health route - return JSON for API calls, HTML for browser."""
     try:
+        # Check if this is an API request (Accept header contains application/json)
+        accept_header = request.headers.get('Accept', '')
+        if 'application/json' in accept_header:
+            return get_system_health()
+        
+        # Default to dashboard for browser requests
         return render_template('health/dashboard.html', timestamp=int(time.time()))
     except Exception as e:
-        logger.error(f"Error rendering health dashboard: {e}")
-        return "Health dashboard not available", 500
+        logger.error(f"Error in health root route: {e}")
+        return "Health endpoint not available", 500
 
 
 @health_bp.route('/system')
@@ -186,116 +192,7 @@ def get_health_status():
         }), 500
 
 
-@health_bp.route('/monitor/start', methods=['POST'])
-def start_monitoring():
-    """
-    Start continuous health monitoring.
-    
-    Returns:
-        JSON response with operation result
-    """
-    try:
-        health_service = get_service('health_service')
-        if not health_service:
-            return jsonify({
-                'success': False,
-                'error': 'Health service not available',
-                'timestamp': datetime.now().isoformat()
-            }), 500
-        
-        # Get interval from request
-        data = request.get_json() or {}
-        interval = data.get('interval')
-        
-        # Start monitoring
-        success = health_service.start_monitoring(interval=interval)
-        
-        if success:
-            return jsonify({
-                'success': True,
-                'message': 'Health monitoring started successfully',
-                'timestamp': datetime.now().isoformat()
-            })
-        else:
-            return jsonify({
-                'success': False,
-                'error': 'Failed to start health monitoring',
-                'timestamp': datetime.now().isoformat()
-            }), 500
-        
-    except Exception as e:
-        logger.error(f"Error starting health monitoring: {e}")
-        return jsonify({
-            'success': False,
-            'error': str(e),
-            'timestamp': datetime.now().isoformat()
-        }), 500
 
-
-@health_bp.route('/monitor/stop', methods=['POST'])
-def stop_monitoring():
-    """
-    Stop continuous health monitoring.
-    
-    Returns:
-        JSON response with operation result
-    """
-    try:
-        health_service = get_service('health_service')
-        if not health_service:
-            return jsonify({
-                'success': False,
-                'error': 'Health service not available',
-                'timestamp': datetime.now().isoformat()
-            }), 500
-        
-        # Stop monitoring
-        health_service.stop_monitoring()
-        
-        return jsonify({
-            'success': True,
-            'message': 'Health monitoring stopped successfully',
-            'timestamp': datetime.now().isoformat()
-        })
-        
-    except Exception as e:
-        logger.error(f"Error stopping health monitoring: {e}")
-        return jsonify({
-            'success': False,
-            'error': str(e),
-            'timestamp': datetime.now().isoformat()
-        }), 500
-
-
-@health_bp.route('/check/run', methods=['POST'])
-def run_health_check():
-    """
-    Run a single health check.
-    
-    Returns:
-        JSON response with health check results
-    """
-    try:
-        health_service = get_service('health_service')
-        if not health_service:
-            return jsonify({
-                'success': False,
-                'error': 'Health service not available',
-                'timestamp': datetime.now().isoformat()
-            }), 500
-        
-        # Run health check
-        health_data = health_service.get_system_health()
-        
-        return jsonify(health_data)
-        
-    except Exception as e:
-        logger.error(f"Error running health check: {e}")
-        return jsonify({
-            'success': False,
-            'error': str(e),
-            'timestamp': datetime.now().isoformat()
-        }), 500
 
 
 def register_health_events(socketio):

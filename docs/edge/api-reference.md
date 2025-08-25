@@ -87,17 +87,161 @@ All WebSocket events follow the same response format:
 
 ### Health Check
 
-#### GET /health
-ตรวจสอบสถานะของระบบ
+#### GET /health/
+Basic health status endpoint that serves both dashboard UI and API requests.
+
+**Browser Request:** Returns HTML dashboard  
+**API Request:** Returns JSON health data (when Accept: application/json header is present)
+
+**API Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "overall_status": "healthy",
+    "components": {
+      "camera": {
+        "status": "healthy",
+        "message": "Camera initialized and streaming",
+        "last_check": "2025-08-24T22:41:08.439079",
+        "execution_time_ms": 6.42
+      },
+      "database": {
+        "status": "healthy",
+        "message": "Database connection active",
+        "last_check": "2025-08-24T22:41:18.385453",
+        "execution_time_ms": 0.07
+      },
+      "detection": {
+        "status": "unhealthy",
+        "message": "Insufficient models loaded: 0/2 required",
+        "last_check": "2025-08-24T22:41:08.950181",
+        "execution_time_ms": 0.11
+      },
+      "system": {
+        "status": "healthy",
+        "message": "System resources OK: CPU 68.9%, RAM 42.9%, CPU temp: 55.1°C",
+        "last_check": "2025-08-24T22:41:08.947494",
+        "execution_time_ms": 503.76
+      }
+    },
+    "system": {
+      "cpu": {
+        "usage_percent": 68.9,
+        "count": 4,
+        "temperature_c": 55.1
+      },
+      "memory": {
+        "usage_percent": 42.9,
+        "total_gb": 8.0,
+        "available_gb": 4.6
+      }
+    },
+    "last_check": "2025-08-24T22:41:18.385453"
+  },
+  "timestamp": "2025-08-24T22:41:18.385453"
+}
+```
+
+#### GET /health/system
+Comprehensive system health information with detailed component status.
 
 **Response:**
 ```json
 {
   "success": true,
-  "status": "healthy",
-  "service": "aicamera_lpr",
-  "version": "2.0.0",
-  "timestamp": "2025-08-23T10:30:00Z"
+  "data": {
+    "overall_status": "healthy",
+    "components": {
+      "camera": {
+        "status": "healthy",
+        "message": "Camera initialized and streaming",
+        "last_check": "2025-08-24T22:41:08.439079",
+        "execution_time_ms": 6.42
+      }
+    },
+    "system": {
+      "cpu": {
+        "usage_percent": 68.9,
+        "count": 4,
+        "temperature_c": 55.1
+      },
+      "memory": {
+        "usage_percent": 42.9,
+        "total_gb": 8.0,
+        "available_gb": 4.6
+      }
+    }
+  },
+  "timestamp": "2025-08-24T22:41:18.385453"
+}
+```
+
+#### GET /health/logs
+System logs with filtering and pagination support.
+
+**Query Parameters:**
+- `limit` (int, optional): Number of log entries to return (default: 50)
+- `page` (int, optional): Page number for pagination (default: 1)
+- `level` (string, optional): Log level filter (DEBUG, INFO, WARNING, ERROR)
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "logs": [
+      {
+        "timestamp": "2025-08-24 22:41:08",
+        "level": "INFO",
+        "message": "Health Check - Camera: PASS - Camera initialized and streaming",
+        "service": "aicamera_lpr"
+      }
+    ],
+    "pagination": {
+      "page": 1,
+      "limit": 50,
+      "total": 125,
+      "has_next": true,
+      "has_prev": false
+    }
+  },
+  "timestamp": "2025-08-24T22:41:18.385453"
+}
+```
+
+#### GET /health/status
+Basic health status information.
+
+**Response:**
+```json
+{
+  "success": true,
+  "status": {
+    "initialized": true,
+    "last_check": "2025-08-24T18:26:40.208073",
+    "monitoring": false
+  },
+  "timestamp": "2025-08-24T18:31:36.202441"
+}
+```
+
+#### GET /health/system-info
+System information and specifications.
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "hostname": "aicamera1",
+    "platform": "Linux",
+    "architecture": "aarch64",
+    "python_version": "3.11.2",
+    "system_uptime_hours": 24.5,
+    "service_uptime_minutes": 15.2
+  },
+  "timestamp": "2025-08-24T22:41:18.385453"
 }
 ```
 
@@ -672,25 +816,22 @@ The detection status endpoint is used by the health monitoring system to verify 
 - **Fallback Mechanism**: Uses direct degirum model loading if API is unavailable
 - **Real-time Monitoring**: Continuous health checks every 2 hours
 
-## Health Monitoring API Endpoints
+## Health Monitoring System
 
-### Get System Health Status
-**GET** `/health/status`
+The health monitoring system provides comprehensive system status monitoring with the following features:
 
-Returns system health monitoring status.
+- **Automatic Health Checks**: Runs every 2 hours (configurable via `HEALTH_CHECK_INTERVAL`)
+- **Component Monitoring**: Camera, Detection Models, Database, Storage, CPU/RAM, Network
+- **Background Monitoring**: Continuous monitoring thread with result caching
+- **WebSocket Integration**: Real-time health status updates (when WebSocket is enabled)
+- **Database Logging**: Health check results stored in database for historical analysis
 
-**Response:**
-```json
-{
-  "success": true,
-  "status": {
-    "initialized": true,
-    "last_check": "2025-08-24T18:26:40.208073",
-    "monitoring": false
-  },
-  "timestamp": "2025-08-24T18:31:36.202441"
-}
-```
+### Removed Endpoints (v2.0.0)
+
+The following endpoints were removed as they were unused:
+- ~~POST /health/monitor/start~~ (Removed - monitoring is automatic)
+- ~~POST /health/monitor/stop~~ (Removed - monitoring is automatic)  
+- ~~POST /health/check/run~~ (Removed - use GET /health/system instead)
 
 ### Health Check Components
 

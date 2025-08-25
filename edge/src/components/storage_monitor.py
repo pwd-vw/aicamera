@@ -137,7 +137,7 @@ class StorageMonitor:
             
             # Query database for image files and their status
             query = """
-                SELECT image_path, status, created_at 
+                SELECT image_path, sent_to_server, created_at 
                 FROM detection_results 
                 WHERE image_path IS NOT NULL 
                 ORDER BY created_at ASC
@@ -147,11 +147,11 @@ class StorageMonitor:
             
             for row in results:
                 image_path = row[0]
-                status = row[1]
+                sent_to_server = row[1]
                 
                 # Check if file exists
                 if os.path.exists(image_path):
-                    if status == 'sent':
+                    if sent_to_server:  # sent_to_server is boolean (True/False)
                         sent_files.append(image_path)
                     else:
                         unsent_files.append(image_path)
