@@ -244,3 +244,4 @@ nohup.out
 *.csv
 output.json
 plan.md
+node_modules

@@ -86,6 +86,36 @@ CREATE TABLE system_events (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Visualizations table for dashboard charts and graphs
+CREATE TABLE visualizations (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    type VARCHAR(50) NOT NULL CHECK (type IN ('chart', 'graph', 'table', 'metric', 'map')),
+    configuration JSONB NOT NULL DEFAULT '{}',
+    data_source VARCHAR(100) NOT NULL,
+    refresh_interval INTEGER DEFAULT 300, -- seconds
+    is_active BOOLEAN DEFAULT true,
+    created_by VARCHAR(100),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Analytics events table for tracking user interactions and system events
+CREATE TABLE analytics_events (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    event_type VARCHAR(100) NOT NULL,
+    event_category VARCHAR(50) NOT NULL CHECK (event_category IN ('user_interaction', 'system_event', 'performance', 'error', 'security')),
+    user_id VARCHAR(100),
+    session_id VARCHAR(100),
+    camera_id UUID REFERENCES cameras(id) ON DELETE SET NULL,
+    visualization_id UUID REFERENCES visualizations(id) ON DELETE SET NULL,
+    event_data JSONB DEFAULT '{}',
+    ip_address INET,
+    user_agent TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Create indexes for better performance
 CREATE INDEX idx_cameras_camera_id ON cameras(camera_id);
 CREATE INDEX idx_cameras_status ON cameras(status);
@@ -97,6 +127,13 @@ CREATE INDEX idx_analytics_camera_date ON analytics(camera_id, date);
 CREATE INDEX idx_camera_health_camera_timestamp ON camera_health(camera_id, timestamp);
 CREATE INDEX idx_system_events_camera_created ON system_events(camera_id, created_at);
 CREATE INDEX idx_system_events_level_created ON system_events(event_level, created_at);
+CREATE INDEX idx_visualizations_type ON visualizations(type);
+CREATE INDEX idx_visualizations_active ON visualizations(is_active);
+CREATE INDEX idx_analytics_events_type_category ON analytics_events(event_type, event_category);
+CREATE INDEX idx_analytics_events_created_at ON analytics_events(created_at);
+CREATE INDEX idx_analytics_events_user_id ON analytics_events(user_id);
+CREATE INDEX idx_analytics_events_camera_id ON analytics_events(camera_id);
+CREATE INDEX idx_analytics_events_visualization_id ON analytics_events(visualization_id);
 
 -- Create updated_at trigger function
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -115,6 +152,9 @@ CREATE TRIGGER update_detections_updated_at BEFORE UPDATE ON detections
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER update_analytics_updated_at BEFORE UPDATE ON analytics
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_visualizations_updated_at BEFORE UPDATE ON visualizations
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Create views for common queries
@@ -172,4 +212,6 @@ COMMENT ON TABLE detections IS 'License plate detection results from edge camera
 COMMENT ON TABLE analytics IS 'Daily aggregated analytics data';
 COMMENT ON TABLE camera_health IS 'Camera health monitoring data';
 COMMENT ON TABLE system_events IS 'System events and logs';
+COMMENT ON TABLE visualizations IS 'Dashboard visualizations and charts configuration';
+COMMENT ON TABLE analytics_events IS 'User interactions and system events for analytics';
 COMMENT ON VIEW camera_summary IS 'Summary view of cameras with detection statistics';
