@@ -154,7 +154,7 @@ Comprehensive system health information with detailed component status.
     "overall_status": "healthy",
     "components": {
       "camera": {
-        "status": "healthy",
+  "status": "healthy",
         "message": "Camera initialized and streaming",
         "last_check": "2025-08-24T22:41:08.439079",
         "execution_time_ms": 6.42
@@ -902,9 +902,9 @@ Returns all detection results from the database.
 ```json
 {
   "success": true,
-  "results": [
-    {
-      "id": 1,
+    "results": [
+      {
+        "id": 1,
       "timestamp": "2025-08-22 16:57:25",
       "vehicles_count": 1,
       "plates_count": 2,
@@ -918,7 +918,7 @@ Returns all detection results from the database.
       "ocr_results": [
         {
           "text": "ABC-123",
-          "confidence": 0.95,
+            "confidence": 0.95,
           "language": "en"
         }
       ],

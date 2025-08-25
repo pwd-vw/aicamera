@@ -1219,51 +1219,51 @@ const DetectionManager = {
         }
     },
 
-        /**
-     * Show detail modal for a specific result
-     */
-    showDetail: function(resultId) {
+  /**
+ * Show detail modal for a specific result
+ */
+showDetail: function(resultId) {
         // Store current modal instance
         this.currentDetailModal = new bootstrap.Modal(document.getElementById('detail-modal'));
-        const modalBody = document.getElementById('detail-modal-body');
-        
-        // Show loading in modal
-        modalBody.innerHTML = `
-            <div class="text-center py-5">
-                <div class="spinner-border text-primary" role="status">
-                    <span class="visually-hidden">Loading...</span>
-                </div>
-                <div class="mt-2">Loading detection details...</div>
+    const modalBody = document.getElementById('detail-modal-body');
+    
+    // Show loading in modal
+    modalBody.innerHTML = `
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
             </div>
-        `;
-        
+            <div class="mt-2">Loading detection details...</div>
+        </div>
+    `;
+    
         // Show modal
         this.currentDetailModal.show();
 
         // Load detailed data from specific detection endpoint
         AICameraUtils.apiRequest(`/detection/results/${resultId}`)
-            .then(data => {
-                if (data && data.success) {
-                    this.displayDetailModal(data.result);
-                } else {
-                    modalBody.innerHTML = `
-                        <div class="alert alert-danger">
-                            <i class="fas fa-exclamation-triangle me-2"></i>
-                            Error loading details: ${data?.error || 'Unknown error'}
-                        </div>
-                    `;
-                }
-            })
-            .catch(error => {
-                console.error('Error loading detail:', error);
+        .then(data => {
+            if (data && data.success) {
+                this.displayDetailModal(data.result);
+            } else {
                 modalBody.innerHTML = `
                     <div class="alert alert-danger">
                         <i class="fas fa-exclamation-triangle me-2"></i>
-                        Network error occurred while loading details.
+                        Error loading details: ${data?.error || 'Unknown error'}
                     </div>
                 `;
-            });
-    },
+            }
+        })
+        .catch(error => {
+            console.error('Error loading detail:', error);
+            modalBody.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Network error occurred while loading details.
+                </div>
+            `;
+        });
+},
 
 /**
  * Display detail modal content
@@ -1308,23 +1308,23 @@ displayDetailModal: function(result) {
                         <h6 class="mb-0"><i class="fas fa-info-circle me-2"></i>Detection Metadata</h6>
                     </div>
                     <div class="card-body">
-                        <div class="row">
-                            <div class="col-md-6">
+        <div class="row">
+            <div class="col-md-6">
                                 <table class="table table-sm table-borderless">
                                     <tr><td><strong>Detection ID:</strong></td><td>#${result.id}</td></tr>
                                     <tr><td><strong>Timestamp:</strong></td><td>${AICameraUtils.formatTimestamp(result.timestamp || result.created_at)}</td></tr>
                                     <tr><td><strong>Processing Time:</strong></td><td>${result.processing_time_ms || 0}ms</td></tr>
-                                </table>
-                            </div>
-                            <div class="col-md-6">
+                </table>
+            </div>
+            <div class="col-md-6">
                                 <table class="table table-sm table-borderless">
                                     <tr><td><strong>Vehicles Detected:</strong></td><td><span class="badge bg-info">${result.vehicles_count || 0}</span></td></tr>
                                     <tr><td><strong>License Plates:</strong></td><td><span class="badge bg-warning">${result.plates_count || 0}</span></td></tr>
                                     <tr><td><strong>OCR Confidence:</strong></td><td><span class="badge bg-success">${this.calculateAverageConfidence(result.ocr_results)}%</span></td></tr>
                                 </table>
-                            </div>
-                        </div>
-                    </div>
+            </div>
+        </div>
+            </div>
                 </div>
             </div>
         </div>
@@ -1628,7 +1628,7 @@ updateOperationalInsights: function() {
         if (peakTimes.length > 0) {
             peakTimesElement.innerHTML = peakTimes.map(time => 
                 `<div class="badge bg-primary me-1">${time}</div>`
-            ).join('');
+    ).join('');
         } else {
             peakTimesElement.innerHTML = '<p class="text-muted">No peak detection data available</p>';
         }

@@ -51,10 +51,10 @@ class SchemaMigrationV3:
     def __init__(self, database_path: str = None, logger=None):
         """
         Initialize schema migration.
-        
-        Args:
+    
+    Args:
             database_path: Path to SQLite database file
-            logger: Logger instance
+        logger: Logger instance
         """
         self.database_path = database_path or str(get_database_path())
         self.logger = logger or logging.getLogger(__name__)
@@ -63,8 +63,8 @@ class SchemaMigrationV3:
     def connect(self) -> bool:
         """
         Connect to the database.
-        
-        Returns:
+    
+    Returns:
             bool: True if connection successful
         """
         try:
@@ -207,7 +207,7 @@ class SchemaMigrationV3:
             cursor = self.connection.cursor()
             
             # Check if original_image_path column exists
-            cursor.execute("PRAGMA table_info(detection_results)")
+        cursor.execute("PRAGMA table_info(detection_results)")
             columns = [row[1] for row in cursor.fetchall()]
             
             required_columns = [

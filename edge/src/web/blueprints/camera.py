@@ -1085,94 +1085,140 @@ def get_ml_frame():
 
 
 def register_camera_events(socketio):
-    """
-    Register WebSocket events for camera functionality.
+    """=  Register WebSocket events for camera functionality with browser connection tracking.
     
     Args:
         socketio: Flask-SocketIO instance
     """
-    logger = get_logger(__name__)
+    logger.info("Registering camera WebSocket events with browser connection tracking")
     
-    @socketio.on('connect', namespace='/camera')
+    @socketio.on('connect')
     def handle_camera_connect():
-        """Handle camera namespace connection."""
-        logger.info("Client connected to camera namespace")
-        emit('camera_connected', {
-            'success': True,
-            'message': 'Connected to camera service',
-            'timestamp': datetime.now().isoformat()
-        })
-    
-    @socketio.on('disconnect', namespace='/camera')
-    def handle_camera_disconnect():
-        """Handle camera namespace disconnection."""
-        logger.info("Client disconnected from camera namespace")
-    
-    @socketio.on('camera_status_request', namespace='/camera')
-    def handle_camera_status_request():
-        """Handle camera status request."""
+        """Handle browser connection to camera WebSocket."""
         try:
+            session_id = request.sid
+            
+            # Get browser information
+            browser_info = {
+                'user_agent': request.headers.get('User-Agent', 'Unknown'),
+                'ip_address': request.remote_addr,
+                'connected_at': datetime.now().isoformat()
+            }
+            
+            # Track browser connection
+            browser_manager = get_service('browser_connection_manager')
+            if browser_manager:
+                success = browser_manager.on_browser_connect(session_id, browser_info)
+                if success:
+                    logger.info(f"Browser connection tracked: {session_id}")
+                else:
+                    logger.warning(f"Failed to track browser connection: {session_id}")
+            
+            # Send connection confirmation
+            emit('camera_connected', {
+                'success': True,
+                'message': 'Connected to camera WebSocket',
+                'session_id': session_id,
+                'timestamp': datetime.now().isoformat()
+            })
+            
+        except Exception as e:
+            logger.error(f"Error handling camera connect: {e}")
+            emit('camera_connected', {
+                'success': False,
+                'error': str(e),
+                'timestamp': datetime.now().isoformat()
+            })
+    
+    @socketio.on('disconnect')
+    def handle_camera_disconnect():
+        """Handle browser disconnection from camera WebSocket."""
+        try:
+            session_id = request.sid
+            
+            # Track browser disconnection
+            browser_manager = get_service('browser_connection_manager')
+            if browser_manager:
+                success = browser_manager.on_browser_disconnect(session_id)
+                if success:
+                    logger.info(f"Browser disconnection tracked: {session_id}")
+                else:
+                    logger.warning(f"Failed to track browser disconnection: {session_id}")
+            
+        except Exception as e:
+            logger.error(f"Error handling camera disconnect: {e}")
+    
+    @socketio.on('camera_status_request')
+    def handle_camera_status_request():
+        """Handle camera status request with connection tracking."""
+        try:
+            session_id = request.sid
+            
+            # Update activity for this connection
+            browser_manager = get_service('browser_connection_manager')
+            if browser_manager:
+                browser_manager.update_activity(session_id)
+            
+            # Get camera status
             camera_manager = get_service('camera_manager')
             if not camera_manager:
                 emit('camera_status_update', {
                     'success': False,
-                    'error': 'Camera manager not available'
+                    'error': 'Camera manager not available',
+                    'timestamp': datetime.now().isoformat()
                 })
                 return
             
             status = camera_manager.get_status()
-            config = camera_manager.get_configuration()
+            serializable_status = make_json_serializable(status)
             
             emit('camera_status_update', {
                 'success': True,
-                'status': status,
-                'config': config
+                'status': serializable_status,
+                'timestamp': datetime.now().isoformat()
             })
+            
         except Exception as e:
             logger.error(f"Error handling camera status request: {e}")
             emit('camera_status_update', {
                 'success': False,
-                'error': str(e)
+                'error': str(e),
+                'timestamp': datetime.now().isoformat()
             })
     
-    @socketio.on('camera_control', namespace='/camera')
+    @socketio.on('camera_control')
     def handle_camera_control(data):
-        """Handle camera control commands."""
+        """Handle camera control requests with connection tracking."""
         try:
-            command = data.get('command')
-            if not command:
-                emit('camera_control_response', {
-                    'success': False,
-                    'error': 'No command specified'
-                })
-                return
+            session_id = request.sid
             
+            # Update activity for this connection
+            browser_manager = get_service('browser_connection_manager')
+            if browser_manager:
+                browser_manager.update_activity(session_id)
+            
+            # Get camera manager
             camera_manager = get_service('camera_manager')
             if not camera_manager:
                 emit('camera_control_response', {
                     'success': False,
-                    'error': 'Camera manager not available'
+                    'error': 'Camera manager not available',
+                    'timestamp': datetime.now().isoformat()
                 })
                 return
             
-            # Execute command based on type
+            # Handle control commands
+            command = data.get('command', '').lower()
+            
             if command == 'start':
-                success = camera_manager.start()
+                success = camera_manager.start_camera()
                 message = 'Camera started successfully' if success else 'Failed to start camera'
             elif command == 'stop':
-                success = camera_manager.stop()
+                success = camera_manager.stop_camera()
                 message = 'Camera stopped successfully' if success else 'Failed to stop camera'
             elif command == 'restart':
-                success = camera_manager.restart()
+                success = camera_manager.restart_camera()
                 message = 'Camera restarted successfully' if success else 'Failed to restart camera'
-            elif command == 'capture':
-                image_data = camera_manager.capture_image()
-                if image_data:
-                    success = True
-                    message = 'Image captured successfully'
-                else:
-                    success = False
-                    message = 'Failed to capture image'
             else:
                 success = False
                 message = f'Unknown command: {command}'
@@ -1180,73 +1226,96 @@ def register_camera_events(socketio):
             emit('camera_control_response', {
                 'success': success,
                 'message': message,
-                'command': command
+                'command': command,
+                'timestamp': datetime.now().isoformat()
             })
             
-            # Send updated status after command
-            if success:
-                status = camera_manager.get_status()
-                config = camera_manager.get_configuration()
-                emit('camera_status_update', {
-                    'success': True,
-                    'status': status,
-                    'config': config
-                })
-                
         except Exception as e:
             logger.error(f"Error handling camera control: {e}")
             emit('camera_control_response', {
                 'success': False,
                 'error': str(e),
-                'command': data.get('command', 'unknown')
+                'timestamp': datetime.now().isoformat()
             })
     
-    @socketio.on('camera_config_update', namespace='/camera')
+    @socketio.on('camera_config_update')
     def handle_camera_config_update(data):
-        """Handle camera configuration updates."""
+        """Handle camera configuration updates with connection tracking."""
         try:
-            config = data.get('config')
-            if not config:
-                emit('camera_config_response', {
-                    'success': False,
-                    'error': 'No configuration data provided'
-                })
-                return
+            session_id = request.sid
             
+            # Update activity for this connection
+            browser_manager = get_service('browser_connection_manager')
+            if browser_manager:
+                browser_manager.update_activity(session_id)
+            
+            # Get camera manager
             camera_manager = get_service('camera_manager')
             if not camera_manager:
                 emit('camera_config_response', {
                     'success': False,
-                    'error': 'Camera manager not available'
+                    'error': 'Camera manager not available',
+                    'timestamp': datetime.now().isoformat()
                 })
                 return
             
-            result = camera_manager.update_configuration(config)
+            # Update configuration
+            config = data.get('config', {})
+            success = camera_manager.update_configuration(config)
             
-            emit('camera_config_response', {
-                'success': result.get('success', False),
-                'message': result.get('message', ''),
-                'error': result.get('error', '')
-            })
-            
-            # Send updated status after config change
-            if result.get('success', False):
-                status = camera_manager.get_status()
-                updated_config = camera_manager.get_configuration()
-                emit('camera_status_update', {
+            if success:
+                # Get updated configuration
+                current_config = camera_manager.get_configuration()
+                emit('camera_config_response', {
                     'success': True,
-                    'status': status,
-                    'config': updated_config
+                    'message': 'Configuration updated successfully',
+                    'config': current_config,
+                    'timestamp': datetime.now().isoformat()
                 })
-                
+            else:
+                emit('camera_config_response', {
+                    'success': False,
+                    'error': 'Failed to update configuration',
+                    'timestamp': datetime.now().isoformat()
+                })
+            
         except Exception as e:
             logger.error(f"Error handling camera config update: {e}")
             emit('camera_config_response', {
                 'success': False,
-                'error': str(e)
+                'error': str(e),
+                'timestamp': datetime.now().isoformat()
             })
     
-    logger.info("Camera WebSocket events registered successfully")
+    @socketio.on('browser_activity')
+    def handle_browser_activity(data):
+        """Handle browser activity updates (optional tracking)."""
+        try:
+            session_id = request.sid
+            
+            # Update activity for this connection (optional)
+            try:
+                browser_manager = get_service('browser_connection_manager')
+                if browser_manager:
+                    browser_manager.update_activity(session_id)
+                    
+                    # Send connection status if requested
+                    if data.get('request_status', False):
+                        status = browser_manager.get_connection_status()
+                        emit('browser_connection_status', {
+                            'success': True,
+                            'status': status,
+                            'timestamp': datetime.now().isoformat()
+                        })
+            except Exception as e:
+                logger.debug(f"Browser activity tracking failed: {e}")
+            
+        except Exception as e:
+            logger.error(f"Error handling browser activity: {e}")
+    
+
+    
+    logger.info("Browser connection tracking added (optional)")
 
 
 @camera_bp.route('/debug')
@@ -1812,6 +1881,79 @@ def video_streaming_reset():
         
     except Exception as e:
         logger.error(f"Error resetting video streaming: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'timestamp': datetime.now().isoformat()
+        }), 500
+
+
+@camera_bp.route('/browser_connections')
+def get_browser_connections():
+    """
+    Get browser connection status and statistics.
+    
+    Returns:
+        dict: JSON response with browser connection information
+    """
+    try:
+        browser_manager = get_service('browser_connection_manager')
+        if not browser_manager:
+            return jsonify({
+                'success': False,
+                'error': 'Browser connection manager not available',
+                'timestamp': datetime.now().isoformat()
+            }), 500
+        
+        status = browser_manager.get_connection_status()
+        
+        return jsonify({
+            'success': True,
+            'status': status,
+            'timestamp': datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting browser connections: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'timestamp': datetime.now().isoformat()
+        }), 500
+
+
+@camera_bp.route('/browser_connections/clear', methods=['POST'])
+def clear_browser_connections():
+    """
+    Clear all browser connections (for debugging/testing).
+    
+    Returns:
+        dict: JSON response with clear result
+    """
+    try:
+        browser_manager = get_service('browser_connection_manager')
+        if not browser_manager:
+            return jsonify({
+                'success': False,
+                'error': 'Browser connection manager not available',
+                'timestamp': datetime.now().isoformat()
+            }), 500
+        
+        # Clear connections
+        with browser_manager.lock:
+            cleared_count = len(browser_manager.active_connections)
+            browser_manager.active_connections.clear()
+            browser_manager.current_connections = 0
+        
+        return jsonify({
+            'success': True,
+            'message': f'Cleared {cleared_count} browser connections',
+            'cleared_count': cleared_count,
+            'timestamp': datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"Error clearing browser connections: {e}")
         return jsonify({
             'success': False,
             'error': str(e),

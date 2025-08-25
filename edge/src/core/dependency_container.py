@@ -176,6 +176,17 @@ class DependencyContainer:
                                     singleton=True, dependencies={'logger': 'logger'})
             except ImportError:
                 self.logger.warning("StorageMonitor not available")
+        
+        # Browser Connection Manager (Optional - For tracking only)
+        try:
+            from edge.src.services.browser_connection_manager import BrowserConnectionManager, create_browser_connection_manager
+            self.register_service('browser_connection_manager', BrowserConnectionManager, 
+                                singleton=True,
+                                factory=create_browser_connection_manager,
+                                dependencies={})  # No dependencies to avoid conflicts
+            self.logger.info("BrowserConnectionManager registered (tracking only)")
+        except ImportError as e:
+            self.logger.warning(f"BrowserConnectionManager not available: {e}")
             
             try:
                 from edge.src.services.storage_service import StorageService, create_storage_service

@@ -99,6 +99,12 @@ STORAGE_MONITOR_ENABLED = True  # Enable storage monitoring
 STORAGE_MONITOR_INTERVAL = 300  # Storage monitoring interval in seconds (5 minutes)
 STORAGE_MIN_FREE_SPACE_GB = 10.0  # Minimum free space in GB before cleanup
 
+# Browser Connection Management Configuration
+BROWSER_CONNECTION_TIMEOUT = int(os.getenv("BROWSER_CONNECTION_TIMEOUT", "300"))  # 5 minutes timeout for inactive connections
+BROWSER_CLEANUP_INTERVAL = int(os.getenv("BROWSER_CLEANUP_INTERVAL", "60"))  # 1 minute cleanup interval
+BROWSER_CONNECTION_TRACKING_ENABLED = os.getenv("BROWSER_CONNECTION_TRACKING_ENABLED", "true").lower() == "true"
+CONDITIONAL_RESOURCE_ALLOCATION = os.getenv("CONDITIONAL_RESOURCE_ALLOCATION", "true").lower() == "true"
+
 # Experiment service configuration
 EXPERIMENT_ENABLED = True  # Enable experiment service
 EXPERIMENT_RESULTS_DIR = os.path.join(BASE_DIR, 'edge', 'experiment_results')
