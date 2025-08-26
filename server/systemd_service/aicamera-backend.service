@@ -8,6 +8,7 @@ Type=simple
 WorkingDirectory=/home/devuser/aicamera/server
 Environment=NODE_ENV=production
 Environment=PORT=3000
+Environment=DATABASE_URL=postgresql://aicamera_user:aicamera_password@localhost:5432/aicamera_db
 Environment=PATH=/usr/bin:/usr/local/bin:/home/devuser/.npm-global/bin
 ExecStart=/usr/bin/node /home/devuser/aicamera/server/dist/src/main.js
 Restart=always

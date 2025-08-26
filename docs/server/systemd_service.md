@@ -46,6 +46,9 @@ cd /home/devuser/aicamera && npm run build
 # ดู logs
 ./scripts/aicamera-control.sh logs aicamera-backend
 ./scripts/aicamera-control.sh logs aicamera-frontend
+# or
+systemctl --user status aicamera-backend
+journalctl --user -u aicamera-backend -n 30 --no-pager
 ```
 
 ## 📋 Service Configuration

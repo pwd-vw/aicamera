@@ -11,5 +11,6 @@ export default defineConfig({
   preview: {
     port: 5173,
     host: '0.0.0.0',
+    allowedHosts: ['lprserver.tail605477.ts.net'],
   },
 })
