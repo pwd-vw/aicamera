@@ -57,6 +57,10 @@ export const useAuthStore = defineStore('auth', {
         this.user = null;
       }
     },
+    async fetchUser() {
+      // Alias for fetchProfile for consistency
+      return await this.fetchProfile();
+    },
     async logout() {
       try { await api.post('/auth/logout'); } catch {}
       this.user = null;

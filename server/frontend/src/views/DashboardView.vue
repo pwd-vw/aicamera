@@ -4,6 +4,8 @@
       <h1 class="text-2xl font-semibold">Dashboard</h1>
       <div class="flex items-center gap-3">
         <span v-if="auth.user">Hello, {{ auth.user.username }} ({{ auth.user.role }})</span>
+        <router-link to="/users" class="btn-secondary" v-if="auth.user?.role === 'admin'">User Management</router-link>
+        <router-link to="/profile" class="btn-secondary">Profile</router-link>
         <button class="btn" @click="onLogout">Logout</button>
       </div>
     </header>
@@ -19,6 +21,11 @@
         <div class="dashboard-card" @click="navigateTo('/detections')">
           <h3>🚗 Detections</h3>
           <p>View license plate detection results</p>
+        </div>
+        
+        <div class="dashboard-card" @click="navigateTo('/users')" v-if="auth.user?.role === 'admin'">
+          <h3>👥 User Management</h3>
+          <p>Manage users, roles, and permissions</p>
         </div>
         
         <div class="dashboard-card" @click="navigateTo('/analytics')">
@@ -68,6 +75,18 @@ function navigateTo(path: string) {
   padding: 0.5rem 0.75rem; 
   border: none;
   cursor: pointer;
+}
+
+.btn-secondary {
+  background-color: #6b7280;
+  color: white;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 0.875rem;
 }
 
 .dashboard-grid {
