@@ -1,19 +1,14 @@
 [Unit]
-Description=AI Camera Server Frontend (Vite Preview)
+Description=AI Camera Frontend Build Service
 After=network.target
-Wants=network.target
 
 [Service]
-Type=simple
+Type=oneshot
+RemainAfterExit=yes
 WorkingDirectory=/home/devuser/aicamera/server/frontend
-Environment=HOST=0.0.0.0
-Environment=PORT=5173
 Environment=PATH=/usr/bin:/usr/local/bin:/home/devuser/.npm-global/bin
-ExecStart=/usr/bin/npm run preview -- --host 0.0.0.0 --port 5173
-Restart=always
-RestartSec=10
-StartLimitInterval=60
-StartLimitBurst=3
+ExecStart=/usr/bin/npm run build
+ExecReload=/usr/bin/npm run build
 # Logging
 StandardOutput=journal
 StandardError=journal

@@ -19,8 +19,8 @@ SERVICES=("$BACKEND_SERVICE" "$FRONTEND_SERVICE")
 
 # Configuration
 SERVICE_DIR="/home/devuser/aicamera/server/systemd_service"
-BACKEND_PORT=3000
-FRONTEND_PORT=5173
+NGINX_PORT=80
+UNIX_SOCKET="/tmp/aicamera-backend.sock"
 
 # Function to print colored output
 print_status() {
@@ -158,21 +158,21 @@ show_status() {
     done
     
     echo ""
-    print_status $BLUE "Port Status:"
-    echo "Backend (Port $BACKEND_PORT):"
-    if netstat -tulpn 2>/dev/null | grep -q ":$BACKEND_PORT "; then
-        echo -e "  ${GREEN}Port $BACKEND_PORT is in use${NC}"
-        netstat -tulpn 2>/dev/null | grep ":$BACKEND_PORT " | head -1
+    print_status $BLUE "Service Status:"
+    echo "Nginx (Port $NGINX_PORT):"
+    if netstat -tulpn 2>/dev/null | grep -q ":$NGINX_PORT "; then
+        echo -e "  ${GREEN}Port $NGINX_PORT is in use${NC}"
+        netstat -tulpn 2>/dev/null | grep ":$NGINX_PORT " | head -1
     else
-        echo -e "  ${RED}Port $BACKEND_PORT is not in use${NC}"
+        echo -e "  ${RED}Port $NGINX_PORT is not in use${NC}"
     fi
     
-    echo "Frontend (Port $FRONTEND_PORT):"
-    if netstat -tulpn 2>/dev/null | grep -q ":$FRONTEND_PORT "; then
-        echo -e "  ${GREEN}Port $FRONTEND_PORT is in use${NC}"
-        netstat -tulpn 2>/dev/null | grep ":$FRONTEND_PORT " | head -1
+    echo "Backend Unix Socket:"
+    if [ -S "$UNIX_SOCKET" ]; then
+        echo -e "  ${GREEN}Unix socket exists: $UNIX_SOCKET${NC}"
+        ls -la "$UNIX_SOCKET"
     else
-        echo -e "  ${RED}Port $FRONTEND_PORT is not in use${NC}"
+        echo -e "  ${RED}Unix socket not found: $UNIX_SOCKET${NC}"
     fi
     
     echo ""
@@ -259,8 +259,9 @@ show_help() {
     echo "  $0 deploy"
     echo ""
     echo "Service URLs:"
-    echo "  Backend API:  http://localhost:$BACKEND_PORT"
-    echo "  Frontend:     http://localhost:$FRONTEND_PORT"
+    echo "  Application:  http://localhost:$NGINX_PORT"
+    echo "  Backend API:  http://localhost:$NGINX_PORT/api"
+    echo "  Auth API:     http://localhost:$NGINX_PORT/auth"
 }
 
 # Main script logic
