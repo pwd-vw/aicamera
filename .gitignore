@@ -246,3 +246,7 @@ output.json
 plan.md
 database.md
 node_modules
+
+# DATABASE DOCUMENTATION (contains sensitive information)
+# =============================================================================
+docs/server/database.md
