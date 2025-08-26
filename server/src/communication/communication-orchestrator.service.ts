@@ -1,8 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { CommunicationProtocol, DetectionData, DeviceData, CommunicationResponse } from './interfaces/communication.interface';
 import { WebSocketProtocol } from './protocols/websocket.protocol';
-import { RestProtocol } from './protocols/rest.protocol';
-import { MqttProtocol } from './protocols/mqtt.protocol';
+// import { RestProtocol } from './protocols/rest.protocol';
+// import { MqttProtocol } from './protocols/mqtt.protocol';
 
 export interface CommunicationConfig {
   priority: 'websocket' | 'rest' | 'mqtt';
@@ -19,12 +19,12 @@ export class CommunicationOrchestratorService {
 
   constructor(
     private readonly webSocketProtocol: WebSocketProtocol,
-    private readonly restProtocol: RestProtocol,
-    private readonly mqttProtocol: MqttProtocol
+    // private readonly restProtocol: RestProtocol,
+    // private readonly mqttProtocol: MqttProtocol
   ) {
     this.config = {
       priority: 'websocket',
-      fallbackOrder: ['websocket', 'rest', 'mqtt'],
+      fallbackOrder: ['websocket'],
       retryAttempts: 3,
       retryDelay: 1000
     };
@@ -34,8 +34,8 @@ export class CommunicationOrchestratorService {
 
   private async initializeProtocols(): Promise<void> {
     this.protocols.set('websocket', this.webSocketProtocol);
-    this.protocols.set('rest', this.restProtocol);
-    this.protocols.set('mqtt', this.mqttProtocol);
+    // this.protocols.set('rest', this.restProtocol);
+    // this.protocols.set('mqtt', this.mqttProtocol);
 
     // Connect to all protocols
     for (const [name, protocol] of this.protocols) {

@@ -9,8 +9,13 @@
   "scripts": {
     "setup": "bash scripts/setup_monorepo.sh",
     "install:all": "npm install && cd server && npm install",
-    "start:server": "cd server && npm start",
-    "dev:server": "cd server && npm run dev",
+    "start:server": "cd server && npm run start:prod",
+    "dev:server": "cd server && npm run start:dev",
+    "dev:frontend": "cd server/frontend && npm run dev -- --host 0.0.0.0 --port 5173",
+    "build:frontend": "cd server/frontend && npm run build",
+    "build:server": "cd server && npm run build",
+    "dev": "concurrently -n server,frontend -c blue,magenta \"npm:dev:server\" \"npm:dev:frontend\"",
+    "build": "npm run build:server && npm run build:frontend",
     "test:server": "cd server && npm test",
     "install:edge": "cd edge && pip install -r requirements.txt",
     "start:edge": "cd edge && python src/app.py",
@@ -36,5 +41,8 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/popwandee/aicamera.git"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
   }
 }

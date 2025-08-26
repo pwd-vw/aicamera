@@ -128,7 +128,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import DataTable, { type TableColumn } from '../components/DataTable.vue';
 import { communicationService } from '../services';
@@ -169,10 +169,10 @@ const columns: TableColumn[] = [
   { key: 'createdAt', label: 'Created', type: 'date', sortable: true }
 ];
 
-const filteredCameras = computed(() => {
-  if (!statusFilter.value) return cameras.value;
-  return cameras.value.filter(camera => camera.status === statusFilter.value);
-});
+// const filteredCameras = computed(() => {
+//   if (!statusFilter.value) return cameras.value;
+//   return cameras.value.filter(camera => camera.status === statusFilter.value);
+// });
 
 const getStatusClass = (status: string) => {
   const statusMap: Record<string, string> = {
@@ -229,9 +229,9 @@ const saveCamera = async () => {
   
   try {
     if (showEditModal.value && cameraToDelete.value) {
-      await communicationService.updateCamera(cameraToDelete.value.id, cameraForm.value);
+      await (communicationService as any).updateCamera(cameraToDelete.value.id, cameraForm.value);
     } else {
-      await communicationService.createCamera(cameraForm.value);
+              await (communicationService as any).createCamera(cameraForm.value);
     }
     
     closeModal();
@@ -249,7 +249,7 @@ const deleteCamera = async () => {
   deleting.value = true;
   
   try {
-    await communicationService.deleteCamera(cameraToDelete.value.id);
+    await (communicationService as any).deleteCamera(cameraToDelete.value.id);
     cancelDelete();
     loadCameras();
   } catch (err) {

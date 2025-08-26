@@ -1,14 +1,10 @@
----
-alwaysApply: true
-description: "AI Camera Monorepo development rules and guidelines"
----
 
 # AI Camera Monorepo - Cursor Rules
 
 ## Project Overview
 This is a monorepo for an AI Camera system with distributed architecture:
 - **Edge Component**: Python-based LPR detection on Raspberry Pi 5 + Hailo AI Accelerator
-- **Server Component**: Node.js-based data ingestion and management server
+- **Server Component**: NestJS-based data ingestion and management server with Vue.js frontend
 - **Communication**: Multi-protocol (WebSocket primary, REST API backup, MQTT fallback)
 - **Image Transfer**: SFTP/rsync for secure image transfer
 
@@ -21,16 +17,28 @@ aicamera/
 │   ├── scripts/           # Edge-specific scripts
 │   ├── systemd_service/   # Edge systemd service files
 │   └── tests/             # Python tests
-├── server/                 # Node.js-based data ingestion server
+├── server/                 # NestJS-based data ingestion server
 │   ├── src/                # Server source code
-│   │   ├── routes/         # API routes
-│   │   ├── utils/          # Utility functions
-│   │   ├── database/       # Database models
-│   │   ├── socket/         # WebSocket handlers
+│   │   ├── auth/           # Authentication modules
 │   │   ├── communication/  # Multi-protocol communication
-│   │   └── services/       # Business logic services
-│   ├── database/           # Database schema and migrations
-│   ├── protocols/          # Shared communication protocols
+│   │   ├── controllers/    # API controllers
+│   │   ├── database/       # Database configuration
+│   │   ├── decorators/     # Custom decorators
+│   │   ├── dto/            # Data Transfer Objects
+│   │   ├── guards/         # Authentication guards
+│   │   ├── interceptors/   # Request/Response interceptors
+│   │   ├── modules/        # Feature modules
+│   │   ├── services/       # Business logic services
+│   │   └── main.ts         # Application entry point
+│   ├── prisma/             # Database schema and migrations
+│   ├── frontend/           # Vue.js frontend (separate build)
+│   │   ├── src/            # Frontend source code
+│   │   ├── public/         # Static assets
+│   │   ├── package.json    # Frontend dependencies
+│   │   ├── tsconfig.json   # TypeScript configuration
+│   │   ├── tsconfig.app.json # App-specific TypeScript config
+│   │   ├── tsconfig.node.json # Node-specific TypeScript config
+│   │   └── vite.config.ts  # Vite build configuration
 │   ├── scripts/           # Server-specific scripts
 │   ├── systemd_service/   # Server systemd service files
 │   └── package.json        # Node.js dependencies
@@ -39,31 +47,28 @@ aicamera/
 │   ├── edge/              # Edge component documentation
 │   ├── server/            # Server component documentation
 │   ├── shared/            # Shared protocols and schemas
-│   ├── guides/            # User guides
-│   ├── admin/             # Administrator documentation
-│   ├── developer/         # Developer documentation
-│   ├── deployment/        # Deployment guides
+│   ├── reference/            # Edge - Server development reference information
 │   ├── project/           # Project management docs
-│   └── scripts/           # Script documentation
+│   └── shared/            # Shared protocols and schemas
 ├── resources/              # AI models and configuration files
 └── captured_images/        # Local image storage (edge)
 ```
 
 ## Development Environment
 - **Python**: 3.11+ (edge component)
-- **Node.js**: 18+ (server component)
-- **Database**: PostgreSQL 14+, Redis 6+
+- **Node.js**: 22+ (server component)
+- **Database**: PostgreSQL 17+, Redis 7+
 - **AI Accelerator**: Hailo-8 for edge inference
 - **Virtual Environment**: `venv_hailo` for Python dependencies
 
 ## Versioning Strategy
-- **Current Version**: 2.0.0 (semantic versioning)
+- **Current Version**: 2.0 (semantic versioning)
 - **Format**: MAJOR.MINOR.PATCH[-PRERELEASE][+BUILD]
 - **Commit Convention**: Conventional Commits (feat:, fix:, BREAKING CHANGE:)
 - **Branch Strategy**: main, develop, feature/*, hotfix/*, alpha, beta, rc
 - **GitHub Workflow**: `.github/workflows/version.yml` - Centralized automated semantic versioning
 
-## Communication Protocols
+## Communication Protocols: Edge <--> Server
 1. **WebSocket (Primary)**: Real-time bidirectional communication
 2. **REST API (Backup)**: HTTP REST API for reliable communication
 3. **MQTT (Fallback)**: Lightweight messaging for poor network conditions
@@ -81,7 +86,7 @@ aicamera/
 - **Backward Compatibility**: New methods must be additive, not breaking
 - **Interface Stability**: Public APIs must remain stable
 
-#### **Core Components (DO NOT BREAK):**
+#### **Edge Core Components (DO NOT BREAK):**
 - **CameraHandler**: Low-level camera operations (Singleton pattern)
 - **CameraManager**: High-level camera service management
 - **DetectionManager**: AI detection pipeline orchestration
@@ -89,7 +94,7 @@ aicamera/
 - **DatabaseManager**: Data persistence layer
 - **VideoStreamingService**: Video streaming functionality
 
-#### **Component Dependencies:**
+#### **Edge Component Dependencies:**
 ```
 DetectionManager → CameraManager → CameraHandler
 HealthMonitor → CameraManager (status only)
@@ -97,7 +102,7 @@ VideoStreamingService → CameraManager
 ExperimentService → (independent)
 ```
 
-### Code Organization
+### Edge Code Organization
 - **MANDATORY**: Use absolute imports managed by import_helper.py
 - **MANDATORY**: Follow dependency injection pattern with dependency_container.py
 - **MANDATORY**: Modularize Web UI with Flask Blueprints
@@ -106,11 +111,11 @@ ExperimentService → (independent)
 ### 🚀 RESOURCE MANAGEMENT - CRITICAL REQUIREMENT
 **⚠️ CRITICAL**: This system implements a Core Components Priority strategy to ensure optimal performance and resource usage.
 
-#### **Core Components Priority Strategy:**
+#### ** Edge Core Components Priority Strategy:**
 - **Core Components (High Priority - Full Performance)**: Camera Handler, Camera Manager, Detection Processor, Detection Manager, Video Streaming
 - **Non-Essential Services (Reduced Resource Usage)**: Health Monitor, WebSocket Sender, Storage Monitor, UI Updates
 
-#### **Resource Usage Guidelines:**
+#### **Edge Resource Usage Guidelines:**
 - **CPU Usage Target**: < 30% for background services
 - **Memory Usage Target**: < 2GB total system usage
 - **Core Components**: MUST maintain full performance (30 FPS video, 10 FPS detection)
@@ -119,7 +124,7 @@ ExperimentService → (independent)
 #### **Optimized Intervals (MANDATORY):**
 ```python
 # Core components - FULL PERFORMANCE
-DETECTION_INTERVAL = 0.1  # 10 FPS detection processing
+DETECTION_INTERVAL = 0.3  # 30 FPS detection processing
 CAMERA_FPS = 30          # 30 FPS video streaming
 
 # Non-essential services - REDUCED RESOURCE USAGE
@@ -148,54 +153,6 @@ dashboardUpdates: 60000,          # 60 seconds (was 10 seconds)
 - **MANDATORY**: Guard libcamera imports behind device checks to avoid import-time failures
 - **MANDATORY**: Use absolute paths managed by import_helper.py
 
-### 🔒 CAMERA COMPONENT CHANGE VERIFICATION - CRITICAL
-**🚨 CRITICAL REQUIREMENT**: Any changes to CameraHandler or CameraManager MUST be verified for impact on other components.
-
-#### **Component Change Workflow:**
-1. **Analyze Dependencies**: Check which components use camera services
-2. **Verify Method Signatures**: Ensure existing methods remain unchanged
-3. **Test Integration Points**: Verify detection, health, and video streaming still work
-4. **Check Auto-Startup**: Ensure auto-startup sequence is not affected
-5. **Validate DI Container**: Confirm service registration and lifecycle unchanged
-6. **Run Integration Tests**: Test all dependent components
-7. **Document Changes**: Update documentation if APIs change
-
-#### **Required Verification Checklist:**
-- [ ] **DetectionManager**: `camera_manager.capture_frame()` method exists and works
-- [ ] **HealthMonitor**: Camera status monitoring unaffected
-- [ ] **VideoStreamingService**: Video streaming functionality intact
-- [ ] **Auto-Startup**: Camera initialization and startup sequence unchanged
-- [ ] **DI Container**: Service registration and dependency injection working
-- [ ] **Backward Compatibility**: All existing public APIs unchanged
-- [ ] **Error Handling**: Error patterns and exception types unchanged
-- [ ] **Import Compatibility**: All absolute imports still work
-- [ ] **Service Lifecycle**: Initialize, start, stop, cleanup methods unchanged
-
-#### **Safe Change Patterns:**
-- ✅ **Additive Methods**: Adding new methods is safe
-- ✅ **Internal Improvements**: Internal logic changes are safe
-- ✅ **Enhanced Error Handling**: Better error messages are safe
-- ✅ **Performance Optimizations**: Internal optimizations are safe
-- ❌ **Breaking Changes**: Changing method signatures is NOT safe
-- ❌ **API Changes**: Modifying public interfaces is NOT safe
-- ❌ **Dependency Changes**: Changing component dependencies is NOT safe
-- ❌ **Import Changes**: Changing import paths is NOT safe
-
-#### **Verification Commands:**
-```bash
-# Test auto-startup sequence
-python -m edge.src.app
-
-# Test detection pipeline
-python -c "from edge.src.core.dependency_container import get_service; dm = get_service('detection_manager'); print('Detection manager:', dm)"
-
-# Test camera services
-python -c "from edge.src.core.dependency_container import get_service; cm = get_service('camera_manager'); print('Camera manager:', cm)"
-
-# Test health monitoring
-python -c "from edge.src.core.dependency_container import get_service; hm = get_service('health_monitor'); print('Health monitor:', hm)"
-```
-
 ### Node.js (Server) Development
 - Use ES6+ syntax
 - Follow ESLint configuration
@@ -204,12 +161,184 @@ python -c "from edge.src.core.dependency_container import get_service; hm = get_
 - Follow RESTful API design principles
 - Implement proper middleware (helmet, cors, rate limiting)
 
+### 🏗️ SEPARATE BUILD PROCESS - CRITICAL REQUIREMENT
+**⚠️ CRITICAL**: The server component uses a separate build process for NestJS backend and Vue.js frontend to ensure optimal performance and maintainability.
+
+#### **Build Process Separation:**
+- **Backend (NestJS)**: TypeScript compilation, module resolution, API generation
+- **Frontend (Vue.js)**: Vue compilation, asset optimization, code splitting, bundle optimization
+- **Independent Builds**: Each component builds independently to avoid conflicts
+
+#### **TypeScript Configuration Requirements:**
+
+##### **Backend (tsconfig.json):**
+```json
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "target": "ES2020",
+    "outDir": "./dist",
+    "baseUrl": "./",
+    "strict": true,
+    "skipLibCheck": true
+  },
+  "exclude": [
+    "frontend/**/*",
+    "node_modules"
+  ]
+}
+```
+
+##### **Frontend (tsconfig.app.json):**
+```json
+{
+  "extends": "@vue/tsconfig/tsconfig.dom.json",
+  "compilerOptions": {
+    "strict": true,
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "skipLibCheck": true
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue"]
+}
+```
+
+#### **Build Scripts (MANDATORY):**
+```json
+{
+  "scripts": {
+    "build": "nest build",
+    "build:frontend": "cd frontend && npm run build",
+    "build:all": "npm run build && npm run build:frontend",
+    "start:dev": "nest start --watch",
+    "start:frontend": "cd frontend && npm run dev",
+    "dev": "concurrently \"npm run start:dev\" \"npm run start:frontend\""
+  }
+}
+```
+
+#### **Build Process Rules:**
+- **MANDATORY**: Backend and frontend must build independently
+- **MANDATORY**: Use separate TypeScript configurations
+- **MANDATORY**: Exclude frontend files from backend build
+- **MANDATORY**: Use proper module resolution for each component
+- **MANDATORY**: Handle Vue imports correctly in frontend
+
+#### **Troubleshooting Build Issues:**
+```bash
+# Backend Build Issues
+rm -rf dist/
+npm run build
+npx tsc --noEmit
+
+# Frontend Build Issues
+cd frontend
+rm -rf node_modules/
+npm install
+npm run build
+npx vue-tsc --noEmit
+
+# Vue Import Issues
+find . -name "*.vue" -type f
+grep -r "import.*\.vue" src/
+```
+
+### 🏗️ SEPARATE BUILD PROCESS - CRITICAL REQUIREMENT
+**⚠️ CRITICAL**: The server component uses a separate build process for NestJS backend and Vue.js frontend to ensure optimal performance and maintainability.
+
+#### **Build Process Separation:**
+- **Backend (NestJS)**: TypeScript compilation, module resolution, API generation
+- **Frontend (Vue.js)**: Vue compilation, asset optimization, code splitting, bundle optimization
+- **Independent Builds**: Each component builds independently to avoid conflicts
+
+#### **TypeScript Configuration Requirements:**
+
+##### **Backend (tsconfig.json):**
+```json
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "target": "ES2020",
+    "outDir": "./dist",
+    "baseUrl": "./",
+    "strict": true,
+    "skipLibCheck": true
+  },
+  "exclude": [
+    "frontend/**/*",
+    "node_modules"
+  ]
+}
+```
+
+##### **Frontend (tsconfig.app.json):**
+```json
+{
+  "extends": "@vue/tsconfig/tsconfig.dom.json",
+  "compilerOptions": {
+    "strict": true,
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "skipLibCheck": true
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue"]
+}
+```
+
+#### **Build Scripts (MANDATORY):**
+```json
+{
+  "scripts": {
+    "build": "nest build",
+    "build:frontend": "cd frontend && npm run build",
+    "build:all": "npm run build && npm run build:frontend",
+    "start:dev": "nest start --watch",
+    "start:frontend": "cd frontend && npm run dev",
+    "dev": "concurrently \"npm run start:dev\" \"npm run start:frontend\""
+  }
+}
+```
+
+#### **Build Process Rules:**
+- **MANDATORY**: Backend and frontend must build independently
+- **MANDATORY**: Use separate TypeScript configurations
+- **MANDATORY**: Exclude frontend files from backend build
+- **MANDATORY**: Use proper module resolution for each component
+- **MANDATORY**: Handle Vue imports correctly in frontend
+
+#### **Troubleshooting Build Issues:**
+```bash
+# Backend Build Issues
+rm -rf dist/
+npm run build
+npx tsc --noEmit
+
+# Frontend Build Issues
+cd frontend
+rm -rf node_modules/
+npm install
+npm run build
+npx vue-tsc --noEmit
+
+# Vue Import Issues
+find . -name "*.vue" -type f
+grep -r "import.*\.vue" src/
+```
+
 ### Database Management
 - Use PostgreSQL for primary data storage
 - Use Redis for caching and session management
 - Follow migration-based schema updates
 - Implement proper indexing for performance
-- Use Sequelize ORM for Node.js
+- Use Prisma ORM for Node.js
 
 ### API Design
 - RESTful API with proper versioning (/api/v1/)
@@ -498,6 +627,20 @@ iotop
 - **TEST** detection, health, and video streaming after changes
 - **ENSURE** auto-startup sequence remains intact
 - **VALIDATE** DI container service registration
+
+### **Separate Build Process Safety**
+- **MANDATORY**: Keep backend and frontend builds separate
+- **MANDATORY**: Use correct TypeScript configurations for each component
+- **MANDATORY**: Exclude frontend files from backend build
+- **MANDATORY**: Handle Vue imports correctly in frontend
+- **CRITICAL**: Test both builds independently
+
+### **Separate Build Process Safety**
+- **MANDATORY**: Keep backend and frontend builds separate
+- **MANDATORY**: Use correct TypeScript configurations for each component
+- **MANDATORY**: Exclude frontend files from backend build
+- **MANDATORY**: Handle Vue imports correctly in frontend
+- **CRITICAL**: Test both builds independently
 
 ### **Production System Requirements**
 This is a production system handling real-time AI inference and data processing. Always prioritize:
@@ -798,6 +941,10 @@ curl -s http://localhost/camera/test | jq '.test_results'
 
 # Verify API reference consistency
 grep -A 10 -B 5 "success.*true" docs/edge/api-reference.md
+```
+
+**⚠️ CRITICAL**: Any changes that could affect other components must be thoroughly tested and verified before implementation.
+
 ```
 
 **⚠️ CRITICAL**: Any changes that could affect other components must be thoroughly tested and verified before implementation.

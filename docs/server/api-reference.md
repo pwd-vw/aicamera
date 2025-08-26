@@ -67,6 +67,103 @@ POST /auth/logout
 Authorization: Bearer <access_token>
 ```
 
+## 🖥️ การจัดการระบบ (System Management)
+
+### ดูสถานะระบบ
+
+```http
+GET /system/status
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "status": "[2025-08-26 15:23:50] AI Camera Services Status\n==================================\naicamera-backend: ACTIVE\naicamera-frontend: ACTIVE\n\n[2025-08-26 15:23:50] Port Status:\nBackend (Port 3000):\n  Port 3000 is in use\ntcp6       0      0 :::3000                 :::*                    LISTEN      3845430/node        \nFrontend (Port 5173):\n  Port 5173 is in use\ntcp        0      0 0.0.0.0:5173            0.0.0.0:*               LISTEN      3845475/node        \n\n[2025-08-26 15:23:50] Service Logs (last 5 lines):\n...",
+  "timestamp": "2025-08-26T08:23:50.830Z"
+}
+```
+
+### ติดตั้ง Services
+
+```http
+POST /system/install
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Services installed successfully",
+  "output": "[2025-08-26 15:16:31] Installing AI Camera services...\n[2025-08-26 15:16:31] Installing aicamera-backend...\nCreated symlink /home/devuser/.config/systemd/user/default.target.wants/aicamera-backend.service\n[2025-08-26 15:16:31] aicamera-backend installed and enabled\n...",
+  "timestamp": "2025-08-26T08:16:31.123Z"
+}
+```
+
+### เริ่มต้น Services
+
+```http
+POST /system/start
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Services started successfully",
+  "output": "[2025-08-26 15:23:22] Starting AI Camera services...\n[2025-08-26 15:23:22] Starting aicamera-backend...\n[2025-08-26 15:23:22] aicamera-backend started successfully\n...",
+  "timestamp": "2025-08-26T08:23:22.456Z"
+}
+```
+
+### หยุด Services
+
+```http
+POST /system/stop
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Services stopped successfully",
+  "output": "[2025-08-26 15:25:10] Stopping AI Camera services...\n[2025-08-26 15:25:10] Stopping aicamera-backend...\n[2025-08-26 15:25:10] aicamera-backend stopped\n...",
+  "timestamp": "2025-08-26T08:25:10.789Z"
+}
+```
+
+### รีสตาร์ท Services
+
+```http
+POST /system/restart
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Services restarted successfully",
+  "output": "[2025-08-26 15:26:15] Restarting AI Camera services...\n[2025-08-26 15:26:15] Restarting aicamera-backend...\n[2025-08-26 15:26:15] aicamera-backend restarted successfully\n...",
+  "timestamp": "2025-08-26T08:26:15.012Z"
+}
+```
+
+### Build และ Deploy
+
+```http
+POST /system/build
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Build and deploy completed successfully",
+  "output": "[2025-08-26 15:27:30] Building and deploying AI Camera...\n[2025-08-26 15:27:30] Building backend...\n[2025-08-26 15:27:35] Building frontend...\n[2025-08-26 15:27:40] Build completed successfully\n...",
+  "timestamp": "2025-08-26T08:27:40.345Z"
+}
+```
+
 ## 📹 การจัดการกล้อง (Cameras)
 
 ### ดูรายการกล้องทั้งหมด

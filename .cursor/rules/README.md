@@ -10,12 +10,6 @@ This directory contains Cursor AI development rules and guidelines for the AI Ca
 - **Scope**: Edge component, Server component, documentation, scripts, deployment
 - **Always Apply**: Yes
 
-### `aicamer-v1-3.mdc` (Deprecated)
-- **Status**: ❌ Deprecated
-- **Description**: Legacy rules for v1.3 version
-- **Scope**: Old single-component structure
-- **Always Apply**: No
-
 ## Usage
 
 Cursor will automatically apply the rules from `aicamera-monorepo.mdc` to all development work in this repository.
@@ -37,13 +31,10 @@ The active rules cover:
 11. **Performance Optimization** - Database, caching, monitoring
 12. **Deployment** - Systemd, nginx, CI/CD pipeline
 
-## Migration from v1.3
 
 The project has been restructured from a single-component system to a monorepo:
-
-- **Old**: Single Python application in root
-- **New**: Edge (Python) + Server (Node.js) components
-- **Documentation**: Reorganized under `/docs/` with clear categories
+- **Structured**: Edge (Python) + Server (Node.js) components
+- **Documentation**: Organized by component (`docs/edge/`, `docs/server/`, `docs/reference/`) with clear categories
 - **Scripts**: Organized by component (`/edge/scripts/`, `/server/scripts/`)
 - **Services**: Component-specific systemd services
 
@@ -59,5 +50,4 @@ To add new rules:
 ## Rule Priority
 
 1. **aicamera-monorepo.mdc** - Always applied (main rules)
-2. **aicamer-v1-3.mdc** - Never applied (deprecated)
-3. **Future rule files** - Based on `alwaysApply` setting
+2. **Future rule files** - Based on `alwaysApply` setting

@@ -1,10 +1,10 @@
-import mqtt, { MqttClient } from 'mqtt';
-import type { IClientOptions, IClientPublishOptions } from 'mqtt';
+import mqtt from 'mqtt';
+import type { MqttClient, IClientOptions, IClientPublishOptions } from 'mqtt';
 
 export class MQTTService {
   private client: MqttClient | null = null;
   private reconnectAttempts = 0;
-  private maxReconnectAttempts = 5;
+  // private maxReconnectAttempts = 5;
   private reconnectDelay = 1000;
   private subscriptions: Map<string, (message: string) => void> = new Map();
 
@@ -33,7 +33,7 @@ export class MQTTService {
       console.log('MQTT connected');
       this.reconnectAttempts = 0;
       // Resubscribe to topics after reconnection
-      this.subscriptions.forEach((callback, topic) => {
+      this.subscriptions.forEach((_callback, topic) => {
         this.client?.subscribe(topic);
       });
     });

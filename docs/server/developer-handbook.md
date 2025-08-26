@@ -61,6 +61,9 @@ redis-server --version
 
 # npm หรือ yarn
 npm --version
+
+# systemd (สำหรับ production deployment)
+systemctl --version
 ```
 
 #### Frontend Development
@@ -98,42 +101,35 @@ cd aicamera/server
 npm install
 
 # ตั้งค่าฐานข้อมูล
-cp .env.example .env
-# แก้ไขไฟล์ .env ตามการตั้งค่าของคุณ
-
-# สร้างฐานข้อมูล
+npx prisma generate
 npx prisma migrate dev
 
-# สร้างผู้ดูแลระบบ
-npm run setup:admin
+# ตั้งค่า environment variables
+cp .env.example .env
+# แก้ไข .env file ตามความเหมาะสม
 
-# เริ่มต้น development server
+# รัน development server
 npm run start:dev
 ```
 
 ### การติดตั้ง Frontend
 
 ```bash
-# ไปยังโฟลเดอร์ frontend
-cd server/frontend
+# เข้าไปใน frontend directory
+cd frontend
 
 # ติดตั้ง dependencies
 npm install
 
-# ตั้งค่า environment
-cp .env.example .env
-# แก้ไขไฟล์ .env ให้ชี้ไปยัง Backend API
-
-# เริ่มต้น development server
+# รัน development server
 npm run dev
 ```
 
 ### การติดตั้ง Edge Device
 
 ```bash
-# Clone repository
-git clone https://github.com/your-org/aicamera.git
-cd aicamera/edge
+# เข้าไปใน edge directory
+cd edge
 
 # สร้าง virtual environment
 python3 -m venv venv_hailo
@@ -142,56 +138,53 @@ source venv_hailo/bin/activate
 # ติดตั้ง dependencies
 pip install -r requirements.txt
 
-# ตั้งค่า environment
-cp .env.example .env
-# แก้ไขไฟล์ .env ตามการตั้งค่าของคุณ
-
-# เริ่มต้นระบบ
-python -m edge.src.app
+# รัน application
+python src/app.py
 ```
 
-## 📁 โครงสร้างโปรเจค
+## 📁 โครงสร้างโปรเจกต์
 
-### โครงสร้าง Backend
+### โครงสร้าง Backend (NestJS)
 
 ```
 server/
 ├── src/
-│   ├── auth/                 # ระบบ Authentication
-│   ├── cameras/              # การจัดการกล้อง
-│   ├── detections/           # การจัดการการตรวจจับ
-│   ├── analytics/            # การวิเคราะห์ข้อมูล
-│   ├── visualizations/       # การแสดงผลข้อมูล
-│   ├── users/                # การจัดการผู้ใช้
-│   ├── rate-limit/           # การจำกัดการใช้งาน
-│   ├── communication/        # ระบบการสื่อสาร
-│   ├── common/               # โค้ดที่ใช้ร่วมกัน
-│   └── main.ts               # Entry point
-├── prisma/
-│   ├── schema.prisma         # Database schema
-│   └── migrations/           # Database migrations
-├── frontend/                 # Vue.js frontend
-├── docs/                     # Documentation
-├── scripts/                  # Scripts
-└── package.json
+│   ├── auth/                 # Authentication modules
+│   ├── communication/        # Communication protocols
+│   ├── controllers/          # API controllers
+│   ├── database/             # Database configuration
+│   ├── decorators/           # Custom decorators
+│   ├── dto/                  # Data Transfer Objects
+│   ├── guards/               # Authentication guards
+│   ├── interceptors/         # Request/Response interceptors
+│   ├── modules/              # Feature modules
+│   ├── services/             # Business logic services
+│   └── main.ts               # Application entry point
+├── prisma/                   # Database schema
+├── frontend/                 # Vue.js frontend (separate build)
+├── package.json              # Dependencies
+└── tsconfig.json             # TypeScript configuration
 ```
 
-### โครงสร้าง Frontend
+### โครงสร้าง Frontend (Vue.js)
 
 ```
 server/frontend/
 ├── src/
-│   ├── components/           # Vue components
-│   ├── views/                # Vue views
+│   ├── components/           # Reusable components
+│   ├── views/                # Page components
 │   ├── stores/               # Pinia stores
 │   ├── services/             # API services
 │   ├── utils/                # Utility functions
-│   ├── router/               # Vue Router
-│   ├── types/                # TypeScript types
-│   └── main.ts               # Entry point
-├── public/                   # Static files
-├── docs/                     # Documentation
-└── package.json
+│   ├── router/               # Vue Router configuration
+│   ├── App.vue               # Root component
+│   └── main.ts               # Application entry point
+├── public/                   # Static assets
+├── package.json              # Frontend dependencies
+├── tsconfig.json             # TypeScript configuration
+├── tsconfig.app.json         # App-specific TypeScript config
+├── tsconfig.node.json        # Node-specific TypeScript config
+└── vite.config.ts            # Vite build configuration
 ```
 
 ### โครงสร้าง Edge Device
@@ -370,30 +363,11 @@ export class ExampleService {
 }
 ```
 
-### การจัดการ Authentication
+### การสร้าง Custom Validation
 
 ```typescript
-// การใช้ Guards
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('admin')
-@Get('admin-only')
-adminOnly() {
-  return 'Admin only content';
-}
-
-// การเข้าถึง User จาก Request
-@Get('profile')
-@UseGuards(JwtAuthGuard)
-getProfile(@Request() req) {
-  return req.user;
-}
-```
-
-### การจัดการ Validation
-
-```typescript
-// การสร้าง Custom Validator
-import { registerDecorator, ValidationOptions } from 'class-validator';
+// src/decorators/custom-validation.decorator.ts
+import { registerDecorator, ValidationOptions, ValidationArguments } from 'class-validator';
 
 export function IsStrongPassword(validationOptions?: ValidationOptions) {
   return function (object: Object, propertyName: string) {
@@ -614,188 +588,56 @@ export class NewService {
 export const newService = new NewService();
 ```
 
-### การจัดการ Routing
+## 🔨 การ Build และ Deploy
 
-```typescript
-// src/router/index.ts
-import { createRouter, createWebHistory } from 'vue-router';
-import type { RouteRecordRaw } from 'vue-router';
-
-const routes: RouteRecordRaw[] = [
-  {
-    path: '/',
-    redirect: '/dashboard',
-  },
-  {
-    path: '/login',
-    name: 'login',
-    component: () => import('../views/LoginView.vue'),
-    meta: { public: true },
-  },
-  {
-    path: '/dashboard',
-    name: 'dashboard',
-    component: () => import('../views/DashboardView.vue'),
-  },
-  {
-    path: '/new',
-    name: 'new',
-    component: () => import('../views/NewView.vue'),
-  },
-  {
-    path: '/new/create',
-    name: 'new-create',
-    component: () => import('../views/NewCreateView.vue'),
-  },
-  {
-    path: '/new/:id',
-    name: 'new-detail',
-    component: () => import('../views/NewDetailView.vue'),
-  },
-];
-
-const router = createRouter({
-  history: createWebHistory(),
-  routes,
-});
-
-// Navigation Guards
-router.beforeEach((to, from, next) => {
-  const authStore = useAuthStore();
-  
-  if (to.meta.public) {
-    next();
-  } else if (!authStore.isAuthenticated) {
-    next('/login');
-  } else {
-    next();
-  }
-});
-
-export default router;
-```
-
-## 🧪 การทดสอบ
-
-### การทดสอบ Backend
-
-```typescript
-// src/new/new.service.spec.ts
-import { Test, TestingModule } from '@nestjs/testing';
-import { NewService } from './new.service';
-import { PrismaService } from '../prisma/prisma.service';
-
-describe('NewService', () => {
-  let service: NewService;
-  let prisma: PrismaService;
-
-  beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        NewService,
-        {
-          provide: PrismaService,
-          useValue: {
-            new: {
-              create: jest.fn(),
-              findMany: jest.fn(),
-              findUnique: jest.fn(),
-              update: jest.fn(),
-              delete: jest.fn(),
-            },
-          },
-        },
-      ],
-    }).compile();
-
-    service = module.get<NewService>(NewService);
-    prisma = module.get<PrismaService>(PrismaService);
-  });
-
-  it('should be defined', () => {
-    expect(service).toBeDefined();
-  });
-
-  describe('create', () => {
-    it('should create a new item', async () => {
-      const createDto = { name: 'Test', value: 100 };
-      const expected = { id: '1', ...createDto, createdAt: new Date() };
-      
-      jest.spyOn(prisma.new, 'create').mockResolvedValue(expected);
-      
-      const result = await service.create(createDto);
-      
-      expect(result).toEqual(expected);
-      expect(prisma.new.create).toHaveBeenCalledWith({ data: createDto });
-    });
-  });
-});
-```
-
-### การทดสอบ Frontend
-
-```typescript
-// src/components/__tests__/NewComponent.spec.ts
-import { mount } from '@vue/test-utils';
-import { describe, it, expect } from 'vitest';
-import NewComponent from '../NewComponent.vue';
-
-describe('NewComponent', () => {
-  it('renders title correctly', () => {
-    const wrapper = mount(NewComponent, {
-      props: {
-        title: 'Test Title',
-      },
-    });
-
-    expect(wrapper.find('h3').text()).toBe('Test Title');
-  });
-
-  it('renders slot content', () => {
-    const wrapper = mount(NewComponent, {
-      props: {
-        title: 'Test',
-      },
-      slots: {
-        default: '<p>Slot content</p>',
-      },
-    });
-
-    expect(wrapper.find('.content p').text()).toBe('Slot content');
-  });
-});
-```
-
-### การรัน Tests
+### การ Build Backend (NestJS)
 
 ```bash
-# Backend tests
-cd server
-npm run test
+# Development build
+npm run build
 
-# Frontend tests
-cd server/frontend
-npm run test
+# Production build
+npm run build:prod
 
-# Edge tests
-cd edge
-python -m pytest
-
-# Coverage
-npm run test:cov
+# Build with optimization
+npm run build:optimized
 ```
 
-## 🔧 การ Deploy
+### การ Build Frontend (Vue.js)
+
+```bash
+# เข้าไปใน frontend directory
+cd frontend
+
+# Development build
+npm run build
+
+# Production build
+npm run build:prod
+
+# Preview production build
+npm run preview
+```
+
+### การ Build แยกกัน (Recommended)
+
+```bash
+# Build Backend only
+cd server
+npm run build
+
+# Build Frontend only
+cd server/frontend
+npm run build
+
+# Build both (from root)
+cd server
+npm run build:all
+```
 
 ### การ Deploy Backend
 
 ```bash
-# Build production
-npm run build
-
-# Start production server
-npm run start:prod
-
 # Using PM2
 pm2 start dist/main.js --name aicamera-backend
 
@@ -917,6 +759,400 @@ const isTokenExpired = (token: string) => {
 };
 ```
 
+## 🚀 การ Build Process แยกกัน
+
+### เหตุผลในการแยก Build Process
+
+#### **Backend (NestJS)**
+- **TypeScript Compilation**: Compile TypeScript เป็น JavaScript
+- **Module Resolution**: จัดการ dependencies และ modules
+- **API Generation**: สร้าง API documentation
+- **Database Migration**: จัดการ database schema
+
+#### **Frontend (Vue.js)**
+- **Vue Compilation**: Compile Vue components
+- **Asset Optimization**: Optimize CSS, images, fonts
+- **Code Splitting**: แยก code เป็น chunks
+- **Bundle Optimization**: ลดขนาดไฟล์
+
+### การตั้งค่า TypeScript Configuration
+
+#### **Backend (tsconfig.json)**
+```json
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "target": "ES2020",
+    "outDir": "./dist",
+    "baseUrl": "./",
+    "strict": true,
+    "skipLibCheck": true
+  },
+  "exclude": [
+    "frontend/**/*",
+    "node_modules"
+  ]
+}
+```
+
+#### **Frontend (tsconfig.app.json)**
+```json
+{
+  "extends": "@vue/tsconfig/tsconfig.dom.json",
+  "compilerOptions": {
+    "strict": true,
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "skipLibCheck": true
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue"]
+}
+```
+
+### การ Build Scripts
+
+#### **Package.json Scripts**
+```json
+{
+  "scripts": {
+    "build": "nest build",
+    "build:frontend": "cd frontend && npm run build",
+    "build:all": "npm run build && npm run build:frontend",
+    "start:dev": "nest start --watch",
+    "start:frontend": "cd frontend && npm run dev",
+    "dev": "concurrently \"npm run start:dev\" \"npm run start:frontend\""
+  }
+}
+```
+### Development Mode (Recommended for development)
+```bash
+# Start both backend and frontend in development mode
+cd /home/devuser/aicamera
+npm run dev
+```
+### Individual Development
+```bash
+# Backend only (NestJS with hot reload)
+cd /home/devuser/aicamera
+npm run dev:server
+
+# Frontend only (Vite with hot reload)
+cd /home/devuser/aicamera
+npm run dev:frontend
+```
+### การ Build Commands
+#### Build Both
+```bash
+# Build backend and frontend for production
+cd /home/devuser/aicamera
+npm run build
+```
+#### **Backend Build**
+```bash
+# Build backend only
+cd /home/devuser/aicamera
+npm run build:server
+
+# Build Issues แก้ปัญหา ลบ dist folder และ build ใหม่
+rm -rf dist/
+npm run build
+
+# ตรวจสอบ TypeScript errors
+npx tsc --noEmit
+
+# ตรวจสอบ dependencies
+npm audit
+npm outdated
+```
+
+#### **Frontend Build Issues**
+```bash
+# Build frontend only
+cd /home/devuser/aicamera
+npm run build:frontend
+
+# Build Issues เข้าไปใน frontend directory
+cd frontend
+
+# ลบ node_modules และติดตั้งใหม่
+rm -rf node_modules/
+npm install
+
+# Build ใหม่
+npm run build
+
+# ตรวจสอบ TypeScript errors
+npx vue-tsc --noEmit
+```
+
+#### **Vue Import Issues**
+```bash
+# ตรวจสอบ Vue file paths
+find . -name "*.vue" -type f
+
+# ตรวจสอบ import statements
+grep -r "import.*\.vue" src/
+
+# แก้ไข TypeScript configuration
+# เพิ่ม moduleResolution: "bundler" ใน tsconfig.app.json
+```
+## 🏃‍♂️ Production Start
+### Start Production Backend
+``` bash
+cd /home/devuser/aicamera
+npm run start:server
+```
+
+### Preview Production Frontend
+```bash
+cd /home/devuser/aicamera/server/frontend
+npm run preview
+```
+## �� Service URLs
+Backend API: http://localhost:3000
+Frontend Dashboard: http://localhost:5173
+Backend Health Check: http://localhost:3000/communication/status
+Frontend Login: http://localhost:5173/login
+
+## 🔧 Manual Commands
+### Backend Manual
+```bash
+cd /home/devuser/aicamera/server
+npm run start:dev    # Development with watch
+npm run build        # Build for production
+npm run start:prod   # Start production build
+```
+สั่งแบบ foreground (เช่น npm run start:dev หรือ npm run start:prod) ต้องปล่อยให้ Terminal ค้างไว้เพื่อให้ backend ทำงานต่อเนื่อง
+ทางเลือกถ้าไม่อยากค้าง Terminal:
+- รันแบบ background ชั่วคราว
+```bash
+cd /home/devuser/aicamera/server
+npm run start:prod & disown
+```
+- ใช้ตัวจัดการโปรเซสสำหรับ production (แนะนำ)
+```bash
+npm i -g pm2
+pm2 start dist/src/main.js --name aicamera-server
+pm2 save
+pm2 status
+```
+ใช้ตัว multiplexer เพื่อไม่ต้องค้างหน้าจอ
+```bash
+tmux new -s aicamera
+# ใน tmux: cd /home/devuser/aicamera/server && npm run start:dev
+# แยกหน้าจอ: กด Ctrl+b แล้ว d
+tmux attach -t aicamera
+```
+
+## 🖥️ การจัดการระบบด้วย Systemd Services
+
+### ภาพรวม
+
+ระบบ AI Camera ได้รับการออกแบบให้ทำงานผ่าน systemd services เพื่อการจัดการที่เสถียรและอัตโนมัติ ประกอบด้วย:
+
+- **aicamera-backend.service**: บริการ NestJS backend
+- **aicamera-frontend.service**: บริการ Vite preview frontend
+- **aicamera-control.sh**: สคริปต์ควบคุมระบบ
+
+### การติดตั้ง Services
+
+#### 1. ติดตั้ง Services
+```bash
+cd /home/devuser/aicamera
+./scripts/aicamera-control.sh install
+```
+
+#### 2. เริ่มต้น Services
+```bash
+./scripts/aicamera-control.sh start
+```
+
+#### 3. ตรวจสอบสถานะ
+```bash
+./scripts/aicamera-control.sh status
+```
+
+### คำสั่งควบคุมระบบ
+
+#### การจัดการ Services
+```bash
+# เริ่มต้น services
+./scripts/aicamera-control.sh start
+
+# หยุด services
+./scripts/aicamera-control.sh stop
+
+# รีสตาร์ท services
+./scripts/aicamera-control.sh restart
+
+# ตรวจสอบสถานะ
+./scripts/aicamera-control.sh status
+
+# ดู logs
+./scripts/aicamera-control.sh logs aicamera-backend
+./scripts/aicamera-control.sh logs aicamera-frontend
+```
+
+#### การ Build และ Deploy
+```bash
+# Build และ deploy
+./scripts/aicamera-control.sh deploy
+
+# Build เท่านั้น
+./scripts/aicamera-control.sh build
+```
+
+#### การจัดการ Services
+```bash
+# ติดตั้ง services
+./scripts/aicamera-control.sh install
+
+# ลบ services
+./scripts/aicamera-control.sh uninstall
+```
+
+### การแก้ไขปัญหา
+
+#### Port Conflicts
+หากเกิด port conflict (EADDRINUSE):
+
+```bash
+# ตรวจสอบ port ที่ใช้งาน
+netstat -tulpn | grep :3000
+netstat -tulpn | grep :5173
+
+# หยุด process ที่ใช้ port
+kill -9 <PID>
+
+# รีสตาร์ท services
+./scripts/aicamera-control.sh restart
+```
+
+#### Service Failures
+หาก service ไม่สามารถเริ่มต้นได้:
+
+```bash
+# ตรวจสอบสถานะ
+./scripts/aicamera-control.sh status
+
+# ดู logs
+./scripts/aicamera-control.sh logs aicamera-backend
+
+# รีเซ็ต failed services
+systemctl --user reset-failed aicamera-backend.service
+systemctl --user reset-failed aicamera-frontend.service
+
+# รีสตาร์ท services
+./scripts/aicamera-control.sh restart
+```
+
+#### Group Permission Issues
+หากเกิด status 216/GROUP error:
+
+```bash
+# ตรวจสอบ groups ของ user
+groups devuser
+
+# ลบและติดตั้ง services ใหม่
+./scripts/aicamera-control.sh uninstall
+./scripts/aicamera-control.sh install
+```
+
+### การ Monitor และ Logs
+
+#### ดู Logs แบบ Real-time
+```bash
+# ดู logs ของ backend
+journalctl --user -u aicamera-backend -f
+
+# ดู logs ของ frontend
+journalctl --user -u aicamera-frontend -f
+
+# ดู logs ทั้งหมด
+journalctl --user -f -u aicamera-backend -u aicamera-frontend
+```
+
+#### ตรวจสอบสถานะ Services
+```bash
+# ตรวจสอบสถานะ systemd
+systemctl --user status aicamera-backend
+systemctl --user status aicamera-frontend
+
+# ตรวจสอบ enabled services
+systemctl --user list-unit-files | grep aicamera
+```
+
+### การตั้งค่า Environment Variables
+
+#### Backend Environment
+```bash
+# ตั้งค่าใน systemd service
+Environment=NODE_ENV=production
+Environment=PORT=3000
+Environment=PATH=/usr/bin:/usr/local/bin:/home/devuser/.npm-global/bin
+```
+
+#### Frontend Environment
+```bash
+# ตั้งค่าใน systemd service
+Environment=HOST=0.0.0.0
+Environment=PORT=5173
+Environment=PATH=/usr/bin:/usr/local/bin:/home/devuser/.npm-global/bin
+```
+
+### การตั้งค่า Auto-start
+
+Services จะเริ่มต้นอัตโนมัติเมื่อระบบ boot:
+
+```bash
+# ตรวจสอบ auto-start
+systemctl --user is-enabled aicamera-backend
+systemctl --user is-enabled aicamera-frontend
+
+# เปิด/ปิด auto-start
+systemctl --user enable aicamera-backend
+systemctl --user disable aicamera-backend
+```
+
+### การ Backup และ Restore
+
+#### Backup Services
+```bash
+# Backup service files
+cp ~/.config/systemd/user/aicamera-*.service /backup/
+
+# Backup control script
+cp scripts/aicamera-control.sh /backup/
+```
+
+#### Restore Services
+```bash
+# Restore service files
+cp /backup/aicamera-*.service ~/.config/systemd/user/
+
+# Reload systemd
+systemctl --user daemon-reload
+
+# Restart services
+./scripts/aicamera-control.sh restart
+```
+### Frontend Manual
+```bash
+cd /home/devuser/aicamera/server/frontend
+npm run dev          # Development server
+npm run build        # Build for production
+npm run preview      # Preview production build
+```
+## �� What's Working Now
+✅ Backend: NestJS server running on port 3000 with WebSocket support
+✅ Frontend: Vue.js dashboard running on port 5173
+✅ Communication: WebSocket protocol configured
+✅ Build System: Both services build successfully
+
 ## 📚 Best Practices
 
 ### Backend Best Practices
@@ -968,6 +1204,14 @@ const isTokenExpired = (token: string) => {
 ### การ Debug
 
 ```bash
+echo "=== Current Process Status ===" && ps aux | grep -E "(nest|vite|node.*main)" | grep -v grep
+# ตรวจสอบว่า Backend และ Frontend ทำงานหรือไม่ที่ port 3000 , frontend 5173
+echo "=== Port Status ===" && netstat -tlnp | grep -E ":3000|:5173" || echo "No services on target ports"
+# Backend Health Check
+echo "=== Backend Health Check ===" && curl -s http://localhost:3000/communication/status | jq . 2>/dev/null || curl -s http://localhost:3000/communication/status
+# Frontedn Status
+echo "=== Frontend Status ===" && curl -s http://localhost:5173 | head -5 || echo "Frontend not responding"
+sleep 5 && echo "=== Frontend Test ===" && curl -s http://localhost:5173 | head -10
 # Backend debugging
 npm run start:debug
 
@@ -976,6 +1220,8 @@ npm run dev
 
 # Edge debugging
 python -m pdb edge/src/app.py
+
+journalctl --user -u aicamera-backend --no-pager -l -n 20
 ```
 
 ## 📞 การสนับสนุน

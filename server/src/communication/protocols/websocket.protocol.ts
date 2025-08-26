@@ -1,15 +1,17 @@
 import { Injectable } from '@nestjs/common';
 import { Server } from 'socket.io';
+import { EventsGateway } from '../../events/events.gateway';
 import { CommunicationProtocol, DetectionData, DeviceData, CommunicationResponse } from '../interfaces/communication.interface';
 
 @Injectable()
 export class WebSocketProtocol implements CommunicationProtocol {
   name = 'WebSocket';
-  private server: Server;
   private isConnected = false;
 
-  constructor(server: Server) {
-    this.server = server;
+  constructor(private eventsGateway: EventsGateway) {}
+
+  private get server(): Server {
+    return this.eventsGateway.server;
   }
 
   async isAvailable(): Promise<boolean> {

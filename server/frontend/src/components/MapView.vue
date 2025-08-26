@@ -49,8 +49,8 @@
             <div class="marker-info">
               <strong>{{ camera.name }}</strong>
               <span class="status">{{ camera.status }}</span>
-              <span v-if="camera.detectionCount" class="detections">
-                {{ camera.detectionCount }} detections
+              <span v-if="(camera as any).detectionCount" class="detections">
+                {{ (camera as any).detectionCount || 0 }} detections
               </span>
             </div>
           </div>
@@ -69,7 +69,7 @@
             </div>
             <div class="detail-item">
               <label>Detections:</label>
-              <span>{{ selectedCamera.detectionCount || 0 }}</span>
+              <span>{{ (selectedCamera as any).detectionCount || 0 }}</span>
             </div>
             <div class="detail-item">
               <label>Last Update:</label>
