@@ -15,7 +15,20 @@ AI Camera Server เป็นระบบจัดการข้อมูลแ
 │ • Hailo-8       │    │ • PostgreSQL    │    │ • TypeScript    │
 │ • Camera Module │    │ • Redis         │    │ • Pinia         │
 │ • LPR Detection │    │ • JWT Auth      │    │ • Real-time UI  │
+│                 │    │ • Unix Socket   │    │ • User Mgmt     │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
+```
+
+### สถาปัตยกรรมใหม่ (Unix Socket + Nginx)
+```
+┌─────────────────┐    ┌─────────────────┐    ┌──────────────────┐
+│   Browser       │    │     Nginx       │    │   Backend        │
+│   :80           │◄──►│   Port 80       │◄──►│ Unix Socket      │
+│                 │    │                 │    │ /tmp/aicamera-   │
+│ - Frontend UI   │    │ - Static Files  │    │ backend.sock     │
+│ - API calls     │    │ - Reverse Proxy │    │ - NestJS API     │
+│ - Auth flow     │    │ - CORS Headers  │    │ - JWT Auth       │
+└─────────────────┘    └─────────────────┘    └──────────────────┘
 ```
 
 ### เทคโนโลยีที่ใช้
@@ -33,8 +46,11 @@ AI Camera Server เป็นระบบจัดการข้อมูลแ
 - **Language**: TypeScript
 - **Build Tool**: Vite
 - **State Management**: Pinia
-- **Router**: Vue Router
+- **Router**: Vue Router with Role-based Guards
 - **HTTP Client**: Axios
+- **User Management**: Complete CRUD interface
+- **Profile Management**: User settings and password change
+- **Role-based Access**: Admin/User permissions
 
 ## 🚀 การติดตั้ง
 

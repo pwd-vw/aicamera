@@ -15,8 +15,23 @@
 │ • Raspberry Pi  │◄──►│ • NestJS        │◄──►│ • Vue.js 3      │
 │ • Hailo-8       │    │ • PostgreSQL    │    │ • TypeScript    │
 │ • Camera Module │    │ • Redis         │    │ • Pinia         │
-│ • LPR Detection │    │ • JWT Auth      │    │ • Real-time UI  │
+│ • LPR Detection │    │ • JWT Auth      │    │ • User Mgmt     │
+│                 │    │ • Unix Socket   │    │ • Profile Mgmt  │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
+```
+
+### สถาปัตยกรรมใหม่ (Production Architecture)
+
+```
+┌─────────────────┐    ┌─────────────────┐    ┌──────────────────┐
+│   Browser       │    │     Nginx       │    │   Backend        │
+│   :80           │◄──►│   Port 80       │◄──►│ Unix Socket      │
+│                 │    │                 │    │ /tmp/aicamera-   │
+│ - Frontend UI   │    │ - Static Files  │    │ backend.sock     │
+│ - User Mgmt     │    │ - Reverse Proxy │    │ - NestJS API     │
+│ - Profile Mgmt  │    │ - CORS Headers  │    │ - JWT Auth       │
+│ - Role-based UI │    │ - Security      │    │ - Role Control   │
+└─────────────────┘    └─────────────────┘    └──────────────────┘
 ```
 
 ### เทคโนโลยีที่ใช้
@@ -34,8 +49,11 @@
 - **Language**: TypeScript
 - **Build Tool**: Vite
 - **State Management**: Pinia
-- **Router**: Vue Router
+- **Router**: Vue Router with Role-based Guards
 - **HTTP Client**: Axios
+- **Navigation**: Multi-level navigation system
+- **User Management**: Complete CRUD interface
+- **Profile Management**: User settings and security
 
 #### Edge Device
 - **Language**: Python 3.11+

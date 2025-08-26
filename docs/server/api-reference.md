@@ -67,6 +67,88 @@ POST /auth/logout
 Authorization: Bearer <access_token>
 ```
 
+### การดูข้อมูลโปรไฟล์
+
+```http
+GET /auth/profile
+Authorization: Bearer <access_token>
+```
+
+**Response:**
+```json
+{
+  "id": "f2572f97-2922-4a94-8f99-2c3ca6a90c58",
+  "email": "admin@aicamera.com",
+  "username": "admin",
+  "role": "admin",
+  "firstName": null,
+  "lastName": null,
+  "isActive": true,
+  "lastLogin": "2025-08-26T14:48:05.116Z",
+  "createdAt": "2025-08-26T14:48:05.116Z",
+  "updatedAt": "2025-08-26T14:48:05.116Z"
+}
+```
+
+### การแก้ไขข้อมูลโปรไฟล์
+
+```http
+PUT /auth/profile
+Authorization: Bearer <access_token>
+Content-Type: application/json
+
+{
+  "email": "newemail@example.com",
+  "firstName": "ชื่อใหม่",
+  "lastName": "นามสกุลใหม่"
+}
+```
+
+### การเปลี่ยนรหัสผ่าน
+
+```http
+PUT /auth/change-password
+Authorization: Bearer <access_token>
+Content-Type: application/json
+
+{
+  "currentPassword": "oldpassword123",
+  "newPassword": "newpassword123"
+}
+```
+
+### การสร้างผู้ดูแลระบบ (Admin Only)
+
+```http
+POST /auth/create-admin
+Authorization: Bearer <admin_access_token>
+Content-Type: application/json
+
+{
+  "username": "newadmin",
+  "email": "admin@example.com",
+  "password": "password123",
+  "firstName": "ชื่อ",
+  "lastName": "นามสกุล"
+}
+```
+
+**Response:**
+```json
+{
+  "id": "4eb5a9f6-8230-4cfe-be64-e91b958e88f9",
+  "email": "admin@example.com",
+  "username": "newadmin",
+  "role": "admin",
+  "firstName": "ชื่อ",
+  "lastName": "นามสกุล",
+  "isActive": true,
+  "lastLogin": null,
+  "createdAt": "2025-08-26T14:48:05.116Z",
+  "updatedAt": "2025-08-26T14:48:05.116Z"
+}
+```
+
 ## 🖥️ การจัดการระบบ (System Management)
 
 ### ดูสถานะระบบ
@@ -79,7 +161,7 @@ GET /system/status
 ```json
 {
   "success": true,
-  "status": "[2025-08-26 15:23:50] AI Camera Services Status\n==================================\naicamera-backend: ACTIVE\naicamera-frontend: ACTIVE\n\n[2025-08-26 15:23:50] Port Status:\nBackend (Port 3000):\n  Port 3000 is in use\ntcp6       0      0 :::3000                 :::*                    LISTEN      3845430/node        \nFrontend (Port 5173):\n  Port 5173 is in use\ntcp        0      0 0.0.0.0:5173            0.0.0.0:*               LISTEN      3845475/node        \n\n[2025-08-26 15:23:50] Service Logs (last 5 lines):\n...",
+  "status": "[2025-08-26 15:23:50] AI Camera Services Status\n==================================\naicamera-backend: ACTIVE\naicamera-frontend: ACTIVE\nnginx: ACTIVE\n\n[2025-08-26 15:23:50] Service Status:\nNginx (Port 80):\n  Port 80 is in use\ntcp6       0      0 :::80                   :::*                    LISTEN      nginx\n\nBackend Unix Socket:\n  Unix socket exists: /tmp/aicamera-backend.sock\nsrw-rw-rw- 1 devuser devuser 0 Aug 26 21:40 /tmp/aicamera-backend.sock\n\n[2025-08-26 15:23:50] Service Logs (last 5 lines):\n...",
   "timestamp": "2025-08-26T08:23:50.830Z"
 }
 ```
