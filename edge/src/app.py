@@ -49,6 +49,7 @@ from edge.src.core.config import (
     AUTO_START_STORAGE_MONITOR, STARTUP_DELAY, HEALTH_MONITOR_STARTUP_DELAY, 
     WEBSOCKET_SENDER_STARTUP_DELAY, STORAGE_MONITOR_STARTUP_DELAY, STORAGE_MONITOR_INTERVAL
 )
+from edge.src.services.registration_manager import initialize_registration, RegistrationState
 
 
 def _initialize_services(logger):
@@ -71,6 +72,51 @@ def _initialize_services(logger):
         'optional_modules': {},
         'errors': []
     }
+    
+    # === PHASE 0: Device Registration ===
+    logger.info("🔐 Phase 0: Device Registration")
+    try:
+        server_url = os.getenv('SERVER_URL', 'http://localhost:3000')
+        registration_manager = initialize_registration(server_url)
+        
+        # Set up registration callbacks
+        def on_registration_success(message):
+            logger.info(f"✅ Registration successful: {message}")
+        
+        def on_approval(message):
+            logger.info(f"✅ Device approved: {message}")
+        
+        def on_rejection(message):
+            logger.error(f"❌ Device rejected: {message}")
+        
+        def on_error(message):
+            logger.error(f"❌ Registration error: {message}")
+        
+        def on_active(message):
+            logger.info(f"✅ Device active: {message}")
+        
+        registration_manager.register_callback('on_registration_success', on_registration_success)
+        registration_manager.register_callback('on_approval', on_approval)
+        registration_manager.register_callback('on_rejection', on_rejection)
+        registration_manager.register_callback('on_error', on_error)
+        registration_manager.register_callback('on_active', on_active)
+        
+        # Start registration process
+        registration_type = os.getenv('REGISTRATION_TYPE', 'self')  # self, pre_provision
+        registration_success = registration_manager.start_registration_process(registration_type)
+        
+        if registration_success or registration_manager.state in [RegistrationState.PENDING_APPROVAL, RegistrationState.ACTIVE]:
+            logger.info("✅ Device registration initialized")
+            init_results['core_modules']['device_registration'] = True
+        else:
+            logger.warning("⚠️ Device registration failed, continuing with limited functionality")
+            init_results['core_modules']['device_registration'] = False
+            init_results['errors'].append("Device registration failed")
+        
+    except Exception as e:
+        logger.error(f"❌ Device registration error: {e}")
+        init_results['core_modules']['device_registration'] = False
+        init_results['errors'].append(f"Device registration: {e}")
     
     # === PHASE 1: Core Infrastructure ===
     logger.info("📋 Phase 1: Core Infrastructure")
@@ -430,6 +476,48 @@ def create_app():
                 'error': str(e),
                 'errors': [str(e)],
                 'database_errors': [],
+                'timestamp': datetime.now().isoformat()
+            }), 500
+    
+    @app.route('/api/registration/status')
+    def api_registration_status():
+        """Get device registration status."""
+        try:
+            from edge.src.services.registration_manager import get_registration_manager
+            registration_manager = get_registration_manager()
+            status = registration_manager.get_status()
+            
+            return jsonify({
+                'success': True,
+                'registration': status,
+                'timestamp': datetime.now().isoformat()
+            })
+        except Exception as e:
+            logger.error(f"Registration status check failed: {e}")
+            return jsonify({
+                'success': False,
+                'error': str(e),
+                'timestamp': datetime.now().isoformat()
+            }), 500
+    
+    @app.route('/api/registration/force-reregister', methods=['POST'])
+    def api_force_reregister():
+        """Force device re-registration (for testing/recovery)."""
+        try:
+            from edge.src.services.registration_manager import get_registration_manager
+            registration_manager = get_registration_manager()
+            registration_manager.force_re_registration()
+            
+            return jsonify({
+                'success': True,
+                'message': 'Device reset for re-registration',
+                'timestamp': datetime.now().isoformat()
+            })
+        except Exception as e:
+            logger.error(f"Force re-registration failed: {e}")
+            return jsonify({
+                'success': False,
+                'error': str(e),
                 'timestamp': datetime.now().isoformat()
             }), 500
     
