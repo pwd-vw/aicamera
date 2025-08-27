@@ -34,6 +34,11 @@ on:
           - aicamera1
           - aicamera2
           - aicamera3
+      single_edge_host:
+        description: 'Single edge device hostname (for direct deployment)'
+        required: false
+        default: ''
+        type: string
 
 env:
   LPR_SERVER: lprserver.tail605477.ts.net
@@ -293,7 +298,7 @@ jobs:
     needs: test-and-build
     strategy:
       matrix:
-        device: ${{ github.event.inputs.target_edge == 'all' && fromJson('["aicamera1", "aicamera2", "aicamera3"]') || fromJson(format('["{0}"]', github.event.inputs.target_edge)) }}
+        device: ${{ github.event.inputs.single_edge_host != '' && fromJson(format('["{0}"]', github.event.inputs.single_edge_host)) || github.event.inputs.target_edge == 'all' && fromJson('["aicamera1", "aicamera2", "aicamera3"]') || fromJson(format('["{0}"]', github.event.inputs.target_edge)) }}
     if: |
       (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_edge == 'true') ||
       (github.event_name == 'push' && vars.ENABLE_EDGE_DEPLOYMENT == 'true')
