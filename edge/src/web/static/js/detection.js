@@ -42,6 +42,7 @@ const DetectionManager = {
         this.loadResults();
         this.loadStatistics();
         this.loadConfiguration();
+        this.initializeFormWithCurrentValues();
         console.log('Unified Detection Manager initialized');
     },
 
@@ -77,7 +78,9 @@ const DetectionManager = {
         });
 
         this.socket.on('detection_status_update', (data) => {
-            if (data && data.success && data.detection_status) {
+            if (data && data.detection_status) {
+                this.updateDetectionStatus(data.detection_status);
+            } else if (data && data.success && data.detection_status) {
                 this.updateDetectionStatus(data.detection_status);
             } else {
                 console.error('Invalid detection status update:', data);
@@ -452,10 +455,17 @@ const DetectionManager = {
         
         // Update detection interval with fallback
         const interval = status.detection_interval || 0.1;
-        const intervalElement = document.getElementById('detection-interval');
-        const intervalSetting = document.getElementById('detection-interval');
-        if (intervalElement) intervalElement.textContent = `${interval}s`;
-        if (intervalSetting) intervalSetting.value = interval;
+        const intervalBadge = document.getElementById('detection-interval-badge');
+        const intervalInput = document.getElementById('detection-interval-input');
+        
+        if (intervalBadge) {
+            intervalBadge.textContent = `${interval}s`;
+            console.log('Updated interval badge:', intervalBadge.textContent);
+        }
+        if (intervalInput) {
+            intervalInput.value = interval;
+            console.log('Updated interval input:', intervalInput.value);
+        }
         
         // Update model status indicators
         this.updateModelStatus('vehicle-model-status', processorStatus.vehicle_model_available);
@@ -1108,15 +1118,64 @@ const DetectionManager = {
      * Update configuration form with data from API
      */
     updateConfigForm: function(config) {
-        const intervalElement = document.getElementById('detection-interval');
+        const intervalInput = document.getElementById('detection-interval-input');
         const vehicleConfElement = document.getElementById('vehicle-confidence');
         const plateConfElement = document.getElementById('plate-confidence');
         const autoStartElement = document.getElementById('auto-start-setting');
         
-        if (intervalElement) intervalElement.value = config.detection_interval || 0.1;
+        if (intervalInput) intervalInput.value = config.detection_interval || 0.1;
         if (vehicleConfElement) vehicleConfElement.value = config.vehicle_confidence || 0.5;
         if (plateConfElement) plateConfElement.value = config.plate_confidence || 0.3;
         if (autoStartElement) autoStartElement.checked = config.auto_start || false;
+    },
+
+    /**
+     * Initialize form with current values from status badges
+     */
+    initializeFormWithCurrentValues: function() {
+        // Get current values from status badges
+        const intervalBadge = document.getElementById('detection-interval-badge');
+        const vehicleConfSpan = document.querySelector('#vehicle-confidence');
+        const plateConfSpan = document.querySelector('#plate-confidence');
+        
+        // Get form inputs
+        const intervalInput = document.getElementById('detection-interval-input');
+        const vehicleConfInput = document.getElementById('vehicle-confidence');
+        const plateConfInput = document.getElementById('plate-confidence');
+        
+        // Verify elements exist
+        console.log('Detection interval elements check:', {
+            intervalBadge: !!intervalBadge,
+            intervalInput: !!intervalInput,
+            vehicleConfSpan: !!vehicleConfSpan,
+            vehicleConfInput: !!vehicleConfInput,
+            plateConfSpan: !!plateConfSpan,
+            plateConfInput: !!plateConfInput
+        });
+        
+        // Set default values from current status
+        if (intervalBadge && intervalInput) {
+            const intervalText = intervalBadge.textContent;
+            const intervalValue = parseFloat(intervalText.replace('s', ''));
+            if (!isNaN(intervalValue)) {
+                intervalInput.value = intervalValue;
+                console.log('Initialized interval input with value:', intervalValue);
+            }
+        }
+        
+        if (vehicleConfSpan && vehicleConfInput) {
+            const vehicleConfValue = parseFloat(vehicleConfSpan.textContent);
+            if (!isNaN(vehicleConfValue)) {
+                vehicleConfInput.value = vehicleConfValue;
+            }
+        }
+        
+        if (plateConfSpan && plateConfInput) {
+            const plateConfValue = parseFloat(plateConfSpan.textContent);
+            if (!isNaN(plateConfValue)) {
+                plateConfInput.value = plateConfValue;
+            }
+        }
     },
 
     /**
@@ -1125,28 +1184,176 @@ const DetectionManager = {
     handleConfigSubmit: function(e) {
         e.preventDefault();
         
-        const interval = parseFloat(document.getElementById('detection-interval').value);
-        const autoStart = document.getElementById('auto-start-setting').checked;
+        // Get form elements with null checks
+        const intervalInput = document.getElementById('detection-interval-input');
+        const vehicleConfInput = document.getElementById('vehicle-confidence');
+        const plateConfInput = document.getElementById('plate-confidence');
+        const autoStartElement = document.getElementById('auto-start-setting');
         
-        AICameraUtils.apiRequest('/detection/config', {
+        // Check if elements exist
+        if (!intervalInput || !vehicleConfInput || !plateConfInput) {
+            this.addLogMessage('Configuration form elements not found', 'error');
+            return;
+        }
+        
+        const interval = parseFloat(intervalInput.value);
+        const vehicleConf = parseFloat(vehicleConfInput.value);
+        const plateConf = parseFloat(plateConfInput.value);
+        const autoStart = autoStartElement ? autoStartElement.checked : false;
+        
+        // Validate input values
+        if (isNaN(interval) || interval < 0.1 || interval > 1000.0) {
+            this.addLogMessage('Invalid detection interval value. Must be between 0.1 and 1000.0', 'error');
+            return;
+        }
+        
+        if (isNaN(vehicleConf) || vehicleConf < 0.1 || vehicleConf > 1.0) {
+            this.addLogMessage('Invalid vehicle confidence value. Must be between 0.1 and 1.0', 'error');
+            return;
+        }
+        
+        if (isNaN(plateConf) || plateConf < 0.1 || plateConf > 1.0) {
+            this.addLogMessage('Invalid plate confidence value. Must be between 0.1 and 1.0', 'error');
+            return;
+        }
+        
+        console.log('Submitting configuration:', { interval, vehicleConf, plateConf, autoStart });
+        
+        // Show restart warning
+        const restartConfirmed = confirm(
+            `การอัพเดตการตั้งค่าจะต้องรีสตาร์ทระบบ\n\n` +
+            `ค่าที่จะอัพเดต:\n` +
+            `- Detection Interval: ${interval}s\n` +
+            `- Vehicle Confidence: ${vehicleConf}\n` +
+            `- Plate Confidence: ${plateConf}\n\n` +
+            `คุณต้องการดำเนินการต่อหรือไม่?`
+        );
+        
+        if (!restartConfirmed) {
+            this.addLogMessage('Configuration update cancelled by user', 'info');
+            return;
+        }
+        
+        // Show loading state
+        this.addLogMessage('กำลังอัพเดตการตั้งค่าและรีสตาร์ทระบบ...', 'info');
+        AICameraUtils.showToast('Updating configuration and restarting service...', 'info');
+        
+        AICameraUtils.apiRequest('/detection/update-config', {
             method: 'POST',
             body: JSON.stringify({
                 detection_interval: interval,
+                vehicle_confidence: vehicleConf,
+                plate_confidence: plateConf,
                 auto_start: autoStart
             })
         })
         .then(data => {
             if (data.success) {
-                this.addLogMessage('Configuration updated successfully', 'success');
-                AICameraUtils.showToast('Configuration updated', 'success');
-                this.requestStatusUpdate();
+                this.addLogMessage(`Configuration updated successfully. Service restarting...`, 'success');
+                AICameraUtils.showToast('Configuration updated! Service restarting...', 'success');
+                
+                // Show restart progress
+                this.showRestartProgress();
+                
+                // Start polling for service status
+                this.pollServiceStatus();
             } else {
                 throw new Error(data.error || 'Configuration update failed');
             }
         })
         .catch(error => {
             this.addLogMessage('Failed to update configuration: ' + error.message, 'error');
+            AICameraUtils.showToast('Configuration update failed', 'error');
         });
+    },
+
+    /**
+     * Show restart progress
+     */
+    showRestartProgress: function() {
+        // Create or update progress indicator
+        let progressContainer = document.getElementById('restart-progress');
+        if (!progressContainer) {
+            progressContainer = document.createElement('div');
+            progressContainer.id = 'restart-progress';
+            progressContainer.className = 'alert alert-info mt-3';
+            progressContainer.innerHTML = `
+                <div class="d-flex align-items-center">
+                    <div class="spinner-border spinner-border-sm me-2" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <div>
+                        <strong>กำลังรีสตาร์ทระบบ...</strong>
+                        <div class="small text-muted">กรุณารอสักครู่ ระบบจะกลับมาใช้งานได้ในไม่ช้า</div>
+                    </div>
+                </div>
+            `;
+            
+            // Insert after the form
+            const form = document.getElementById('detection-config-form');
+            if (form && form.parentNode) {
+                form.parentNode.insertBefore(progressContainer, form.nextSibling);
+            }
+        }
+    },
+
+    /**
+     * Hide restart progress
+     */
+    hideRestartProgress: function() {
+        const progressContainer = document.getElementById('restart-progress');
+        if (progressContainer) {
+            progressContainer.remove();
+        }
+    },
+
+    /**
+     * Poll service status after restart
+     */
+    pollServiceStatus: function() {
+        let attempts = 0;
+        const maxAttempts = 30; // 30 seconds
+        const pollInterval = 1000; // 1 second
+        
+        const poll = () => {
+            attempts++;
+            
+            AICameraUtils.apiRequest('/detection/status')
+                .then(data => {
+                    if (data && data.success && data.detection_status) {
+                        // Service is back online
+                        this.hideRestartProgress();
+                        this.updateDetectionStatus(data.detection_status);
+                        this.addLogMessage('Service restarted successfully!', 'success');
+                        AICameraUtils.showToast('Service restarted successfully!', 'success');
+                        return;
+                    }
+                    
+                    if (attempts >= maxAttempts) {
+                        this.hideRestartProgress();
+                        this.addLogMessage('Service restart timeout. Please check manually.', 'warning');
+                        AICameraUtils.showToast('Service restart timeout', 'warning');
+                        return;
+                    }
+                    
+                    // Continue polling
+                    setTimeout(poll, pollInterval);
+                })
+                .catch(error => {
+                    if (attempts >= maxAttempts) {
+                        this.hideRestartProgress();
+                        this.addLogMessage('Service restart failed: ' + error.message, 'error');
+                        AICameraUtils.showToast('Service restart failed', 'error');
+                        return;
+                    }
+                    
+                    // Continue polling even on error (service might be restarting)
+                    setTimeout(poll, pollInterval);
+                });
+        };
+        
+        // Start polling
+        setTimeout(poll, pollInterval);
     },
 
     /**
@@ -1378,58 +1585,67 @@ formatOcrResultsForDetail: function(ocrResults) {
 },
 
 /**
- * Format image preview for detail modal
+ * Format image preview for detail modal - Optimized for disk space
+ * Only original image stored, bounding boxes drawn dynamically
  */
 formatImagePreview: function(result) {
     const images = [];
+    const imageUrls = [];
     
-    // Add original image if available
-    if (result.original_image_path && result.original_image_path !== 'None') {
+    // Only original image is stored - generate visualization dynamically
+    if (result.original_image_path && result.original_image_path !== 'None' && result.original_image_path !== 'null' && result.original_image_path.trim() !== '') {
+        const originalUrl = this.resolveImageUrl(result.original_image_path);
+        
+        // Original image
         images.push({
             type: 'original',
             path: result.original_image_path,
             title: 'Original Captured Image',
             icon: 'fas fa-camera',
-            color: 'info'
+            color: 'info',
+            description: 'Raw image captured from camera',
+            url: originalUrl
+        });
+        
+        // Vehicle detection visualization (drawn dynamically)
+        if (result.vehicle_detections && result.vehicle_detections.length > 0) {
+            images.push({
+                type: 'vehicle_visualization',
+                path: result.original_image_path,
+                title: 'Vehicle Detection Visualization',
+                icon: 'fas fa-car',
+                color: 'primary',
+                description: 'Original image with vehicle bounding boxes (drawn dynamically)',
+                url: originalUrl,
+                vehicle_boxes: result.vehicle_detections
+            });
+        }
+        
+        // Plate detection visualization (drawn dynamically)
+        if (result.plate_detections && result.plate_detections.length > 0) {
+            images.push({
+                type: 'plate_visualization',
+                path: result.original_image_path,
+                title: 'License Plate Detection Visualization',
+                icon: 'fas fa-id-card',
+                color: 'success',
+                description: 'Original image with plate bounding boxes & OCR (drawn dynamically)',
+                url: originalUrl,
+                plate_boxes: result.plate_detections,
+                ocr_results: result.ocr_results
+            });
+        }
+        
+        // Add to URL list
+        imageUrls.push({
+            type: 'Original Image',
+            path: result.original_image_path,
+            url: originalUrl
         });
     }
     
-    // Add vehicle detection image if available
-    if (result.vehicle_detected_image_path && result.vehicle_detected_image_path !== 'None') {
-        images.push({
-            type: 'vehicle',
-            path: result.vehicle_detected_image_path,
-            title: 'Vehicle Detection Image',
-            icon: 'fas fa-car',
-            color: 'primary'
-        });
-    }
-    
-    // Add plate detection image if available
-    if (result.plate_image_path && result.plate_image_path !== 'None') {
-        images.push({
-            type: 'plate',
-            path: result.plate_image_path,
-            title: 'License Plate Detection Image',
-            icon: 'fas fa-id-card',
-            color: 'success'
-        });
-    }
-    
-    // Add cropped plates if available
-    if (result.cropped_plates_paths && result.cropped_plates_paths.length > 0) {
-        result.cropped_plates_paths.forEach((platePath, index) => {
-            if (platePath && platePath !== 'None') {
-                images.push({
-                    type: 'cropped',
-                    path: platePath,
-                    title: `Cropped Plate ${index + 1}`,
-                    icon: 'fas fa-crop',
-                    color: 'warning'
-                });
-            }
-        });
-    }
+    // Create image URLs summary
+    const imageUrlsSection = this.createImageUrlsSection(imageUrls);
     
     if (images.length === 0) {
         return `
@@ -1443,6 +1659,7 @@ formatImagePreview: function(result) {
                     Cropped Plates: ${result.cropped_plates_paths?.length || 0} available
                 </small>
             </div>
+            ${imageUrlsSection}
         `;
     }
     
@@ -1457,19 +1674,27 @@ formatImagePreview: function(result) {
             <div class="${colClass} mb-3">
                 <div class="card h-100 border-${image.color}">
                     <div class="card-header bg-${image.color} text-white">
-                        <h6 class="mb-0">
-                            <i class="${image.icon} me-2"></i>${image.title}
-                        </h6>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0">
+                                <i class="${image.icon} me-2"></i>${image.title}
+                            </h6>
+                            <button class="btn btn-sm btn-light" onclick="DetectionManager.copyImageUrl('${image.url}')" title="Copy URL">
+                                <i class="fas fa-link"></i>
+                            </button>
+                        </div>
                     </div>
                     <div class="card-body text-center p-2">
-                        <img src="/images/${image.path}" 
-                             class="img-fluid rounded" 
-                             style="max-height: 200px; object-fit: contain;"
-                             alt="${image.title}"
-                             onerror="this.parentElement.innerHTML='<div class=\\'text-muted\\'><i class=\\'fas fa-image fa-2x mb-2\\'></i><br>Image not found</div>'">
+                        ${this.renderImageWithBoundingBoxes(image)}
                     </div>
-                    <div class="card-footer text-center">
-                        <small class="text-muted">${image.path}</small>
+                    <div class="card-footer">
+                        <div class="text-center">
+                            <small class="text-muted">${image.description}</small>
+                        </div>
+                        <div class="mt-2">
+                            <small class="text-muted d-block text-truncate" title="${image.path}">
+                                <i class="fas fa-file me-1"></i>${image.path}
+                            </small>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1485,6 +1710,63 @@ formatImagePreview: function(result) {
                 <i class="fas fa-info-circle me-1"></i>
                 Showing ${images.length} of ${this.getTotalImageCount(result)} available images
             </small>
+        </div>
+        ${imageUrlsSection}
+    `;
+},
+
+/**
+ * Create image URLs section for easy access
+ */
+createImageUrlsSection: function(imageUrls) {
+    if (imageUrls.length === 0) return '';
+    
+    const urlList = imageUrls.map(img => `
+        <div class="d-flex justify-content-between align-items-center py-1">
+            <div>
+                <strong>${img.type}:</strong>
+                <small class="text-muted ms-2">${img.path}</small>
+            </div>
+            <div>
+                <button class="btn btn-sm btn-outline-primary" onclick="DetectionManager.copyImageUrl('${img.url}')" title="Copy URL">
+                    <i class="fas fa-copy"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-success" onclick="DetectionManager.openImageModal('${img.url}', '${img.type}')" title="Open Image">
+                    <i class="fas fa-external-link-alt"></i>
+                </button>
+            </div>
+        </div>
+    `).join('');
+    
+    return `
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card border-secondary">
+                    <div class="card-header bg-secondary text-white">
+                        <h6 class="mb-0">
+                            <i class="fas fa-link me-2"></i>Image URLs from Database Record
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-8">
+                                ${urlList}
+                            </div>
+                            <div class="col-md-4">
+                                <div class="alert alert-info">
+                                    <h6><i class="fas fa-info-circle me-2"></i>Quick Actions</h6>
+                                    <button class="btn btn-sm btn-outline-primary w-100 mb-2" onclick="DetectionManager.copyAllImageUrls()">
+                                        <i class="fas fa-copy me-1"></i>Copy All URLs
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-success w-100" onclick="DetectionManager.downloadAllImages()">
+                                        <i class="fas fa-download me-1"></i>Download All
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     `;
 },
@@ -1721,7 +2003,312 @@ exportComprehensiveReport: function() {
     link.download = `detection_comprehensive_report_${new Date().toISOString().split('T')[0]}.json`;
     document.body.appendChild(link);
     link.click();
-}  
+},
+
+/**
+ * Copy image URL to clipboard
+ */
+copyImageUrl: function(url) {
+    navigator.clipboard.writeText(window.location.origin + url).then(() => {
+        AICameraUtils.showToast('Image URL copied to clipboard', 'success');
+    }).catch(() => {
+        // Fallback for older browsers
+        const textArea = document.createElement('textarea');
+        textArea.value = window.location.origin + url;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        AICameraUtils.showToast('Image URL copied to clipboard', 'success');
+    });
+},
+
+/**
+ * Copy all image URLs to clipboard
+ */
+copyAllImageUrls: function() {
+    const imageUrls = [];
+    const urlElements = document.querySelectorAll('[onclick*="copyImageUrl"]');
+    
+    urlElements.forEach(element => {
+        const onclick = element.getAttribute('onclick');
+        const match = onclick.match(/copyImageUrl\('([^']+)'/);
+        if (match) {
+            imageUrls.push(window.location.origin + match[1]);
+        }
+    });
+    
+    if (imageUrls.length > 0) {
+        navigator.clipboard.writeText(imageUrls.join('\n')).then(() => {
+            AICameraUtils.showToast(`${imageUrls.length} image URLs copied to clipboard`, 'success');
+        }).catch(() => {
+            // Fallback
+            const textArea = document.createElement('textarea');
+            textArea.value = imageUrls.join('\n');
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+            AICameraUtils.showToast(`${imageUrls.length} image URLs copied to clipboard`, 'success');
+        });
+    } else {
+        AICameraUtils.showToast('No image URLs found', 'warning');
+    }
+},
+
+/**
+ * Open image in modal for full-size view
+ */
+openImageModal: function(imageUrl, title) {
+    // Create modal if it doesn't exist
+    let imageModal = document.getElementById('image-viewer-modal');
+    if (!imageModal) {
+        imageModal = document.createElement('div');
+        imageModal.className = 'modal fade';
+        imageModal.id = 'image-viewer-modal';
+        imageModal.innerHTML = `
+            <div class="modal-dialog modal-xl">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="fas fa-image me-2"></i>${title}
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body text-center">
+                        <img src="" class="img-fluid" alt="Full size image" id="full-size-image">
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        <button type="button" class="btn btn-primary" onclick="DetectionManager.downloadImage()">
+                            <i class="fas fa-download me-1"></i>Download
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(imageModal);
+    }
+    
+    // Update image source
+    const img = imageModal.querySelector('#full-size-image');
+    img.src = imageUrl;
+    img.alt = title;
+    
+    // Store current image info for download
+    this.currentImageInfo = { url: imageUrl, title: title };
+    
+    // Show modal
+    const modal = new bootstrap.Modal(imageModal);
+    modal.show();
+},
+
+/**
+ * Download current image from modal
+ */
+downloadImage: function() {
+    if (!this.currentImageInfo) {
+        AICameraUtils.showToast('No image selected for download', 'warning');
+        return;
+    }
+    
+    const link = document.createElement('a');
+    link.href = this.currentImageInfo.url;
+    link.download = this.currentImageInfo.title.replace(/[^a-z0-9]/gi, '_').toLowerCase() + '.jpg';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    AICameraUtils.showToast('Image download started', 'success');
+},
+
+/**
+ * Download all images from current detection result
+ */
+downloadAllImages: function() {
+    const imageUrls = [];
+    const urlElements = document.querySelectorAll('[onclick*="copyImageUrl"]');
+    
+    urlElements.forEach(element => {
+        const onclick = element.getAttribute('onclick');
+        const match = onclick.match(/copyImageUrl\('([^']+)'/);
+        if (match) {
+            imageUrls.push(match[1]);
+        }
+    });
+    
+    if (imageUrls.length === 0) {
+        AICameraUtils.showToast('No images found to download', 'warning');
+        return;
+    }
+    
+    // Download each image
+    imageUrls.forEach((url, index) => {
+        setTimeout(() => {
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `detection_image_${index + 1}_${new Date().toISOString().split('T')[0]}.jpg`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }, index * 500); // Stagger downloads
+    });
+    
+    AICameraUtils.showToast(`Downloading ${imageUrls.length} images...`, 'info');
+},
+
+/**
+ * Resolve image URL from various stored path formats
+ * - Supports absolute URLs, absolute paths, and legacy relative paths
+ */
+resolveImageUrl: function(rawPath) {
+    if (!rawPath || typeof rawPath !== 'string') return '';
+    const path = rawPath.trim();
+
+    // 1) Already a full URL
+    if (/^https?:\/\//i.test(path)) return path;
+
+    // 2) If already an absolute nginx-served path
+    if (path.startsWith('/captured_images/')) return path;
+
+    // 3) Common stored variants → normalize to /captured_images/
+    if (path.startsWith('captured_images/')) return `/captured_images/${path.substring('captured_images/'.length)}`;
+
+    // 4) Legacy prefixes we have seen in DB (best-effort mapping)
+    //    detection_results/2025.../*.jpg → assume files live in captured_images with same basename
+    if (path.startsWith('detection_results/')) {
+        const base = path.split('/').pop();
+        return `/captured_images/${base}`;
+    }
+
+    // 5) Absolute filesystem path pointing inside edge/captured_images
+    if (path.includes('/captured_images/')) {
+        const idx = path.indexOf('/captured_images/');
+        return path.substring(idx);
+    }
+
+    // 6) Fallback: treat as a basename under captured_images
+    return `/captured_images/${path.replace(/^\//, '')}`;
+},
+
+/**
+ * Render image with dynamic bounding boxes
+ */
+renderImageWithBoundingBoxes: function(image) {
+    if (image.type === 'original') {
+        // Original image - no bounding boxes
+        return `
+            <img src="${image.url}" 
+                 class="img-fluid rounded" 
+                 style="max-height: 200px; object-fit: contain; cursor: pointer;"
+                 alt="${image.title}"
+                 onclick="DetectionManager.openImageModal('${image.url}', '${image.title}')"
+                 onerror="this.parentElement.innerHTML='<div class=\\'text-muted\\'><i class=\\'fas fa-image fa-2x mb-2\\'></i><br>Image not found<br><small>${image.path} → ${image.url}</small></div>'">
+        `;
+    } else if (image.type === 'vehicle_visualization' || image.type === 'plate_visualization') {
+        // Image with bounding boxes - use canvas for dynamic rendering
+        const canvasId = `canvas-${image.type}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        const boxes = image.type === 'vehicle_visualization' ? image.vehicle_boxes : image.plate_boxes;
+        const ocrResults = image.ocr_results || [];
+        
+        // Store data for canvas rendering
+        this.canvasData = this.canvasData || {};
+        this.canvasData[canvasId] = {
+            imageUrl: image.url,
+            boxes: boxes,
+            ocrResults: ocrResults,
+            type: image.type
+        };
+        
+        return `
+            <div class="position-relative">
+                <canvas id="${canvasId}" 
+                        class="img-fluid rounded" 
+                        style="max-height: 200px; object-fit: contain; cursor: pointer;"
+                        onclick="DetectionManager.openImageModal('${image.url}', '${image.title}')">
+                </canvas>
+                <div class="position-absolute top-0 start-0 p-2">
+                    <span class="badge bg-${image.type === 'vehicle_visualization' ? 'primary' : 'success'}">
+                        ${boxes.length} ${image.type === 'vehicle_visualization' ? 'Vehicle' : 'Plate'}${boxes.length !== 1 ? 's' : ''}
+                    </span>
+                </div>
+            </div>
+            <script>
+                // Render bounding boxes when canvas is ready
+                (function() {
+                    const canvas = document.getElementById('${canvasId}');
+                    const img = new Image();
+                    img.onload = function() {
+                        DetectionManager.drawBoundingBoxes(canvas, img, ${JSON.stringify(boxes)}, ${JSON.stringify(ocrResults)}, '${image.type}');
+                    };
+                    img.src = '${image.url}';
+                })();
+            </script>
+        `;
+    }
+    
+    // Fallback for unknown types
+    return `
+        <img src="${image.url}" 
+             class="img-fluid rounded" 
+             style="max-height: 200px; object-fit: contain; cursor: pointer;"
+             alt="${image.title}"
+             onclick="DetectionManager.openImageModal('${image.url}', '${image.title}')"
+             onerror="this.parentElement.innerHTML='<div class=\\'text-muted\\'><i class=\\'fas fa-image fa-2x mb-2\\'></i><br>Image not found<br><small>${image.path} → ${image.url}</small></div>'">
+    `;
+},
+
+/**
+ * Draw bounding boxes on canvas
+ */
+drawBoundingBoxes: function(canvas, img, boxes, ocrResults, type) {
+    const ctx = canvas.getContext('2d');
+    
+    // Set canvas size to match image
+    canvas.width = img.width;
+    canvas.height = img.height;
+    
+    // Draw the original image
+    ctx.drawImage(img, 0, 0);
+    
+    // Draw bounding boxes
+    boxes.forEach((box, index) => {
+        const x = box.x || box.x1 || 0;
+        const y = box.y || box.y1 || 0;
+        const width = (box.x2 || box.width || 0) - x;
+        const height = (box.y2 || box.height || 0) - y;
+        
+        // Box color based on type
+        const color = type === 'vehicle_visualization' ? '#007bff' : '#28a745';
+        const lineWidth = 2;
+        
+        // Draw rectangle
+        ctx.strokeStyle = color;
+        ctx.lineWidth = lineWidth;
+        ctx.strokeRect(x, y, width, height);
+        
+        // Draw label background
+        const label = type === 'vehicle_visualization' ? `Vehicle ${index + 1}` : 
+                     (ocrResults[index] ? ocrResults[index].text : `Plate ${index + 1}`);
+        
+        ctx.font = '12px Arial';
+        ctx.fillStyle = color;
+        ctx.fillRect(x, y - 20, ctx.measureText(label).width + 10, 20);
+        
+        // Draw label text
+        ctx.fillStyle = 'white';
+        ctx.fillText(label, x + 5, y - 5);
+        
+        // Draw confidence if available
+        if (ocrResults[index] && ocrResults[index].confidence) {
+            const confText = `${(ocrResults[index].confidence * 100).toFixed(1)}%`;
+            ctx.fillStyle = color;
+            ctx.fillRect(x + width - ctx.measureText(confText).width - 10, y + height, ctx.measureText(confText).width + 10, 20);
+            ctx.fillStyle = 'white';
+            ctx.fillText(confText, x + width - ctx.measureText(confText).width - 5, y + height + 15);
+        }
+    });
+}
 };
 
 // Initialize detection manager when DOM is ready

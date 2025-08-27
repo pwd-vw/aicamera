@@ -22,7 +22,8 @@ def main() -> int:
     conn = sqlite3.connect(str(db_path))
     cur = conn.cursor()
 
-    # detection_results
+    # detection_results - Optimized for disk space: only original image stored
+    # Vehicle/plate detection images are generated dynamically from original + bounding boxes
     cur.execute(
         """
         CREATE TABLE IF NOT EXISTS detection_results (
@@ -32,9 +33,6 @@ def main() -> int:
             plates_count INTEGER DEFAULT 0,
             ocr_results TEXT,
             original_image_path TEXT,
-            vehicle_detected_image_path TEXT,
-            plate_image_path TEXT,
-            cropped_plates_paths TEXT,
             vehicle_detections TEXT,
             plate_detections TEXT,
             processing_time_ms REAL,

@@ -195,22 +195,19 @@ class DatabaseManager:
             cursor.execute("""
                 INSERT INTO detection_results (
                     timestamp, vehicles_count, plates_count, ocr_results,
-                    vehicle_detected_image_path, plate_image_path, cropped_plates_paths,
-                    vehicle_detections, plate_detections, processing_time_ms,
+                    original_image_path, vehicle_detections, plate_detections, processing_time_ms,
                     hailo_ocr_results, easyocr_results, best_ocr_method,
                     ocr_processing_time_ms, parallel_ocr_success,
                     hailo_ocr_confidence, easyocr_confidence,
                     hailo_processing_time_ms, easyocr_processing_time_ms,
                     hailo_ocr_error, easyocr_error
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 detection_data.get('timestamp'),
                 detection_data.get('vehicles_count', 0),
                 detection_data.get('plates_count', 0),
                 ocr_results_json,
-                detection_data.get('vehicle_detected_image_path', ''),
-                detection_data.get('plate_image_path', ''),
-                cropped_paths_json,
+                detection_data.get('original_image_path', ''),
                 vehicle_detections_json,
                 plate_detections_json,
                 detection_data.get('processing_time_ms', 0.0),
@@ -254,7 +251,10 @@ class DatabaseManager:
             
             cursor = self.connection.cursor()
             cursor.execute("""
-                SELECT * FROM detection_results
+                SELECT id, timestamp, vehicles_count, plates_count, ocr_results,
+                       original_image_path, vehicle_detections, plate_detections,
+                       processing_time_ms, created_at
+                FROM detection_results 
                 ORDER BY created_at DESC
                 LIMIT ?
             """, (limit,))
@@ -268,8 +268,7 @@ class DatabaseManager:
                     'timestamp': row['timestamp'],
                     'vehicles_count': row['vehicles_count'],
                     'plates_count': row['plates_count'],
-                    'annotated_image_path': row['annotated_image_path'],
-                    'image_path': row.get('image_path', ''),
+                    'original_image_path': row['original_image_path'],
                     'processing_time_ms': row['processing_time_ms'],
                     'created_at': row['created_at']
                 }
@@ -277,7 +276,6 @@ class DatabaseManager:
                 # Deserialize JSON fields
                 try:
                     result['ocr_results'] = json.loads(row['ocr_results'] or '[]')
-                    result['cropped_plates_paths'] = json.loads(row['cropped_plates_paths'] or '[]')
                     result['vehicle_detections'] = json.loads(row['vehicle_detections'] or '[]')
                     result['plate_detections'] = json.loads(row['plate_detections'] or '[]')
                     
@@ -297,7 +295,6 @@ class DatabaseManager:
                 except json.JSONDecodeError as e:
                     self.logger.warning(f"Error deserializing JSON for record {row['id']}: {e}")
                     result['ocr_results'] = []
-                    result['cropped_plates_paths'] = []
                     result['vehicle_detections'] = []
                     result['plate_detections'] = []
                     result['hailo_ocr_results'] = []
@@ -393,7 +390,10 @@ class DatabaseManager:
             
             # Get paginated results
             query = f"""
-                SELECT * FROM detection_results 
+                SELECT id, timestamp, vehicles_count, plates_count, ocr_results,
+                       original_image_path, vehicle_detections, plate_detections,
+                       processing_time_ms, created_at
+                FROM detection_results 
                 {where_clause}
                 ORDER BY {sort_by} {sort_order.upper()}
                 LIMIT ? OFFSET ?
@@ -409,8 +409,7 @@ class DatabaseManager:
                     'timestamp': row['timestamp'],
                     'vehicles_count': row['vehicles_count'],
                     'plates_count': row['plates_count'],
-                    'annotated_image_path': row['annotated_image_path'],
-                    'image_path': row.get('image_path', ''),
+                    'original_image_path': row['original_image_path'],
                     'processing_time_ms': row['processing_time_ms'],
                     'created_at': row['created_at']
                 }
@@ -418,13 +417,11 @@ class DatabaseManager:
                 # Deserialize JSON fields
                 try:
                     result['ocr_results'] = json.loads(row['ocr_results'] or '[]')
-                    result['cropped_plates_paths'] = json.loads(row['cropped_plates_paths'] or '[]')
                     result['vehicle_detections'] = json.loads(row['vehicle_detections'] or '[]')
                     result['plate_detections'] = json.loads(row['plate_detections'] or '[]')
                 except json.JSONDecodeError as e:
                     self.logger.warning(f"Error deserializing JSON for record {row['id']}: {e}")
                     result['ocr_results'] = []
-                    result['cropped_plates_paths'] = []
                     result['vehicle_detections'] = []
                     result['plate_detections'] = []
                 
@@ -467,7 +464,7 @@ class DatabaseManager:
             cursor = self.connection.cursor()
             cursor.execute("""
                 SELECT id, timestamp, vehicles_count, plates_count, ocr_results, 
-                       original_image_path, vehicle_detected_image_path, plate_image_path, cropped_plates_paths, 
+                       original_image_path, vehicle_detections, plate_detections,
                        processing_time_ms, created_at
                 FROM detection_results
                 ORDER BY created_at DESC
@@ -482,21 +479,21 @@ class DatabaseManager:
                     'timestamp': row[1],
                     'vehicles_count': row[2],
                     'plates_count': row[3],
-                    'annotated_image_path': row[4],
-                    'image_path': row[5],
-                    'vehicle_detected_image_path': row[6],
-                    'plate_image_path': row[7],
-                    'cropped_plates_paths': row[8],
-                    'processing_time_ms': row[9],
-                    'created_at': row[10]
+                    'original_image_path': row[5],
+                    'processing_time_ms': row[8],
+                    'created_at': row[9]
                 }
                 
                 # Deserialize JSON fields
                 try:
                     result['ocr_results'] = json.loads(row[4] or '[]')
+                    result['vehicle_detections'] = json.loads(row[6] or '[]')
+                    result['plate_detections'] = json.loads(row[7] or '[]')
                 except json.JSONDecodeError as e:
                     self.logger.warning(f"Error deserializing OCR results for record {row[0]}: {e}")
                     result['ocr_results'] = []
+                    result['vehicle_detections'] = []
+                    result['plate_detections'] = []
                 
                 results.append(result)
             
@@ -593,7 +590,7 @@ class DatabaseManager:
             
             cursor.execute("""
                 SELECT id, timestamp, vehicles_count, plates_count, ocr_results, 
-                       original_image_path, vehicle_detected_image_path, plate_image_path, cropped_plates_paths, 
+                       original_image_path, vehicle_detections, plate_detections,
                        processing_time_ms, created_at
                 FROM detection_results
                 WHERE id = ?
@@ -613,20 +610,20 @@ class DatabaseManager:
                 'vehicles_count': row[2],
                 'plates_count': row[3],
                 'original_image_path': row[5],
-                'vehicle_detected_image_path': row[6],
-                'plate_image_path': row[7],
-                'processing_time_ms': row[9],
-                'created_at': row[10]
+                'processing_time_ms': row[8],
+                'created_at': row[9]
             }
             
             # Deserialize JSON fields with full details
             try:
                 result['ocr_results'] = json.loads(row[4] or '[]')
-                result['cropped_plates_paths'] = json.loads(row[8] or '[]')
+                result['vehicle_detections'] = json.loads(row[6] or '[]')
+                result['plate_detections'] = json.loads(row[7] or '[]')
             except json.JSONDecodeError as e:
                 self.logger.warning(f"Error deserializing JSON for record {result_id}: {e}")
                 result['ocr_results'] = []
-                result['cropped_plates_paths'] = []
+                result['vehicle_detections'] = []
+                result['plate_detections'] = []
             
             return result
             

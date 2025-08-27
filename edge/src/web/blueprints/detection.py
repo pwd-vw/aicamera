@@ -457,7 +457,260 @@ def get_models_status():
         }), 500
 
 
+@detection_bp.route('/update-config', methods=['POST'])
+def update_detection_config():
+    """
+    Update detection configuration and restart service.
+    
+    Expected JSON payload:
+    {
+        "detection_interval": float,
+        "vehicle_confidence": float,
+        "plate_confidence": float,
+        "auto_start": bool
+    }
+    
+    Returns:
+        dict: JSON response with operation result
+    """
+    try:
+        # Get request data
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                'success': False,
+                'error': 'No JSON data provided'
+            }), 400
+        
+        # Validate required fields
+        required_fields = ['detection_interval', 'vehicle_confidence', 'plate_confidence']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({
+                    'success': False,
+                    'error': f'Missing required field: {field}'
+                }), 400
+        
+        # Validate values
+        detection_interval = data.get('detection_interval')
+        vehicle_confidence = data.get('vehicle_confidence')
+        plate_confidence = data.get('plate_confidence')
+        auto_start = data.get('auto_start', False)
+        
+        if not isinstance(detection_interval, (int, float)) or detection_interval < 0.1 or detection_interval > 1000.0:
+            return jsonify({
+                'success': False,
+                'error': 'Invalid detection_interval. Must be between 0.1 and 1000.0'
+            }), 400
+        
+        if not isinstance(vehicle_confidence, (int, float)) or vehicle_confidence < 0.1 or vehicle_confidence > 1.0:
+            return jsonify({
+                'success': False,
+                'error': 'Invalid vehicle_confidence. Must be between 0.1 and 1.0'
+            }), 400
+        
+        if not isinstance(plate_confidence, (int, float)) or plate_confidence < 0.1 or plate_confidence > 1.0:
+            return jsonify({
+                'success': False,
+                'error': 'Invalid plate_confidence. Must be between 0.1 and 1.0'
+            }), 400
+        
+        logger.info(f"Updating detection configuration: interval={detection_interval}, vehicle_conf={vehicle_confidence}, plate_conf={plate_confidence}, auto_start={auto_start}")
+        
+        # Update .env.production file
+        env_file_path = '/home/camuser/aicamera/edge/installation/.env.production'
+        success = update_env_file(env_file_path, {
+            'DETECTION_INTERVAL': str(detection_interval),
+            'DETECTION_CONFIDENCE_THRESHOLD': str(vehicle_confidence),
+            'PLATE_CONFIDENCE_THRESHOLD': str(plate_confidence)
+        })
+        
+        if not success:
+            return jsonify({
+                'success': False,
+                'error': 'Failed to update configuration file'
+            }), 500
+        
+        # Restart the service
+        restart_success = restart_aicamera_service()
+        
+        if not restart_success:
+            return jsonify({
+                'success': False,
+                'error': 'Configuration updated but service restart failed'
+            }), 500
+        
+        logger.info("Detection configuration updated and service restarted successfully")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Configuration updated and service restarted successfully',
+            'config': {
+                'detection_interval': detection_interval,
+                'vehicle_confidence': vehicle_confidence,
+                'plate_confidence': plate_confidence,
+                'auto_start': auto_start
+            },
+            'timestamp': datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        logger.error(f"Error updating detection configuration: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'timestamp': datetime.now().isoformat()
+        }), 500
 
+
+def update_env_file(file_path, updates):
+    """
+    Update .env.production file with new configuration values.
+    
+    Args:
+        file_path (str): Path to the .env.production file
+        updates (dict): Dictionary of key-value pairs to update
+    
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    try:
+        import os
+        import time
+        
+        # Check if file exists
+        if not os.path.exists(file_path):
+            logger.error(f"Environment file not found: {file_path}")
+            return False
+        
+        # Check if file is writable
+        if not os.access(file_path, os.W_OK):
+            logger.error(f"Environment file not writable: {file_path}")
+            return False
+        
+        # Read existing file
+        with open(file_path, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+        
+        # Create a set of keys to update
+        update_keys = set(updates.keys())
+        updated_count = 0
+        
+        # Update existing lines
+        updated_lines = []
+        for line in lines:
+            original_line = line
+            line = line.strip()
+            
+            # Keep comments and empty lines as is
+            if not line or line.startswith('#'):
+                updated_lines.append(original_line.rstrip())
+                continue
+            
+            # Check if this line contains a key we want to update
+            if '=' in line:
+                key = line.split('=')[0].strip()
+                if key in update_keys:
+                    # Update this line
+                    updated_lines.append(f"{key}={updates[key]}")
+                    update_keys.remove(key)
+                    updated_count += 1
+                    logger.info(f"Updated {key}={updates[key]}")
+                else:
+                    updated_lines.append(original_line.rstrip())
+            else:
+                updated_lines.append(original_line.rstrip())
+        
+        # Add any new keys that weren't in the original file
+        for key in update_keys:
+            updated_lines.append(f"{key}={updates[key]}")
+            updated_count += 1
+            logger.info(f"Added new key {key}={updates[key]}")
+        
+        # Create backup
+        backup_path = f"{file_path}.backup.{int(time.time())}"
+        try:
+            with open(backup_path, 'w', encoding='utf-8') as f:
+                f.write(''.join(lines))
+            logger.info(f"Created backup: {backup_path}")
+        except Exception as backup_error:
+            logger.warning(f"Failed to create backup: {backup_error}")
+        
+        # Write back to file
+        with open(file_path, 'w', encoding='utf-8') as f:
+            f.write('\n'.join(updated_lines) + '\n')
+        
+        logger.info(f"Successfully updated .env.production file with {updated_count} changes: {updates}")
+        return True
+        
+    except Exception as e:
+        logger.error(f"Error updating .env.production file: {e}")
+        return False
+
+
+def restart_aicamera_service():
+    """
+    Restart the aicamera_lpr.service.
+    
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    try:
+        import subprocess
+        import time
+        import os
+        
+        # Check if we're running as root or have sudo privileges
+        is_root = os.geteuid() == 0
+        
+        if is_root:
+            # Running as root, use systemctl directly
+            stop_cmd = ['systemctl', 'stop', 'aicamera_lpr.service']
+            start_cmd = ['systemctl', 'start', 'aicamera_lpr.service']
+        else:
+            # Not root, try sudo
+            stop_cmd = ['sudo', 'systemctl', 'stop', 'aicamera_lpr.service']
+            start_cmd = ['sudo', 'systemctl', 'start', 'aicamera_lpr.service']
+        
+        # Stop the service
+        stop_result = subprocess.run(stop_cmd, capture_output=True, text=True, timeout=30)
+        
+        if stop_result.returncode != 0:
+            logger.error(f"Failed to stop service: {stop_result.stderr}")
+            # Try alternative method - send SIGTERM to the process
+            try:
+                # Find the process and kill it
+                ps_result = subprocess.run(['pgrep', '-f', 'aicamera_lpr'], 
+                                         capture_output=True, text=True, timeout=10)
+                if ps_result.returncode == 0:
+                    pids = ps_result.stdout.strip().split('\n')
+                    for pid in pids:
+                        if pid:
+                            subprocess.run(['kill', '-TERM', pid], timeout=10)
+                    time.sleep(3)
+            except Exception as kill_error:
+                logger.error(f"Failed to kill process: {kill_error}")
+                return False
+        
+        # Wait a moment for the service to stop
+        time.sleep(2)
+        
+        # Start the service
+        start_result = subprocess.run(start_cmd, capture_output=True, text=True, timeout=30)
+        
+        if start_result.returncode != 0:
+            logger.error(f"Failed to start service: {start_result.stderr}")
+            return False
+        
+        logger.info("aicamera_lpr.service restarted successfully")
+        return True
+        
+    except subprocess.TimeoutExpired:
+        logger.error("Service restart timed out")
+        return False
+    except Exception as e:
+        logger.error(f"Error restarting service: {e}")
+        return False
 
 
 # WebSocket Events for real-time detection updates

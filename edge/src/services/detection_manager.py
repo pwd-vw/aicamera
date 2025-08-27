@@ -337,24 +337,21 @@ class DetectionManager:
                 if ocr_results:
                     self.detection_stats['successful_ocr'] += len(ocr_results)
             
-            # Step 5: Save detection results (images with bounding boxes)
-            original_path, vehicle_detected_path, plate_detected_path, cropped_paths = self.detection_processor.save_detection_results(
+            # Step 5: Save only original image (optimized for disk space)
+            original_path, _, _, _ = self.detection_processor.save_detection_results(
                 frame, vehicle_boxes, plate_boxes, ocr_results
             )
             
             # Calculate processing time
             processing_time = time.time() - start_time
             
-            # Step 6: Store results in database
+            # Step 6: Store results in database (only original image path)
             detection_record = {
                 'timestamp': datetime.now().isoformat(),
                 'vehicles_count': len(vehicle_boxes),
                 'plates_count': len(plate_boxes),
                 'ocr_results': ocr_results,
                 'original_image_path': f"captured_images/{os.path.basename(original_path)}" if original_path else '',
-                'vehicle_detected_image_path': f"captured_images/{os.path.basename(vehicle_detected_path)}" if vehicle_detected_path else '',
-                'plate_image_path': f"captured_images/{os.path.basename(plate_detected_path)}" if plate_detected_path else '',
-                'cropped_plates_paths': cropped_paths,
                 'vehicle_detections': vehicle_boxes,
                 'plate_detections': plate_boxes,
                 'processing_time_ms': processing_time * 1000.0  # Convert to milliseconds

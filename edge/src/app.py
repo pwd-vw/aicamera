@@ -75,48 +75,56 @@ def _initialize_services(logger):
     
     # === PHASE 0: Device Registration ===
     logger.info("🔐 Phase 0: Device Registration")
-    try:
-        server_url = os.getenv('SERVER_URL', 'http://localhost:3000')
-        registration_manager = initialize_registration(server_url)
+    
+    # Check if device registration is enabled
+    registration_enabled = os.getenv('DEVICE_REGISTRATION_ENABLED', 'true').lower() == 'true'
+    
+    if not registration_enabled:
+        logger.info("ℹ️ Device registration disabled by configuration")
+        init_results['core_modules']['device_registration'] = True  # Mark as successful since it's intentionally disabled
+    else:
+        try:
+            server_url = os.getenv('SERVER_URL', 'http://localhost')
+            registration_manager = initialize_registration(server_url)
         
-        # Set up registration callbacks
-        def on_registration_success(message):
-            logger.info(f"✅ Registration successful: {message}")
-        
-        def on_approval(message):
-            logger.info(f"✅ Device approved: {message}")
-        
-        def on_rejection(message):
-            logger.error(f"❌ Device rejected: {message}")
-        
-        def on_error(message):
-            logger.error(f"❌ Registration error: {message}")
-        
-        def on_active(message):
-            logger.info(f"✅ Device active: {message}")
-        
-        registration_manager.register_callback('on_registration_success', on_registration_success)
-        registration_manager.register_callback('on_approval', on_approval)
-        registration_manager.register_callback('on_rejection', on_rejection)
-        registration_manager.register_callback('on_error', on_error)
-        registration_manager.register_callback('on_active', on_active)
-        
-        # Start registration process
-        registration_type = os.getenv('REGISTRATION_TYPE', 'self')  # self, pre_provision
-        registration_success = registration_manager.start_registration_process(registration_type)
-        
-        if registration_success or registration_manager.state in [RegistrationState.PENDING_APPROVAL, RegistrationState.ACTIVE]:
-            logger.info("✅ Device registration initialized")
-            init_results['core_modules']['device_registration'] = True
-        else:
-            logger.warning("⚠️ Device registration failed, continuing with limited functionality")
-            init_results['core_modules']['device_registration'] = False
-            init_results['errors'].append("Device registration failed")
-        
-    except Exception as e:
-        logger.error(f"❌ Device registration error: {e}")
-        init_results['core_modules']['device_registration'] = False
-        init_results['errors'].append(f"Device registration: {e}")
+            # Set up registration callbacks
+            def on_registration_success(message):
+                logger.info(f"✅ Registration successful: {message}")
+            
+            def on_approval(message):
+                logger.info(f"✅ Device approved: {message}")
+            
+            def on_rejection(message):
+                logger.error(f"❌ Device rejected: {message}")
+            
+            def on_error(message):
+                logger.error(f"❌ Registration error: {message}")
+            
+            def on_active(message):
+                logger.info(f"✅ Device active: {message}")
+            
+            registration_manager.register_callback('on_registration_success', on_registration_success)
+            registration_manager.register_callback('on_approval', on_approval)
+            registration_manager.register_callback('on_rejection', on_rejection)
+            registration_manager.register_callback('on_error', on_error)
+            registration_manager.register_callback('on_active', on_active)
+            
+            # Start registration process
+            registration_type = os.getenv('REGISTRATION_TYPE', 'self')  # self, pre_provision
+            registration_success = registration_manager.start_registration_process(registration_type)
+            
+            if registration_success or registration_manager.state in [RegistrationState.PENDING_APPROVAL, RegistrationState.ACTIVE]:
+                logger.info("✅ Device registration initialized")
+                init_results['core_modules']['device_registration'] = True
+            else:
+                logger.warning("⚠️ Device registration failed, continuing with limited functionality")
+                init_results['core_modules']['device_registration'] = True  # Mark as successful since it's optional
+                init_results['errors'].append("Device registration failed (optional)")
+            
+        except Exception as e:
+            logger.error(f"❌ Device registration error: {e}")
+            init_results['core_modules']['device_registration'] = True  # Mark as successful since it's optional
+            init_results['errors'].append(f"Device registration: {e} (optional)")
     
     # === PHASE 1: Core Infrastructure ===
     logger.info("📋 Phase 1: Core Infrastructure")

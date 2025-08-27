@@ -22,46 +22,48 @@
 <link href="{{ url_for('static', filename='libs/font-awesome/all.min.css') }}" rel="stylesheet">
 {% endblock %}
 
-{% block container_class %}mt-4{% endblock %}
+{% block container_class %}mt-1{% endblock %}
 
 {% block content %}
 <div class="row">
     <div class="col-12">
-        <h1 class="mb-0"><i class="fas fa-robot"></i> Detection Dashboard <small class="text-muted">AI Detection Control, Monitoring, and Results</small></h1>
+        <h1 class="mb-0" style="font-size: 1.5rem; margin-top: 0;"><i class="fas fa-robot"></i> Detection Dashboard <small
+                class="text-muted" style="font-size: 0.75rem;">AI Detection Control, Monitoring, and Results</small>
+        </h1>
     </div>
 </div>
 
 <!-- Service Status and Configuration -->
-<div class="row mb-4">
+<div class="row mb-2">
     <div class="col-md-6">
         <div class="card status-card" id="service-status-card">
-            <div class="card-header">
-                <h5 class="mb-0"><i class="fas fa-cog"></i> Service Status</h5>
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-6">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <span>Detection:</span>
-                            <span id="service-status" class="badge bg-secondary">Stop</span>
+            <div class="card-body py-1">
+                <div class="row g-0">
+                    <div class="col-md-3">
+                        <div class="d-flex align-items-center" style="margin: 0; padding: 0;">
+                            <span style="font-size: 1rem; margin: 0;">Detection:</span>
+                            <span id="service-status" class="badge bg-secondary"
+                                style="margin-left: 0.25rem;">Stop</span>
                         </div>
                     </div>
-                    <div class="col-md-6">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <span>Models:</span>
-                            <span id="models-status" class="badge bg-secondary">Not Load</span>
+                    <div class="col-md-3">
+                        <div class="d-flex align-items-center" style="margin: 0; padding: 0;">
+                            <span style="font-size: 1 rem; margin: 0;">Models:</span>
+                            <span id="models-status" class="badge bg-secondary" style="margin-left: 0.25rem;">Not
+                                Load</span>
                         </div>
                     </div>
-                    <div class="col-md-6">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <span>Auto Start:</span>
-                            <span id="auto-start" class="badge bg-info">Enable</span>
+                    <div class="col-md-3">
+                        <div class="d-flex align-items-center" style="margin: 0; padding: 0;">
+                            <span style="font-size: 1rem; margin: 0;">Auto Start:</span>
+                            <span id="auto-start" class="badge bg-info" style="margin-left: 0.25rem;">Enable</span>
                         </div>
                     </div>
-                    <div class="col-md-6">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <span>Interval:</span>
-                            <span id="detection-interval" class="badge bg-info">0.1s</span>
+                    <div class="col-md-3">
+                        <div class="d-flex align-items-center" style="margin: 0; padding: 0;">
+                            <span style="font-size: 1rem; margin: 0;">Interval:</span>
+                            <span id="detection-interval-badge" class="badge bg-info"
+                                style="margin-left: 0.25rem;">0.1s</span>
                         </div>
                     </div>
                 </div>
@@ -69,171 +71,53 @@
         </div>
     </div>
     <div class="col-md-6">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="mb-0"><i class="fas fa-sliders-h"></i> Detection Configuration</h5>
-            </div>
-            <div class="card-body py-3">
+        <div class="card status-card" id="service-status-card">
+            <div class="card-body py-1">
                 <form id="detection-config-form">
-                    <div class="row g-2 align-items-end">
-                        <div class="col-md-6">
-                            <label for="detection-interval" class="form-label">Detection Interval (seconds)</label>
-                            <input type="number" class="form-control" id="detection-interval" 
-                                   min="0.1" max="10.0" step="0.1" value="0.1">
-                            <div class="form-text">Time between detection runs</div>
+                    <div class="d-flex align-items-center" style="gap: 0.5rem;">
+                        <div class="d-flex align-items-center" style="gap: 0.25rem;">
+                            <label for="detection-interval-input" class="form-label small mb-0" style="margin: 0;">Interval
+                                (s):</label>
+                            <input type="number" class="form-control form-control-sm" id="detection-interval-input" min="0.1"
+                                max="1000.0" step="0.1" value="0.1" style="width: 60px; max-width: 60px; margin: 0;"
+                                maxlength="5">
                         </div>
-                        <div class="col-md-6">
-                            <label for="vehicle-confidence" class="form-label">Vehicle Confidence</label>
-                            <input type="number" class="form-control" id="vehicle-confidence" 
-                                   min="0.1" max="1.0" step="0.1" value="0.5">
-                            <div class="form-text">Min confidence for vehicles</div>
+                        <div class="d-flex align-items-center" style="gap: 0.25rem;">
+                            <label for="vehicle-confidence" class="form-label small mb-0" style="margin: 0;">Vehicle
+                                Conf:</label>
+                            <input type="number" class="form-control form-control-sm" id="vehicle-confidence" min="0.1"
+                                max="1.0" step="0.1" value="0.5" style="width: 60px; max-width: 60px; margin: 0;"
+                                maxlength="5">
                         </div>
-                        <div class="col-md-6">
-                            <label for="plate-confidence" class="form-label">Plate Confidence</label>
-                            <input type="number" class="form-control" id="plate-confidence" 
-                                   min="0.1" max="1.0" step="0.1" value="0.3">
-                            <div class="form-text">Min confidence for plates</div>
+                        <div class="d-flex align-items-center" style="gap: 0.25rem;">
+                            <label for="plate-confidence" class="form-label small mb-0" style="margin: 0;">Plate
+                                Conf:</label>
+                            <input type="number" class="form-control form-control-sm" id="plate-confidence" min="0.1"
+                                max="1.0" step="0.1" value="0.3" style="width: 60px; max-width: 60px; margin: 0;"
+                                maxlength="5">
                         </div>
-                        <div class="col-md-4">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" id="auto-start-setting" checked>
-                                <label class="form-check-label" for="auto-start-setting">
-                                    Auto Start Detection
-                                </label>
-                                <div class="form-text">Start detection automatically</div>
-                            </div>
-                        </div>
-                        <div class="col-md-2">
-                            <button type="submit" class="btn btn-primary w-100" style="background-color: #007bff; border-color: #007bff; box-shadow: 0 2px 4px rgba(0,123,255,0.3);">
-                                <i class="fas fa-save"></i> Update
-                            </button>
-                        </div>
+                        <button type="submit" class="btn btn-primary btn-sm"
+                            style="background-color: #007bff; border-color: #007bff; box-shadow: 0 2px 4px rgba(0,123,255,0.3); padding: 0.25rem 0.5rem; margin: 0;">
+                            <i class="fas fa-save"></i> Update
+                        </button>
                     </div>
                 </form>
             </div>
         </div>
     </div>
 </div>
-<!-- Statistics -->
-<div class="row mb-3">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="mb-0"><i class="fas fa-chart-bar"></i> Detection Statistics <small class="text-muted">Real-time detection performance metrics</small></h5>
-            </div>
-            <div class="card-body py-2">
-                <div class="row g-2">
-                    <div class="col-md-2">
-                        <div class="card stats-card">
-                            <div class="card-body py-2">
-                                <div class="d-flex align-items-center">
-                                    <div class="stats-icon bg-primary" style="width: 36px; height: 36px; font-size: 1rem;">
-                                        <i class="fas fa-search"></i>
-                                    </div>
-                                    <div class="ms-2">
-                                        <div class="stats-number" id="frames-processed" style="font-size: 1.25rem;">{{ stats.total_frames_processed or 0 }}</div>
-                                        <div class="stats-label" style="font-size: 0.75rem;">Frames Processed</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="col-md-2">
-                        <div class="card stats-card">
-                            <div class="card-body py-2">
-                                <div class="d-flex align-items-center">
-                                    <div class="stats-icon bg-success" style="width: 36px; height: 36px; font-size: 1rem;">
-                                        <i class="fas fa-car"></i>
-                                    </div>
-                                    <div class="ms-2">
-                                        <div class="stats-number" id="vehicles-detected" style="font-size: 1.25rem;">{{ stats.total_vehicles_detected or 0 }}</div>
-                                        <div class="stats-label" style="font-size: 0.75rem;">Vehicles Detected</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="col-md-2">
-                        <div class="card stats-card">
-                            <div class="card-body py-2">
-                                <div class="d-flex align-items-center">
-                                    <div class="stats-icon bg-info" style="width: 36px; height: 36px; font-size: 1rem;">
-                                        <i class="fas fa-id-card"></i>
-                                    </div>
-                                    <div class="ms-2">
-                                        <div class="stats-number" id="plates-detected" style="font-size: 1.25rem;">{{ stats.total_plates_detected or 0 }}</div>
-                                        <div class="stats-label" style="font-size: 0.75rem;">Plates Detected</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="col-md-2">
-                        <div class="card stats-card">
-                            <div class="card-body py-2">
-                                <div class="d-flex align-items-center">
-                                    <div class="stats-icon bg-warning" style="width: 36px; height: 36px; font-size: 1rem;">
-                                        <i class="fas fa-stopwatch"></i>
-                                    </div>
-                                    <div class="ms-2">
-                                        <div class="stats-number" id="avg-processing-time" style="font-size: 1.25rem;">{{ "%.1f"|format(stats.avg_processing_time_ms or 0) }}ms</div>
-                                        <div class="stats-label" style="font-size: 0.75rem;">Processing</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="col-md-2">
-                        <div class="card stats-card">
-                            <div class="card-body py-2">
-                                <div class="d-flex align-items-center">
-                                    <div class="stats-icon bg-secondary" style="width: 36px; height: 36px; font-size: 1rem;">
-                                        <i class="fas fa-tachometer-alt"></i>
-                                    </div>
-                                    <div class="ms-2">
-                                        <div class="stats-number" id="detection-rate" style="font-size: 1.25rem;">0.0%</div>
-                                        <div class="stats-label" style="font-size: 0.75rem;">Detection Rate</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="col-md-2">
-                        <div class="card stats-card">
-                            <div class="card-body py-2">
-                                <div class="d-flex align-items-center">
-                                    <div class="stats-icon bg-danger" style="width: 36px; height: 36px; font-size: 1rem;">
-                                        <i class="fas fa-exclamation-triangle"></i>
-                                    </div>
-                                    <div class="ms-2">
-                                        <div class="stats-number" id="successful-ocr" style="font-size: 1.25rem;">0</div>
-                                        <div class="stats-label" style="font-size: 0.75rem;">Successful OCR</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
+
 
 <!-- Detection Results Section -->
 <div class="row mb-4">
     <div class="col-12">
         <div class="card">
-            <div class="card-header">
-                <div class="d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">
-                        <i class="fas fa-table me-2"></i>Detection Results
-                    </h5>
-                                            <div class="d-flex align-items-center gap-2">
+                            <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">
+                            <i class="fas fa-filter me-2"></i>Filters & Search
+                        </h6>
+                        <div class="d-flex align-items-center gap-2">
                             <span class="text-muted" id="results-count">Loading...</span>
                             <div class="d-flex align-items-center gap-1">
                                 <button type="button" class="btn btn-primary btn-sm" id="refresh-results-btn">
@@ -242,42 +126,32 @@
                                 <button type="button" class="btn btn-success btn-sm" id="export-results-btn">
                                     <i class="fas fa-download"></i> Export
                                 </button>
-                            <label for="per-page-select" class="form-label mb-0 text-muted">Show:</label>
-                            <select class="form-select form-select-sm" id="per-page-select" style="width: auto;">
-                                <option value="10">10</option>
-                                <option value="20" selected>20</option>
-                                <option value="50">50</option>
-                                <option value="100">100</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="card-body">
-                <!-- Filters and Search -->
-                <div class="row mb-2">
-                    <div class="col-12">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <h6 class="mb-0">
-                                <i class="fas fa-filter me-2"></i>Filters & Search
-                            </h6>
+                                <label for="per-page-select" class="form-label mb-0 text-muted">Show:</label>
+                                <select class="form-select form-select-sm" id="per-page-select" style="width: auto;">
+                                    <option value="10">10</option>
+                                    <option value="20" selected>20</option>
+                                    <option value="50">50</option>
+                                    <option value="100">100</option>
+                                </select>
+                            </div>
                             <button type="button" class="btn btn-sm btn-outline-secondary" id="clear-filters-btn">
                                 <i class="fas fa-times"></i> Clear All
                             </button>
                         </div>
                     </div>
                 </div>
+            <div class="card-body">
                 <form id="filters-form" class="row g-3">
                     <!-- Search Input -->
                     <div class="col-md-6 col-lg-4">
                         <label for="search-input" class="form-label">Search</label>
                         <div class="input-group">
                             <span class="input-group-text"><i class="fas fa-search"></i></span>
-                            <input type="text" class="form-control" id="search-input" 
-                                   placeholder="Search license plates, OCR text...">
+                            <input type="text" class="form-control" id="search-input"
+                                placeholder="Search license plates, OCR text...">
                         </div>
                     </div>
-                    
+
                     <!-- Date Range -->
                     <div class="col-md-3 col-lg-2">
                         <label for="date-from" class="form-label">From Date</label>
@@ -287,7 +161,7 @@
                         <label for="date-to" class="form-label">To Date</label>
                         <input type="date" class="form-control" id="date-to">
                     </div>
-                    
+
                     <!-- Vehicle Filter -->
                     <div class="col-md-6 col-lg-2">
                         <label for="has-vehicles" class="form-label">Vehicles</label>
@@ -297,7 +171,7 @@
                             <option value="false">No Vehicles</option>
                         </select>
                     </div>
-                    
+
                     <!-- Plates Filter -->
                     <div class="col-md-6 col-lg-2">
                         <label for="has-plates" class="form-label">License Plates</label>
@@ -387,62 +261,62 @@
 
 <!-- Detail View Modal -->
 <div class="modal fade" id="detail-modal" tabindex="-1" aria-labelledby="detail-modal-label" aria-hidden="true">
-<div class="modal-dialog modal-xxl">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h5 class="modal-title" id="detail-modal-label">
-                <i class="fas fa-info-circle me-2"></i>Detection Result Details
-            </h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-        </div>
-        <div class="modal-body" id="detail-modal-body">
-            <!-- Detail content will be populated by JavaScript -->
-            <div class="text-center py-5">
-                <div class="spinner-border text-primary" role="status">
-                    <span class="visually-hidden">Loading...</span>
+    <div class="modal-dialog modal-xxl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="detail-modal-label">
+                    <i class="fas fa-info-circle me-2"></i>Detection Result Details
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="detail-modal-body">
+                <!-- Detail content will be populated by JavaScript -->
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
                 </div>
             </div>
-        </div>
-        <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
         </div>
     </div>
-</div>
 </div>
 
 <!-- Export Modal -->
 <div class="modal fade" id="export-modal" tabindex="-1" aria-labelledby="export-modal-label" aria-hidden="true">
-<div class="modal-dialog">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h5 class="modal-title" id="export-modal-label">
-                <i class="fas fa-download me-2"></i>Export Detection Results
-            </h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-        </div>
-        <div class="modal-body">
-            <form id="export-form">
-                <div class="mb-3">
-                    <label for="export-format" class="form-label">Export Format</label>
-                    <select class="form-select" id="export-format">
-                        <option value="csv" selected>CSV (Comma Separated Values)</option>
-                        <option value="json">JSON (JavaScript Object Notation)</option>
-                    </select>
-                </div>
-                <div class="alert alert-info">
-                    <i class="fas fa-info-circle me-2"></i>
-                    The export will include all results matching your current search and filter criteria.
-                </div>
-            </form>
-        </div>
-        <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-            <button type="button" class="btn btn-success" id="confirm-export-btn">
-                <i class="fas fa-download"></i> Export
-            </button>
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="export-modal-label">
+                    <i class="fas fa-download me-2"></i>Export Detection Results
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="export-form">
+                    <div class="mb-3">
+                        <label for="export-format" class="form-label">Export Format</label>
+                        <select class="form-select" id="export-format">
+                            <option value="csv" selected>CSV (Comma Separated Values)</option>
+                            <option value="json">JSON (JavaScript Object Notation)</option>
+                        </select>
+                    </div>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        The export will include all results matching your current search and filter criteria.
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-success" id="confirm-export-btn">
+                    <i class="fas fa-download"></i> Export
+                </button>
+            </div>
         </div>
     </div>
-</div>
 </div>
 <!-- Comprehensive Output Display Section -->
 <div class="row mt-4" id="comprehensive-output-section">
@@ -460,6 +334,146 @@
                 </div>
             </div>
             <div class="card-body" id="comprehensive-output-content">
+                <!-- Statistics -->
+                <div class="row mb-2">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header py-2">
+                                <h6 class="mb-0"><i class="fas fa-chart-bar"></i> Detection Statistics <small
+                                        class="text-muted">Real-time detection performance metrics</small></h6>
+                            </div>
+                            <div class="card-body py-0">
+                                <div class="row g-0">
+                                    <div class="col-md-2">
+                                        <div class="card stats-card" style="margin: 0; border: none;">
+                                            <div class="card-body py-0" style="padding: 0.25rem;">
+                                                <div class="d-flex align-items-center" style="margin: 0; padding: 0;">
+                                                    <div class="stats-icon bg-primary"
+                                                        style="width: 24px; height: 24px; font-size: 0.75rem; margin: 0;">
+                                                        <i class="fas fa-search"></i>
+                                                    </div>
+                                                    <div style="margin-left: 0.25rem; margin: 0;">
+                                                        <div class="stats-number" id="frames-processed"
+                                                            style="font-size: 0.875rem; margin: 0; line-height: 1;">{{
+                                                            stats.total_frames_processed or 0 }}</div>
+                                                        <div class="stats-label"
+                                                            style="font-size: 0.5rem; margin: 0; line-height: 1;">Frames
+                                                            Processed</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-md-2">
+                                        <div class="card stats-card" style="margin: 0; border: none;">
+                                            <div class="card-body py-0" style="padding: 0.25rem;">
+                                                <div class="d-flex align-items-center" style="margin: 0; padding: 0;">
+                                                    <div class="stats-icon bg-success"
+                                                        style="width: 24px; height: 24px; font-size: 0.75rem; margin: 0;">
+                                                        <i class="fas fa-car"></i>
+                                                    </div>
+                                                    <div style="margin-left: 0.25rem; margin: 0;">
+                                                        <div class="stats-number" id="vehicles-detected"
+                                                            style="font-size: 0.875rem; margin: 0; line-height: 1;">{{
+                                                            stats.total_vehicles_detected or 0 }}</div>
+                                                        <div class="stats-label"
+                                                            style="font-size: 0.5rem; margin: 0; line-height: 1;">
+                                                            Vehicles Detected</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-md-2">
+                                        <div class="card stats-card" style="margin: 0; border: none;">
+                                            <div class="card-body py-0" style="padding: 0.25rem;">
+                                                <div class="d-flex align-items-center" style="margin: 0; padding: 0;">
+                                                    <div class="stats-icon bg-info"
+                                                        style="width: 24px; height: 24px; font-size: 0.75rem; margin: 0;">
+                                                        <i class="fas fa-id-card"></i>
+                                                    </div>
+                                                    <div style="margin-left: 0.25rem; margin: 0;">
+                                                        <div class="stats-number" id="plates-detected"
+                                                            style="font-size: 0.875rem; margin: 0; line-height: 1;">{{
+                                                            stats.total_plates_detected or 0 }}</div>
+                                                        <div class="stats-label"
+                                                            style="font-size: 0.5rem; margin: 0; line-height: 1;">Plates
+                                                            Detected</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-md-2">
+                                        <div class="card stats-card" style="margin: 0; border: none;">
+                                            <div class="card-body py-0" style="padding: 0.25rem;">
+                                                <div class="d-flex align-items-center" style="margin: 0; padding: 0;">
+                                                    <div class="stats-icon bg-warning"
+                                                        style="width: 24px; height: 24px; font-size: 0.75rem; margin: 0;">
+                                                        <i class="fas fa-stopwatch"></i>
+                                                    </div>
+                                                    <div style="margin-left: 0.25rem; margin: 0;">
+                                                        <div class="stats-number" id="avg-processing-time"
+                                                            style="font-size: 0.875rem; margin: 0; line-height: 1;">{{
+                                                            "%.1f"|format(stats.avg_processing_time_ms or 0) }}ms</div>
+                                                        <div class="stats-label"
+                                                            style="font-size: 0.5rem; margin: 0; line-height: 1;">
+                                                            Processing</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-md-2">
+                                        <div class="card stats-card" style="margin: 0; border: none;">
+                                            <div class="card-body py-0" style="padding: 0.25rem;">
+                                                <div class="d-flex align-items-center" style="margin: 0; padding: 0;">
+                                                    <div class="stats-icon bg-secondary"
+                                                        style="width: 24px; height: 24px; font-size: 0.75rem; margin: 0;">
+                                                        <i class="fas fa-tachometer-alt"></i>
+                                                    </div>
+                                                    <div style="margin-left: 0.25rem; margin: 0;">
+                                                        <div class="stats-number" id="detection-rate"
+                                                            style="font-size: 0.875rem; margin: 0; line-height: 1;">0.0%
+                                                        </div>
+                                                        <div class="stats-label"
+                                                            style="font-size: 0.5rem; margin: 0; line-height: 1;">
+                                                            Detection Rate</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="col-md-2">
+                                        <div class="card stats-card" style="margin: 0; border: none;">
+                                            <div class="card-body py-0" style="padding: 0.25rem;">
+                                                <div class="d-flex align-items-center" style="margin: 0; padding: 0;">
+                                                    <div class="stats-icon bg-danger"
+                                                        style="width: 24px; height: 24px; font-size: 0.75rem; margin: 0;">
+                                                        <i class="fas fa-exclamation-triangle"></i>
+                                                    </div>
+                                                    <div style="margin-left: 0.25rem; margin: 0;">
+                                                        <div class="stats-number" id="successful-ocr"
+                                                            style="font-size: 0.875rem; margin: 0; line-height: 1;">0
+                                                        </div>
+                                                        <div class="stats-label"
+                                                            style="font-size: 0.5rem; margin: 0; line-height: 1;">
+                                                            Successful OCR</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 <!-- Real-time Detection Metrics -->
                 <div class="row mb-4">
                     <div class="col-12">
@@ -615,7 +629,8 @@
                                     </div>
                                     <div class="card-body">
                                         <div class="progress mb-2">
-                                            <div class="progress-bar bg-success" id="detection-accuracy-bar" style="width: 0%"></div>
+                                            <div class="progress-bar bg-success" id="detection-accuracy-bar"
+                                                style="width: 0%"></div>
                                         </div>
                                         <small class="text-muted">Based on confidence thresholds</small>
                                     </div>
@@ -628,7 +643,8 @@
                                     </div>
                                     <div class="card-body">
                                         <div class="progress mb-2">
-                                            <div class="progress-bar bg-info" id="ocr-accuracy-bar" style="width: 0%"></div>
+                                            <div class="progress-bar bg-info" id="ocr-accuracy-bar" style="width: 0%">
+                                            </div>
                                         </div>
                                         <small class="text-muted">Text recognition confidence</small>
                                     </div>
@@ -641,7 +657,8 @@
                                     </div>
                                     <div class="card-body">
                                         <div class="progress mb-2">
-                                            <div class="progress-bar bg-warning" id="system-reliability-bar" style="width: 0%"></div>
+                                            <div class="progress-bar bg-warning" id="system-reliability-bar"
+                                                style="width: 0%"></div>
                                         </div>
                                         <small class="text-muted">Uptime and error rates</small>
                                     </div>
@@ -767,32 +784,38 @@
                                 <div class="row">
                                     <div class="col-md-6">
                                         <div class="form-check form-switch mb-2">
-                                            <input class="form-check-input" type="checkbox" id="real-time-updates-toggle" checked>
+                                            <input class="form-check-input" type="checkbox"
+                                                id="real-time-updates-toggle" checked>
                                             <label class="form-check-label" for="real-time-updates-toggle">
                                                 Real-time Updates
                                             </label>
                                         </div>
                                         <div class="form-check form-switch mb-2">
-                                            <input class="form-check-input" type="checkbox" id="detailed-logging-toggle">
+                                            <input class="form-check-input" type="checkbox"
+                                                id="detailed-logging-toggle">
                                             <label class="form-check-label" for="detailed-logging-toggle">
                                                 Detailed Logging
                                             </label>
                                         </div>
                                         <div class="form-check form-switch mb-2">
-                                            <input class="form-check-input" type="checkbox" id="performance-monitoring-toggle" checked>
+                                            <input class="form-check-input" type="checkbox"
+                                                id="performance-monitoring-toggle" checked>
                                             <label class="form-check-label" for="performance-monitoring-toggle">
                                                 Performance Monitoring
                                             </label>
                                         </div>
                                     </div>
                                     <div class="col-md-6">
-                                        <button type="button" class="btn btn-outline-primary btn-sm mb-2" onclick="DetectionManager.refreshComprehensiveData()">
+                                        <button type="button" class="btn btn-outline-primary btn-sm mb-2"
+                                            onclick="DetectionManager.refreshComprehensiveData()">
                                             <i class="fas fa-sync-alt"></i> Refresh Data
                                         </button>
-                                        <button type="button" class="btn btn-outline-success btn-sm mb-2" onclick="DetectionManager.exportComprehensiveReport()">
+                                        <button type="button" class="btn btn-outline-success btn-sm mb-2"
+                                            onclick="DetectionManager.exportComprehensiveReport()">
                                             <i class="fas fa-file-export"></i> Export Report
                                         </button>
-                                        <button type="button" class="btn btn-outline-warning btn-sm mb-2" onclick="DetectionManager.resetComprehensiveMetrics()">
+                                        <button type="button" class="btn btn-outline-warning btn-sm mb-2"
+                                            onclick="DetectionManager.resetComprehensiveMetrics()">
                                             <i class="fas fa-undo"></i> Reset Metrics
                                         </button>
                                     </div>
@@ -810,4 +833,3 @@
 {% block additional_js %}
 <script src="{{ url_for('static', filename='js/detection.js') }}"></script>
 {% endblock %}
-
