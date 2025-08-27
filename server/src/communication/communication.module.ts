@@ -1,26 +1,23 @@
 import { Module } from '@nestjs/common';
-import { EventsGateway } from '../events/events.gateway';
-import { CommunicationOrchestratorService } from './communication-orchestrator.service';
-import { CommunicationController } from './communication.controller';
-import { WebSocketProtocol } from './protocols/websocket.protocol';
-// import { RestProtocol } from './protocols/rest.protocol';
-// import { MqttProtocol } from './protocols/mqtt.protocol';
+import { ConfigModule } from '@nestjs/config';
+import { MqttService } from './mqtt/mqtt.service';
+import { SftpService } from './sftp/sftp.service';
+import { ImageStorageService } from './storage/image-storage.service';
+import { UnifiedCommunicationService } from './unified-communication.service';
 
 @Module({
-  providers: [EventsGateway],
-  exports: [EventsGateway],
-})
-export class EventsModule {}
-
-@Module({
-  imports: [EventsModule],
-  controllers: [CommunicationController],
+  imports: [ConfigModule],
   providers: [
-    CommunicationOrchestratorService,
-    WebSocketProtocol,
-    // RestProtocol,
-    // MqttProtocol,
+    MqttService,
+    SftpService,
+    ImageStorageService,
+    UnifiedCommunicationService,
   ],
-  exports: [CommunicationOrchestratorService],
+  exports: [
+    MqttService,
+    SftpService,
+    ImageStorageService,
+    UnifiedCommunicationService,
+  ],
 })
 export class CommunicationModule {}
