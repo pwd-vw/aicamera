@@ -1,0 +1,533 @@
+name: Multi-Environment Deployment
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'server/**'
+      - 'edge/**'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch:
+    inputs:
+      deploy_server:
+        description: 'Deploy to LPR Server'
+        required: false
+        default: true
+        type: boolean
+      deploy_edge:
+        description: 'Deploy to Edge Devices'
+        required: false
+        default: true
+        type: boolean
+      force_deploy:
+        description: 'Force deployment (bypass environment check)'
+        required: false
+        default: false
+        type: boolean
+      target_edge:
+        description: 'Target specific edge device (aicamera1, aicamera2, aicamera3, or all)'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - aicamera1
+          - aicamera2
+          - aicamera3
+
+env:
+  LPR_SERVER: lprserver.tail605477.ts.net
+  EDGE_DEVICES: aicamera1.tail605477.ts.net,aicamera2.tail605477.ts.net,aicamera3.tail605477.ts.net
+
+jobs:
+  # Test and Build
+  test-and-build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: server/package-lock.json
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install server dependencies
+        run: |
+          cd server
+          npm ci
+
+      - name: Install edge dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libcap-dev
+          cd edge
+          pip install -r requirements.txt
+
+      - name: Run server tests
+        run: |
+          cd server
+          npm test
+
+      - name: Run edge tests
+        run: |
+          cd edge
+          python -m pytest tests/ -v
+
+      - name: Build server
+        run: |
+          cd server
+          npm run build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: |
+            server/dist/
+            server/node_modules/
+            edge/
+            !edge/__pycache__/
+            !edge/**/__pycache__/
+            !edge/.pytest_cache/
+            !edge/tests/
+
+  # Deploy to LPR Server
+  deploy-server:
+    runs-on: ubuntu-latest
+    needs: test-and-build
+    if: |
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_server == 'true') ||
+      (github.event_name == 'push' && vars.ENABLE_SERVER_DEPLOYMENT == 'true')
+    
+    steps:
+      - name: Check deployment environment
+        run: |
+          if [ "${{ vars.ENABLE_SERVER_DEPLOYMENT || 'false' }}" != "true" ] && [ "${{ github.event.inputs.force_deploy || 'false' }}" != "true" ]; then
+            echo "🚫 Server deployment is disabled"
+            echo "📋 To enable: Set ENABLE_SERVER_DEPLOYMENT=true in repository variables"
+            echo "📋 Or use manual trigger with force_deploy=true"
+            exit 0
+          fi
+          echo "✅ Server deployment is enabled"
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build-artifacts
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.8.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Add server to known_hosts
+        run: |
+          ssh-keyscan -H ${{ env.LPR_SERVER }} >> ~/.ssh/known_hosts
+
+      - name: Deploy to LPR Server
+        run: |
+          ssh ${{ secrets.SERVER_USER }}@${{ env.LPR_SERVER }} << 'ENDSSH'
+            set -e
+            
+            # Configuration
+            DEPLOY_PATH="/home/lpruser/aicamera"
+            SERVICE_NAME="aicamera_server.service"
+            NGINX_SERVICE="nginx"
+            BACKUP_DIR="/home/lpruser/aicamera_backups"
+            TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+            
+            echo "🚀 Starting LPR Server deployment..."
+            echo "📋 Deploy path: $DEPLOY_PATH"
+            echo "📋 Service: $SERVICE_NAME"
+            echo "📋 Timestamp: $TIMESTAMP"
+            
+            # Create backup directory
+            mkdir -p $BACKUP_DIR
+            
+            # Step 1: Create backup of current deployment
+            echo "📦 Creating backup of current deployment..."
+            if [ -d "$DEPLOY_PATH" ]; then
+              tar -czf "$BACKUP_DIR/server_backup_$TIMESTAMP.tar.gz" -C "$DEPLOY_PATH" .
+              echo "✅ Backup created: $BACKUP_DIR/server_backup_$TIMESTAMP.tar.gz"
+            else
+              echo "⚠️  No existing deployment found, skipping backup"
+            fi
+            
+            # Step 2: Pull latest changes
+            echo "📥 Pulling latest changes..."
+            cd $DEPLOY_PATH
+            git fetch origin
+            git reset --hard origin/main
+            echo "✅ Code updated"
+            
+            # Step 3: Update server dependencies
+            echo "📦 Updating server dependencies..."
+            cd server
+            npm ci --production
+            npm run build
+            echo "✅ Server dependencies updated"
+            
+            # Step 4: Update database schema
+            echo "🗄️  Updating database schema..."
+            npx prisma migrate deploy
+            npx prisma generate
+            echo "✅ Database schema updated"
+            
+            # Step 5: Restart systemd service
+            echo "🔄 Restarting systemd service..."
+            sudo systemctl restart $SERVICE_NAME
+            sleep 5
+            
+            # Step 6: Check service status
+            echo "🔍 Checking service status..."
+            if sudo systemctl is-active --quiet $SERVICE_NAME; then
+              echo "✅ Service is running"
+            else
+              echo "❌ Service failed to start"
+              sudo systemctl status $SERVICE_NAME
+              exit 1
+            fi
+            
+            # Step 7: Restart nginx
+            echo "🌐 Restarting nginx..."
+            sudo systemctl restart $NGINX_SERVICE
+            sleep 2
+            
+            if sudo systemctl is-active --quiet $NGINX_SERVICE; then
+              echo "✅ Nginx is running"
+            else
+              echo "❌ Nginx failed to start"
+              sudo systemctl status $NGINX_SERVICE
+              exit 1
+            fi
+            
+            # Step 8: Test API health
+            echo "🔍 Testing API health..."
+            max_retries=10
+            retry_count=0
+            health_ok=false
+            
+            while [ $retry_count -lt $max_retries ]; do
+              if curl -s -f http://localhost:3000/health >/dev/null 2>&1; then
+                echo "✅ API health check passed"
+                health_ok=true
+                break
+              else
+                echo "   Attempt $((retry_count + 1))/$max_retries: Health check failed..."
+                retry_count=$((retry_count + 1))
+                sleep 3
+              fi
+            done
+            
+            if [ "$health_ok" = false ]; then
+              echo "❌ API health check failed after $max_retries attempts"
+              echo "🔄 Initiating rollback..."
+              
+              # Rollback to previous backup
+              LATEST_BACKUP=$(ls -t $BACKUP_DIR/server_backup_*.tar.gz 2>/dev/null | head -1)
+              if [ -n "$LATEST_BACKUP" ]; then
+                echo "📦 Rolling back to: $LATEST_BACKUP"
+                
+                # Stop services
+                sudo systemctl stop $SERVICE_NAME || true
+                sudo systemctl stop $NGINX_SERVICE || true
+                
+                # Restore from backup
+                cd $DEPLOY_PATH
+                tar -xzf "$LATEST_BACKUP" .
+                echo "✅ Backup restored"
+                
+                # Restart services
+                sudo systemctl start $SERVICE_NAME
+                sudo systemctl start $NGINX_SERVICE
+                
+                # Wait and test
+                sleep 5
+                if curl -s -f http://localhost:3000/health >/dev/null 2>&1; then
+                  echo "✅ Rollback successful"
+                else
+                  echo "❌ Rollback failed - manual intervention required"
+                  exit 1
+                fi
+              else
+                echo "❌ No backup found for rollback"
+                exit 1
+              fi
+            fi
+            
+            # Clean up old backups (keep last 5)
+            echo "🧹 Cleaning up old backups..."
+            cd $BACKUP_DIR
+            ls -t server_backup_*.tar.gz | tail -n +6 | xargs -r rm
+            
+            echo "🎉 LPR Server deployment completed successfully!"
+            echo "📋 API URL: http://localhost:3000"
+            echo "📋 Health check: http://localhost:3000/health"
+            echo "📋 Backup location: $BACKUP_DIR/server_backup_$TIMESTAMP.tar.gz"
+          ENDSSH
+
+      - name: Verify server deployment
+        run: |
+          sleep 10
+          if curl -s -f http://${{ env.LPR_SERVER }}:3000/health >/dev/null 2>&1; then
+            echo "✅ LPR Server deployment verification successful"
+          else
+            echo "❌ LPR Server deployment verification failed"
+            exit 1
+          fi
+
+  # Deploy to Edge Devices
+  deploy-edge:
+    runs-on: ubuntu-latest
+    needs: test-and-build
+    strategy:
+      matrix:
+        device: ${{ github.event.inputs.target_edge == 'all' && fromJson('["aicamera1", "aicamera2", "aicamera3"]') || fromJson(format('["{0}"]', github.event.inputs.target_edge)) }}
+    if: |
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_edge == 'true') ||
+      (github.event_name == 'push' && vars.ENABLE_EDGE_DEPLOYMENT == 'true')
+    
+    steps:
+      - name: Check deployment environment
+        run: |
+          if [ "${{ vars.ENABLE_EDGE_DEPLOYMENT || 'false' }}" != "true" ] && [ "${{ github.event.inputs.force_deploy || 'false' }}" != "true" ]; then
+            echo "🚫 Edge deployment is disabled"
+            echo "📋 To enable: Set ENABLE_EDGE_DEPLOYMENT=true in repository variables"
+            echo "📋 Or use manual trigger with force_deploy=true"
+            exit 0
+          fi
+          echo "✅ Edge deployment is enabled"
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build-artifacts
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.8.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Add edge device to known_hosts
+        run: |
+          EDGE_HOST="${{ matrix.device }}.tail605477.ts.net"
+          ssh-keyscan -H $EDGE_HOST >> ~/.ssh/known_hosts
+
+      - name: Deploy to Edge Device
+        run: |
+          EDGE_HOST="${{ matrix.device }}.tail605477.ts.net"
+          ssh ${{ secrets.EDGE_USER }}@$EDGE_HOST << 'ENDSSH'
+            set -e
+            
+            # Configuration
+            DEPLOY_PATH="/home/camuser/aicamera"
+            SERVICE_NAME="aicamera_lpr.service"
+            NGINX_SERVICE="nginx"
+            BACKUP_DIR="/home/camuser/aicamera_backups"
+            TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+            DEVICE_NAME="${{ matrix.device }}"
+            
+            echo "🚀 Starting Edge deployment for $DEVICE_NAME..."
+            echo "📋 Deploy path: $DEPLOY_PATH"
+            echo "📋 Service: $SERVICE_NAME"
+            echo "📋 Timestamp: $TIMESTAMP"
+            
+            # Create backup directory
+            mkdir -p $BACKUP_DIR
+            
+            # Step 1: Create backup of current deployment
+            echo "📦 Creating backup of current deployment..."
+            if [ -d "$DEPLOY_PATH" ]; then
+              tar -czf "$BACKUP_DIR/edge_backup_$DEVICE_NAME_$TIMESTAMP.tar.gz" -C "$DEPLOY_PATH" .
+              echo "✅ Backup created: $BACKUP_DIR/edge_backup_$DEVICE_NAME_$TIMESTAMP.tar.gz"
+            else
+              echo "⚠️  No existing deployment found, skipping backup"
+            fi
+            
+            # Step 2: Pull latest changes
+            echo "📥 Pulling latest changes..."
+            cd $DEPLOY_PATH
+            git fetch origin
+            git reset --hard origin/main
+            echo "✅ Code updated"
+            
+            # Step 3: Update dependencies
+            echo "📦 Updating Python dependencies..."
+            if [ -f "edge/requirements.txt" ]; then
+              # Activate virtual environment if it exists
+              if [ -f "venv_hailo/bin/activate" ]; then
+                source venv_hailo/bin/activate
+                echo "✅ Virtual environment activated"
+              fi
+              
+              # Install/update Python dependencies
+              pip install -r edge/requirements.txt || {
+                echo "⚠️  Some dependencies failed to install - this may be expected for system-specific packages"
+                echo "📋 Attempting to install core dependencies only..."
+                pip install flask flask-socketio python-socketio werkzeug pillow numpy requests psutil python-dotenv
+              }
+              echo "✅ Dependencies updated"
+            else
+              echo "❌ requirements.txt not found"
+              exit 1
+            fi
+            
+            # Step 4: Restart systemd service
+            echo "🔄 Restarting systemd service..."
+            sudo systemctl restart $SERVICE_NAME
+            sleep 5
+            
+            # Step 5: Check service status
+            echo "🔍 Checking service status..."
+            if sudo systemctl is-active --quiet $SERVICE_NAME; then
+              echo "✅ Service is running"
+            else
+              echo "❌ Service failed to start"
+              sudo systemctl status $SERVICE_NAME
+              exit 1
+            fi
+            
+            # Step 6: Restart nginx
+            echo "🌐 Restarting nginx..."
+            sudo systemctl restart $NGINX_SERVICE
+            sleep 2
+            
+            if sudo systemctl is-active --quiet $NGINX_SERVICE; then
+              echo "✅ Nginx is running"
+            else
+              echo "❌ Nginx failed to start"
+              sudo systemctl status $NGINX_SERVICE
+              exit 1
+            fi
+            
+            # Step 7: Test service health
+            echo "🔍 Testing service health..."
+            max_retries=10
+            retry_count=0
+            health_ok=false
+            
+            while [ $retry_count -lt $max_retries ]; do
+              if curl -s -f http://localhost/health >/dev/null 2>&1; then
+                echo "✅ Service health check passed"
+                health_ok=true
+                break
+              else
+                echo "   Attempt $((retry_count + 1))/$max_retries: Health check failed..."
+                retry_count=$((retry_count + 1))
+                sleep 3
+              fi
+            done
+            
+            if [ "$health_ok" = false ]; then
+              echo "❌ Service health check failed after $max_retries attempts"
+              echo "🔄 Initiating rollback..."
+              
+              # Rollback to previous backup
+              LATEST_BACKUP=$(ls -t $BACKUP_DIR/edge_backup_$DEVICE_NAME_*.tar.gz 2>/dev/null | head -1)
+              if [ -n "$LATEST_BACKUP" ]; then
+                echo "📦 Rolling back to: $LATEST_BACKUP"
+                
+                # Stop services
+                sudo systemctl stop $SERVICE_NAME || true
+                sudo systemctl stop $NGINX_SERVICE || true
+                
+                # Restore from backup
+                cd $DEPLOY_PATH
+                tar -xzf "$LATEST_BACKUP" .
+                echo "✅ Backup restored"
+                
+                # Restart services
+                sudo systemctl start $SERVICE_NAME
+                sudo systemctl start $NGINX_SERVICE
+                
+                # Wait and test
+                sleep 5
+                if curl -s -f http://localhost/health >/dev/null 2>&1; then
+                  echo "✅ Rollback successful"
+                else
+                  echo "❌ Rollback failed - manual intervention required"
+                  exit 1
+                fi
+              else
+                echo "❌ No backup found for rollback"
+                exit 1
+              fi
+            fi
+            
+            # Step 8: Test web interface
+            echo "🌐 Testing web interface..."
+            if curl -s -f http://localhost/ >/dev/null 2>&1; then
+              echo "✅ Web interface is accessible"
+            else
+              echo "❌ Web interface test failed"
+              exit 1
+            fi
+            
+            # Clean up old backups (keep last 5)
+            echo "🧹 Cleaning up old backups..."
+            cd $BACKUP_DIR
+            ls -t edge_backup_$DEVICE_NAME_*.tar.gz | tail -n +6 | xargs -r rm
+            
+            echo "🎉 Edge deployment for $DEVICE_NAME completed successfully!"
+            echo "📋 Service URL: http://localhost"
+            echo "📋 Health check: http://localhost/health"
+            echo "📋 Backup location: $BACKUP_DIR/edge_backup_$DEVICE_NAME_$TIMESTAMP.tar.gz"
+          ENDSSH
+
+      - name: Verify edge deployment
+        run: |
+          EDGE_HOST="${{ matrix.device }}.tail605477.ts.net"
+          sleep 10
+          if curl -s -f http://$EDGE_HOST/health >/dev/null 2>&1; then
+            echo "✅ Edge deployment verification for ${{ matrix.device }} successful"
+          else
+            echo "❌ Edge deployment verification for ${{ matrix.device }} failed"
+            exit 1
+          fi
+
+  # Notification
+  notify-deployment:
+    runs-on: ubuntu-latest
+    needs: [deploy-server, deploy-edge]
+    if: always()
+    
+    steps:
+      - name: Notify deployment status
+        run: |
+          echo "📊 Deployment Summary:"
+          echo "======================"
+          
+          if [ "${{ needs.deploy-server.result }}" = "success" ]; then
+            echo "✅ LPR Server: Deployed successfully"
+            echo "   URL: http://${{ env.LPR_SERVER }}:3000"
+            echo "   Health: http://${{ env.LPR_SERVER }}:3000/health"
+          elif [ "${{ needs.deploy-server.result }}" = "skipped" ]; then
+            echo "⏭️  LPR Server: Skipped"
+          else
+            echo "❌ LPR Server: Failed"
+          fi
+          
+          if [ "${{ needs.deploy-edge.result }}" = "success" ]; then
+            echo "✅ Edge Devices: All deployed successfully"
+            echo "   Devices: ${{ env.EDGE_DEVICES }}"
+          elif [ "${{ needs.deploy-edge.result }}" = "skipped" ]; then
+            echo "⏭️  Edge Devices: Skipped"
+          else
+            echo "❌ Edge Devices: Some or all failed"
+          fi
+          
+          echo ""
+          echo "📋 Deployment completed at: $(date)"
+          echo "📋 Commit: ${{ github.sha }}"
+          echo "📋 Branch: ${{ github.ref_name }}"
