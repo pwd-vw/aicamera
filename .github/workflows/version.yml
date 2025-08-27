@@ -57,6 +57,7 @@ jobs:
       - name: Run tests
         run: |
           cd edge
+          export PYTHONPATH="${PYTHONPATH}:$(pwd)"
           python -m pytest tests/ -v
 
       - name: Semantic Release
@@ -186,7 +187,9 @@ jobs:
 
       - name: Run tests
         run: |
-          cd edge && python -m pytest tests/ -v
+          cd edge
+          export PYTHONPATH="${PYTHONPATH}:$(pwd)"
+          python -m pytest tests/ -v
 
       - name: Update pre-release version
         run: |
@@ -237,7 +240,7 @@ jobs:
 
       - name: Security scan
         run: |
-          cd edge && safety check
+          cd edge && safety scan
 
   dependency-update:
     runs-on: ubuntu-latest
