@@ -139,6 +139,8 @@ python -m edge.src.app
 - [API Documentation](docs/api-reference.md)
 - [สถาปัตยกรรมระบบ](docs/architecture.md)
 - [คู่มือการ Deploy](docs/deployment-guide.md)
+- [License Analysis Report](docs/edge/license-analysis-report.md)
+- [License Compliance Summary](docs/edge/license-compliance-summary.md)
 
 ## 🔧 การพัฒนา
 
@@ -191,21 +193,92 @@ cd edge
 python setup.py build
 ```
 
+### การตรวจสอบ License
+
+```bash
+# ตรวจสอบ license แบบเร็ว
+./scripts/check_licenses.sh --quick
+
+# ตรวจสอบ license แบบเต็ม
+./scripts/check_licenses.sh --full
+
+# ดูรายงาน license
+cat docs/edge/license-reports/compatibility_report_*.md
+```
+
 ## 🤝 การมีส่วนร่วม
 
 เรายินดีรับการมีส่วนร่วมจากชุมชน! กรุณาอ่าน [คู่มือการมีส่วนร่วม](CONTRIBUTING.md) สำหรับรายละเอียด
 
+### Git Workflow
+
+#### การ Clone และ Setup
+```bash
+# Clone repository
+git clone https://github.com/your-org/aicamera.git
+cd aicamera
+
+# สร้าง branch ใหม่สำหรับการพัฒนา
+git checkout -b feature/your-feature-name
+```
+
+#### การ Commit และ Push
+```bash
+# เพิ่มไฟล์ที่เปลี่ยนแปลง
+git add .
+
+# Commit ด้วยข้อความที่ชัดเจน
+git commit -m "feat: เพิ่มฟีเจอร์ใหม่
+- อธิบายการเปลี่ยนแปลง
+- อ้างอิง issue ถ้ามี"
+
+# Push ไปยัง remote
+git push origin feature/your-feature-name
+```
+
+#### การ Merge
+```bash
+# Pull latest changes จาก main
+git checkout main
+git pull origin main
+
+# Merge feature branch
+git merge feature/your-feature-name
+
+# Push ไปยัง main
+git push origin main
+```
+
 ### การรายงานปัญหา
 - ใช้ [GitHub Issues](https://github.com/your-org/aicamera/issues) สำหรับรายงานปัญหา
 - กรุณาระบุรายละเอียดของปัญหาและขั้นตอนการทำซ้ำ
+- ใช้ template ที่กำหนดไว้สำหรับรายงานปัญหา
 
 ### การเสนอแนะฟีเจอร์
 - ใช้ [GitHub Discussions](https://github.com/your-org/aicamera/discussions) สำหรับการเสนอแนะ
 - อธิบายประโยชน์และกรณีการใช้งานของฟีเจอร์ที่เสนอ
+- ระบุความสำคัญและผลกระทบต่อผู้ใช้
 
-## 📄 License
+## 📄 License & Copyright
 
-โปรเจคนี้อยู่ภายใต้ [MIT License](LICENSE)
+### License
+โปรเจคนี้อยู่ภายใต้ [MIT License](LICENSE) ซึ่งเป็นไลเซนส์แบบ Permissive ที่อนุญาตให้:
+- ✅ ใช้งานเชิงพาณิชย์ได้โดยไม่มีข้อจำกัด
+- ✅ แก้ไขและปรับแต่งโค้ดได้
+- ✅ แจกจ่ายและเผยแพร่ได้
+- ✅ ใช้งานส่วนตัวได้
+- ✅ รวมเข้ากับโปรเจคอื่นได้
+
+### Copyright
+**Copyright (c) 2024 Hailo** - สงวนลิขสิทธิ์
+
+### Third-Party Licenses
+โปรเจคนี้ใช้ไลบรารีจากบุคคลที่สามหลายตัว ดูรายละเอียดได้ที่ [LICENSE_ATTRIBUTION.md](LICENSE_ATTRIBUTION.md)
+
+### License Compliance
+- **Compatibility Rate**: 85% ของ dependencies เข้ากันได้กับ MIT License
+- **Risk Level**: ต่ำ - ไม่มีข้อขัดแย้งทางไลเซนส์ที่สำคัญ
+- **Automated Checking**: ใช้ `scripts/check_licenses.sh` สำหรับตรวจสอบไลเซนส์
 
 ## 👥 ทีมพัฒนา
 
@@ -226,6 +299,22 @@ python setup.py build
 
 ขอบคุณชุมชน Open Source และผู้มีส่วนร่วมทุกท่านที่ทำให้โปรเจคนี้เป็นไปได้
 
+### Open Source Dependencies
+โปรเจคนี้ใช้ไลบรารี Open Source มากกว่า 200+ packages ที่มีไลเซนส์ที่เข้ากันได้กับ MIT License:
+- **Web Framework**: Flask, Jinja2, Werkzeug
+- **AI/ML Libraries**: numpy, scipy, matplotlib, opencv-python
+- **Image Processing**: Pillow, scikit-image
+- **Web Technologies**: aiohttp, gunicorn, Socket.IO
+- **Development Tools**: rich, loguru, attrs
+
+### License Compliance
+- **Total Dependencies**: 200+ packages
+- **Compatible Licenses**: 85% (MIT, BSD, Apache 2.0, PSF)
+- **Risk Assessment**: Low - No major license conflicts
+- **Automated Monitoring**: Available via `scripts/check_licenses.sh`
+
 ---
 
 *AI Camera System - ระบบกล้องตรวจจับอัจฉริยะสำหรับอนาคต* 🚗📹🤖
+
+**License**: [MIT License](LICENSE) | **Copyright**: © 2024 Hailo | **Compliance**: ✅ Excellent
