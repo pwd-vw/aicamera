@@ -55,7 +55,56 @@ enum UserRole {
   viewer
 }
 
+enum DeviceRegistrationStatus {
+  pending_approval
+  approved
+  rejected
+  provisioned
+  active
+  inactive
+}
+
+enum DeviceRegistrationType {
+  self_registration
+  pre_provision
+  admin_approval
+}
+
 // Models
+model DeviceRegistration {
+  id                    String                    @id @default(uuid()) @db.Uuid
+  serialNumber          String                    @unique @map("serial_number")
+  deviceModel           String                    @map("device_model")
+  deviceType            String                    @default("camera") @map("device_type")
+  ipAddress             String?                   @map("ip_address")
+  macAddress            String?                   @map("mac_address")
+  locationLat           Decimal?                  @map("location_lat") @db.Decimal(10, 8)
+  locationLng           Decimal?                  @map("location_lng") @db.Decimal(11, 8)
+  locationAddress       String?                   @map("location_address")
+  registrationStatus    DeviceRegistrationStatus  @default(pending_approval) @map("registration_status")
+  registrationType      DeviceRegistrationType    @map("registration_type")
+  apiKey                String?                   @unique @map("api_key")
+  jwtSecret             String?                   @map("jwt_secret")
+  certificate           String?                   @map("certificate")
+  sharedSecret          String?                   @map("shared_secret")
+  metadata              Json                      @default("{}")
+  approvedBy            String?                   @map("approved_by") @db.Uuid
+  approvedAt            DateTime?                 @map("approved_at") @db.Timestamptz(6)
+  rejectedBy            String?                   @map("rejected_by") @db.Uuid
+  rejectedAt            DateTime?                 @map("rejected_at") @db.Timestamptz(6)
+  rejectionReason       String?                   @map("rejection_reason")
+  lastHeartbeat         DateTime?                 @map("last_heartbeat") @db.Timestamptz(6)
+  createdAt             DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  // Relations
+  camera                Camera?
+  approvedByUser        User?                     @relation("ApprovedDevices", fields: [approvedBy], references: [id], onDelete: SetNull)
+  rejectedByUser        User?                     @relation("RejectedDevices", fields: [rejectedBy], references: [id], onDelete: SetNull)
+
+  @@map("device_registrations")
+}
+
 model Camera {
   id                String   @id @default(uuid()) @db.Uuid
   cameraId          String   @unique @map("camera_id")
@@ -68,6 +117,7 @@ model Camera {
   imageQuality      ImageQuality @default(medium) @map("image_quality")
   uploadInterval    Int      @default(60) @map("upload_interval")
   configuration     Json     @default("{}")
+  deviceRegistrationId String? @unique @map("device_registration_id") @db.Uuid
   createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -77,6 +127,7 @@ model Camera {
   cameraHealth      CameraHealth[]
   systemEvents      SystemEvent[]
   analyticsEvents   AnalyticsEvent[]
+  deviceRegistration DeviceRegistration? @relation(fields: [deviceRegistrationId], references: [id], onDelete: SetNull)
 
   @@map("cameras")
 }
@@ -211,7 +262,9 @@ model User {
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   // Relations
-  analyticsEvents AnalyticsEvent[]
+  analyticsEvents   AnalyticsEvent[]
+  approvedDevices   DeviceRegistration[] @relation("ApprovedDevices")
+  rejectedDevices   DeviceRegistration[] @relation("RejectedDevices")
 
   @@map("users")
 }
