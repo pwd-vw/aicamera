@@ -29,6 +29,23 @@ sudo apt-get update -y
 sudo apt-get upgrade -y
 echo "✅ System packages updated"
 
+# Setup SSH for GitHub Actions deployment
+echo "🔑 Setting up SSH for GitHub Actions deployment..."
+echo "📋 Creating SSH directory and configuring authorized keys..."
+
+# Create .ssh directory if it doesn't exist
+mkdir -p ~/.ssh
+chmod 700 ~/.ssh
+
+# Add GitHub Actions deployment key to authorized_keys
+echo "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQCeL4SoHelb+9aDlO1/wrqw/C+VGA5DMlRJ+U8mbNpn+8ueczEgApme8PJC6te4lt4LSOkLyKSgLLOts3fQpKPabtFER4ssgyHXrn8G2v1ObTtzwtYIpE5qTWJJiGXs63zMXrJW08D5cTLtTqxoVBmV8NhT2IEuejOWhf6BHH4xZahx2AGprWNvc7gSJCxRkScPNjTtlj2kj85rNlwCgzJJV3052NSyLg8Th4CdYqcn43J2EwBDjIIfMuySE1dFav2nnhScgu/JF9HouYggnfxbOblasmCVWNK1ADsZmEgnAP9G/Y559MQLcwF0wbef9Np23KIOet0clOHqmzH8ZziUKeItyx8SR82KhuCbvVTfiiAxPsfQoR5cQ+0WaTXCs5ulLQseRY9utno+Tq2NpDaG6SezkB5UOk8H9eYxOc/Ob4wDVrA4A87PXFo7s4CqD3fCRznA7gr6GmR9qE9WXbfuz2uWjcr+VNFpaZxV4UF1WenuHxMKRwfRqLyn2wRnJiXijJ4sQ4MTYPGewqeqa3XCQySGbiPmxzdsUpfROWSk52H459hmXh1SoPYnuSo1Pk3fkxAk9pwWaIo5+gPAt6Vmv6ANeTOX+BP3hTfJ73gAILc/3qx08lLQT6bcDRh/JMp3oyjgTjUZVV4jAvUPrXoDb/2w/zKRjeH518lswvRLnw== aicamera-deployment@github.com" >> ~/.ssh/authorized_keys
+
+# Set proper permissions for SSH files
+chmod 600 ~/.ssh/authorized_keys
+chmod 700 ~/.ssh
+
+echo "✅ SSH setup completed for GitHub Actions deployment"
+
 # Camera cleanup and preparation (CRITICAL - prevents "Device or resource busy" errors)
 echo "📷 Preparing camera system for installation..."
 echo "🔧 Cleaning up any existing camera processes and services..."
