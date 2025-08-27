@@ -25,7 +25,7 @@ on:
         default: false
         type: boolean
       target_edge:
-        description: 'Target specific edge device (aicamera1, aicamera2, aicamera3, or all)'
+        description: 'Target specific edge device (aicamera1, aicamera2, aicamera3, aicamera4, aicamera5, or all)'
         required: false
         default: 'all'
         type: choice
@@ -34,6 +34,8 @@ on:
           - aicamera1
           - aicamera2
           - aicamera3
+          - aicamera4
+          - aicamera5
       single_edge_host:
         description: 'Single edge device hostname (for direct deployment)'
         required: false
@@ -43,6 +45,7 @@ on:
 env:
   LPR_SERVER: lprserver.tail605477.ts.net
   EDGE_DEVICES: aicamera1.tail605477.ts.net,aicamera2.tail605477.ts.net,aicamera3.tail605477.ts.net
+  TAILSCALE_DOMAIN: tail605477.ts.net
 
 jobs:
   # Test and Build
@@ -139,6 +142,7 @@ jobs:
       - name: Add server to known_hosts
         run: |
           ssh-keyscan -H ${{ env.LPR_SERVER }} >> ~/.ssh/known_hosts
+          echo "✅ Added ${{ env.LPR_SERVER }} to known_hosts"
 
       - name: Deploy to LPR Server
         run: |
@@ -217,15 +221,15 @@ jobs:
               exit 1
             fi
             
-            # Step 8: Test API health
-            echo "🔍 Testing API health..."
+            # Step 8: Test API health (via nginx proxy)
+            echo "🔍 Testing API health via nginx proxy..."
             max_retries=10
             retry_count=0
             health_ok=false
             
             while [ $retry_count -lt $max_retries ]; do
-              if curl -s -f http://localhost:3000/health >/dev/null 2>&1; then
-                echo "✅ API health check passed"
+              if curl -s -f http://localhost/health >/dev/null 2>&1; then
+                echo "✅ API health check passed via nginx proxy"
                 health_ok=true
                 break
               else
@@ -259,7 +263,7 @@ jobs:
                 
                 # Wait and test
                 sleep 5
-                if curl -s -f http://localhost:3000/health >/dev/null 2>&1; then
+                if curl -s -f http://localhost/health >/dev/null 2>&1; then
                   echo "✅ Rollback successful"
                 else
                   echo "❌ Rollback failed - manual intervention required"
@@ -277,16 +281,16 @@ jobs:
             ls -t server_backup_*.tar.gz | tail -n +6 | xargs -r rm
             
             echo "🎉 LPR Server deployment completed successfully!"
-            echo "📋 API URL: http://localhost:3000"
-            echo "📋 Health check: http://localhost:3000/health"
+            echo "📋 API URL: http://localhost (via nginx proxy)"
+            echo "📋 Health check: http://localhost/health"
             echo "📋 Backup location: $BACKUP_DIR/server_backup_$TIMESTAMP.tar.gz"
           ENDSSH
 
       - name: Verify server deployment
         run: |
           sleep 10
-          if curl -s -f http://${{ env.LPR_SERVER }}:3000/health >/dev/null 2>&1; then
-            echo "✅ LPR Server deployment verification successful"
+          if curl -s -f http://${{ env.LPR_SERVER }}/health >/dev/null 2>&1; then
+            echo "✅ LPR Server deployment verification successful (via nginx proxy)"
           else
             echo "❌ LPR Server deployment verification failed"
             exit 1
@@ -298,7 +302,7 @@ jobs:
     needs: test-and-build
     strategy:
       matrix:
-        device: ${{ github.event.inputs.single_edge_host != '' && fromJson(format('["{0}"]', github.event.inputs.single_edge_host)) || github.event.inputs.target_edge == 'all' && fromJson('["aicamera1", "aicamera2", "aicamera3"]') || fromJson(format('["{0}"]', github.event.inputs.target_edge)) }}
+        device: ${{ github.event.inputs.single_edge_host != '' && fromJson(format('["{0}"]', github.event.inputs.single_edge_host)) || github.event.inputs.target_edge == 'all' && fromJson('["aicamera1", "aicamera2", "aicamera3", "aicamera4", "aicamera5"]') || fromJson(format('["{0}"]', github.event.inputs.target_edge)) }}
     if: |
       (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy_edge == 'true') ||
       (github.event_name == 'push' && vars.ENABLE_EDGE_DEPLOYMENT == 'true')
@@ -326,12 +330,13 @@ jobs:
 
       - name: Add edge device to known_hosts
         run: |
-          EDGE_HOST="${{ matrix.device }}.tail605477.ts.net"
+          EDGE_HOST="${{ matrix.device }}.${{ env.TAILSCALE_DOMAIN }}"
           ssh-keyscan -H $EDGE_HOST >> ~/.ssh/known_hosts
+          echo "✅ Added $EDGE_HOST to known_hosts"
 
       - name: Deploy to Edge Device
         run: |
-          EDGE_HOST="${{ matrix.device }}.tail605477.ts.net"
+          EDGE_HOST="${{ matrix.device }}.${{ env.TAILSCALE_DOMAIN }}"
           ssh ${{ secrets.EDGE_USER }}@$EDGE_HOST << 'ENDSSH'
             set -e
             
@@ -492,7 +497,7 @@ jobs:
 
       - name: Verify edge deployment
         run: |
-          EDGE_HOST="${{ matrix.device }}.tail605477.ts.net"
+          EDGE_HOST="${{ matrix.device }}.${{ env.TAILSCALE_DOMAIN }}"
           sleep 10
           if curl -s -f http://$EDGE_HOST/health >/dev/null 2>&1; then
             echo "✅ Edge deployment verification for ${{ matrix.device }} successful"
@@ -515,8 +520,8 @@ jobs:
           
           if [ "${{ needs.deploy-server.result }}" = "success" ]; then
             echo "✅ LPR Server: Deployed successfully"
-            echo "   URL: http://${{ env.LPR_SERVER }}:3000"
-            echo "   Health: http://${{ env.LPR_SERVER }}:3000/health"
+            echo "   URL: http://${{ env.LPR_SERVER }} (via nginx proxy)"
+            echo "   Health: http://${{ env.LPR_SERVER }}/health"
           elif [ "${{ needs.deploy-server.result }}" = "skipped" ]; then
             echo "⏭️  LPR Server: Skipped"
           else
@@ -526,6 +531,7 @@ jobs:
           if [ "${{ needs.deploy-edge.result }}" = "success" ]; then
             echo "✅ Edge Devices: All deployed successfully"
             echo "   Devices: ${{ env.EDGE_DEVICES }}"
+            echo "   Tailscale Domain: ${{ env.TAILSCALE_DOMAIN }}"
           elif [ "${{ needs.deploy-edge.result }}" = "skipped" ]; then
             echo "⏭️  Edge Devices: Skipped"
           else

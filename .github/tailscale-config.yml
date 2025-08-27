@@ -1,0 +1,172 @@
+# Tailscale Network Configuration for AI Camera Project
+# This file contains configuration for the Tailscale network setup
+
+tailscale:
+  domain: tail605477.ts.net
+  network_name: "AI Camera Network"
+  
+  # LPR Server Configuration
+  lpr_server:
+    hostname: lprserver.tail605477.ts.net
+    ip_address: "100.x.x.x"  # Will be assigned by Tailscale
+    services:
+      - name: "NestJS API Server (Unix Socket)"
+        port: "unix:/tmp/nestjs.sock"
+        protocol: http
+        health_check: "/health"
+      - name: "Nginx Proxy"
+        port: 80
+        protocol: http
+        health_check: "/"
+        description: "Proxies to NestJS unix socket"
+    
+  # Edge Devices Configuration
+  edge_devices:
+    - name: "aicamera1"
+      hostname: aicamera1.tail605477.ts.net
+      location: "Main Entrance"
+      services:
+        - name: "Python Edge Service (Unix Socket)"
+          port: "unix:/tmp/aicamera.sock"
+          protocol: http
+          health_check: "/health"
+        - name: "Nginx Proxy"
+          port: 80
+          protocol: http
+          health_check: "/"
+          description: "Proxies to Python gunicorn unix socket"
+    
+    - name: "aicamera2"
+      hostname: aicamera2.tail605477.ts.net
+      location: "Side Entrance"
+      services:
+        - name: "Python Edge Service (Unix Socket)"
+          port: "unix:/tmp/aicamera.sock"
+          protocol: http
+          health_check: "/health"
+        - name: "Nginx Proxy"
+          port: 80
+          protocol: http
+          health_check: "/"
+          description: "Proxies to Python gunicorn unix socket"
+    
+    - name: "aicamera3"
+      hostname: aicamera3.tail605477.ts.net
+      location: "Parking Lot A"
+      services:
+        - name: "Python Edge Service (Unix Socket)"
+          port: "unix:/tmp/aicamera.sock"
+          protocol: http
+          health_check: "/health"
+        - name: "Nginx Proxy"
+          port: 80
+          protocol: http
+          health_check: "/"
+          description: "Proxies to Python gunicorn unix socket"
+    
+    - name: "aicamera4"
+      hostname: aicamera4.tail605477.ts.net
+      location: "Parking Lot B"
+      services:
+        - name: "Python Edge Service (Unix Socket)"
+          port: "unix:/tmp/aicamera.sock"
+          protocol: http
+          health_check: "/health"
+        - name: "Nginx Proxy"
+          port: 80
+          protocol: http
+          health_check: "/"
+          description: "Proxies to Python gunicorn unix socket"
+    
+    - name: "aicamera5"
+      hostname: aicamera5.tail605477.ts.net
+      location: "Back Entrance"
+      services:
+        - name: "Python Edge Service (Unix Socket)"
+          port: "unix:/tmp/aicamera.sock"
+          protocol: http
+          health_check: "/health"
+        - name: "Nginx Proxy"
+          port: 80
+          protocol: http
+          health_check: "/"
+          description: "Proxies to Python gunicorn unix socket"
+
+  # Network Security Configuration
+  security:
+    acl_tags:
+      - tag: "lpr-server"
+        devices: ["lprserver"]
+      - tag: "edge-devices"
+        devices: ["aicamera1", "aicamera2", "aicamera3", "aicamera4", "aicamera5"]
+    
+    # Access Control Lists
+    acls:
+      - action: accept
+        src: ["tag:edge-devices"]
+        dst: ["tag:lpr-server:80"]
+        description: "Edge devices can access LPR server via nginx proxy"
+      
+      - action: accept
+        src: ["tag:lpr-server"]
+        dst: ["tag:edge-devices:80"]
+        description: "LPR server can access edge device web interfaces via nginx proxy"
+      
+      - action: accept
+        src: ["tag:edge-devices"]
+        dst: ["tag:edge-devices:80"]
+        description: "Edge devices can communicate with each other via nginx proxy"
+
+  # Deployment Configuration
+  deployment:
+    ssh_user: "camuser"
+    ssh_key_secret: "SSH_PRIVATE_KEY"
+    backup_directory: "/home/camuser/aicamera_backups"
+    service_name: "aicamera_lpr.service"
+    nginx_service: "nginx"
+    
+    # Health check configuration
+    health_checks:
+      max_retries: 10
+      retry_interval: 3
+      timeout: 30
+    
+    # Rollback configuration
+    rollback:
+      enabled: true
+      keep_backups: 5
+      auto_rollback: true
+
+  # Monitoring Configuration
+  monitoring:
+    endpoints:
+      - name: "LPR Server Health"
+        url: "http://lprserver.tail605477.ts.net/health"
+        expected_status: 200
+        description: "NestJS API via nginx proxy"
+      
+      - name: "Edge Device 1 Health"
+        url: "http://aicamera1.tail605477.ts.net/health"
+        expected_status: 200
+      
+      - name: "Edge Device 2 Health"
+        url: "http://aicamera2.tail605477.ts.net/health"
+        expected_status: 200
+      
+      - name: "Edge Device 3 Health"
+        url: "http://aicamera3.tail605477.ts.net/health"
+        expected_status: 200
+      
+      - name: "Edge Device 4 Health"
+        url: "http://aicamera4.tail605477.ts.net/health"
+        expected_status: 200
+      
+      - name: "Edge Device 5 Health"
+        url: "http://aicamera5.tail605477.ts.net/health"
+        expected_status: 200
+
+  # Documentation
+  documentation:
+    setup_guide: "docs/tailscale-setup.md"
+    troubleshooting: "docs/tailscale-troubleshooting.md"
+    deployment_guide: "docs/tailscale-deployment.md"
