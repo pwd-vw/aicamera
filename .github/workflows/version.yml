@@ -174,6 +174,11 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libcap-dev
+
       - name: Install dependencies
         run: |
           cd server && npm install
@@ -215,6 +220,11 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libcap-dev
 
       - name: Install dependencies
         run: |

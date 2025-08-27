@@ -90,6 +90,10 @@ jobs:
                 echo "✅ Virtual environment activated"
               fi
               
+              # Install system dependencies first
+              sudo apt-get update
+              sudo apt-get install -y libcap-dev
+              
               # Install/update Python dependencies
               pip install -r edge/requirements.txt || {
                 echo "⚠️  Some dependencies failed to install - this may be expected for system-specific packages"
