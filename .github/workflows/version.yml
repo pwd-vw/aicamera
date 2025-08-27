@@ -231,6 +231,10 @@ jobs:
           cd server && npm install
           cd ../edge && pip install -r requirements.txt
 
+      - name: Install safety
+        run: |
+          pip install safety
+
       - name: Security scan
         run: |
           cd edge && safety check
