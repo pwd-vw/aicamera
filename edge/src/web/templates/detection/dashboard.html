@@ -31,34 +31,34 @@
     </div>
 </div>
 
-<!-- Service and Model Status -->
+<!-- Service Status and Configuration -->
 <div class="row mb-4">
-    <div class="col-md-12">
+    <div class="col-md-6">
         <div class="card status-card" id="service-status-card">
             <div class="card-header">
                 <h5 class="mb-0"><i class="fas fa-cog"></i> Service Status</h5>
             </div>
             <div class="card-body">
                 <div class="row">
-                    <div class="col-md-3">
+                    <div class="col-md-6">
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <span>Detection:</span>
                             <span id="service-status" class="badge bg-secondary">Stop</span>
                         </div>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-6">
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <span>Models:</span>
                             <span id="models-status" class="badge bg-secondary">Not Load</span>
                         </div>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-6">
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <span>Auto Start:</span>
                             <span id="auto-start" class="badge bg-info">Enable</span>
                         </div>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-6">
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <span>Interval:</span>
                             <span id="detection-interval" class="badge bg-info">0.1s</span>
@@ -68,36 +68,33 @@
             </div>
         </div>
     </div>
-</div>
-<!-- Configuration -->
-<div class="row mb-4">
-    <div class="col-12">
+    <div class="col-md-6">
         <div class="card">
             <div class="card-header">
                 <h5 class="mb-0"><i class="fas fa-sliders-h"></i> Detection Configuration</h5>
             </div>
             <div class="card-body py-3">
                 <form id="detection-config-form">
-                    <div class="row g-3 align-items-end">
-                        <div class="col-md-3">
+                    <div class="row g-2 align-items-end">
+                        <div class="col-md-6">
                             <label for="detection-interval" class="form-label">Detection Interval (seconds)</label>
                             <input type="number" class="form-control" id="detection-interval" 
                                    min="0.1" max="10.0" step="0.1" value="0.1">
                             <div class="form-text">Time between detection runs</div>
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-6">
                             <label for="vehicle-confidence" class="form-label">Vehicle Confidence</label>
                             <input type="number" class="form-control" id="vehicle-confidence" 
                                    min="0.1" max="1.0" step="0.1" value="0.5">
                             <div class="form-text">Min confidence for vehicles</div>
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-6">
                             <label for="plate-confidence" class="form-label">Plate Confidence</label>
                             <input type="number" class="form-control" id="plate-confidence" 
                                    min="0.1" max="1.0" step="0.1" value="0.3">
                             <div class="form-text">Min confidence for plates</div>
                         </div>
-                        <div class="col-md-2">
+                        <div class="col-md-4">
                             <div class="form-check">
                                 <input class="form-check-input" type="checkbox" id="auto-start-setting" checked>
                                 <label class="form-check-label" for="auto-start-setting">
@@ -106,8 +103,8 @@
                                 <div class="form-text">Start detection automatically</div>
                             </div>
                         </div>
-                        <div class="col-md-1">
-                            <button type="submit" class="btn btn-primary btn-lg w-100" style="background-color: #007bff; border-color: #007bff; box-shadow: 0 2px 4px rgba(0,123,255,0.3);">
+                        <div class="col-md-2">
+                            <button type="submit" class="btn btn-primary w-100" style="background-color: #007bff; border-color: #007bff; box-shadow: 0 2px 4px rgba(0,123,255,0.3);">
                                 <i class="fas fa-save"></i> Update
                             </button>
                         </div>
