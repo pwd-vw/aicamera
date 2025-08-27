@@ -18,14 +18,14 @@ Version: 1.3
 Date: August 7, 2025
 """
 
-from edge.src.core.utils.logging_config import get_logger
+from src.core.utils.logging_config import get_logger
 from typing import Dict, Any, Optional, Type, TypeVar
 import logging
 from dataclasses import dataclass
 from pathlib import Path
 
 # Import config values lazily to avoid circular imports
-from edge.src.core.config import (
+from src.core.config import (
     FLASK_HOST, FLASK_PORT, SECRET_KEY,
     VEHICLE_DETECTION_MODEL, LICENSE_PLATE_DETECTION_MODEL,
     EASYOCR_LANGUAGES, IMAGE_SAVE_DIR, DETECTION_INTERVAL,
@@ -83,14 +83,14 @@ class DependencyContainer:
         # === CORE MODULES (Essential) ===
         # Register core components using absolute imports
         try:
-            from edge.src.components.detection_processor import DetectionProcessor
+            from src.components.detection_processor import DetectionProcessor
             self.register_service('detection_processor', DetectionProcessor, 
                                 singleton=True, dependencies={'logger': 'logger'})
         except ImportError:
             self.logger.warning("DetectionProcessor not available")
         
         try:
-            from edge.src.components.camera_handler import CameraHandler
+            from src.components.camera_handler import CameraHandler
             self.register_service('camera_handler', CameraHandler, 
                                 singleton=True, 
                                 dependencies={})  # CameraHandler manages its own logger
@@ -98,14 +98,14 @@ class DependencyContainer:
             self.logger.warning("CameraHandler not available")
         
         try:
-            from edge.src.components.health_monitor import HealthMonitor
+            from src.components.health_monitor import HealthMonitor
             self.register_service('health_monitor', HealthMonitor, 
                                 singleton=True, dependencies={'logger': 'logger'})
         except ImportError:
             self.logger.warning("HealthMonitor not available")
         
         try:
-            from edge.src.components.database_manager import DatabaseManager
+            from src.components.database_manager import DatabaseManager
             self.register_service('database_manager', DatabaseManager, 
                                 singleton=True, dependencies={'logger': 'logger'})
         except ImportError:
@@ -113,7 +113,7 @@ class DependencyContainer:
         
         # Register core service layer components using absolute imports
         try:
-            from edge.src.services.camera_manager import CameraManager, create_camera_manager
+            from src.services.camera_manager import CameraManager, create_camera_manager
             self.register_service('camera_manager', CameraManager, 
                                 singleton=True, 
                                 factory=create_camera_manager,
@@ -122,7 +122,7 @@ class DependencyContainer:
             self.logger.warning(f"CameraManager service not available: {e}")
         
         try:
-            from edge.src.services.detection_manager import DetectionManager, create_detection_manager
+            from src.services.detection_manager import DetectionManager, create_detection_manager
             self.register_service('detection_manager', DetectionManager, 
                                 singleton=True,
                                 factory=create_detection_manager,
@@ -133,7 +133,7 @@ class DependencyContainer:
             self.logger.warning("DetectionManager service not available")
         
         try:
-            from edge.src.services.video_streaming import VideoStreamingService, create_video_streaming_service
+            from src.services.video_streaming import VideoStreamingService, create_video_streaming_service
             self.register_service('video_streaming', VideoStreamingService, 
                                 singleton=True,
                                 factory=create_video_streaming_service,
@@ -143,7 +143,7 @@ class DependencyContainer:
             self.logger.warning("VideoStreamingService not available")
         
         try:
-            from edge.src.services.health_service import HealthService, create_health_service
+            from src.services.health_service import HealthService, create_health_service
             self.register_service('health_service', HealthService, 
                                 singleton=True,
                                 factory=create_health_service,
@@ -157,7 +157,7 @@ class DependencyContainer:
         # WebSocket Sender (Optional)
         if WEBSOCKET_SENDER_ENABLED:
             try:
-                from edge.src.services.websocket_sender import WebSocketSender, create_websocket_sender
+                from src.services.websocket_sender import WebSocketSender, create_websocket_sender
                 self.register_service('websocket_sender', WebSocketSender, 
                                     singleton=True,
                                     factory=create_websocket_sender,
@@ -171,7 +171,7 @@ class DependencyContainer:
         # Storage Management (Optional)
         if STORAGE_MONITOR_ENABLED:
             try:
-                from edge.src.components.storage_monitor import StorageMonitor
+                from src.components.storage_monitor import StorageMonitor
                 self.register_service('storage_monitor', StorageMonitor, 
                                     singleton=True, dependencies={'logger': 'logger'})
             except ImportError:
@@ -179,7 +179,7 @@ class DependencyContainer:
         
         # Browser Connection Manager (Optional - For tracking only)
         try:
-            from edge.src.services.browser_connection_manager import BrowserConnectionManager, create_browser_connection_manager
+            from src.services.browser_connection_manager import BrowserConnectionManager, create_browser_connection_manager
             self.register_service('browser_connection_manager', BrowserConnectionManager, 
                                 singleton=True,
                                 factory=create_browser_connection_manager,
@@ -189,7 +189,7 @@ class DependencyContainer:
             self.logger.warning(f"BrowserConnectionManager not available: {e}")
             
             try:
-                from edge.src.services.storage_service import StorageService, create_storage_service
+                from src.services.storage_service import StorageService, create_storage_service
                 self.register_service('storage_service', StorageService, 
                                     singleton=True,
                                     factory=create_storage_service,
@@ -203,7 +203,7 @@ class DependencyContainer:
         # Experiment Service (Optional)
         if EXPERIMENT_ENABLED:
             try:
-                from edge.src.services.experiment_service import ExperimentService
+                from src.services.experiment_service import ExperimentService
                 self.register_service('experiment_service', ExperimentService, 
                                     singleton=True, dependencies={})
                 self.logger.info("Experiment Service registered (enabled in config)")
