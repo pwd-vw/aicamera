@@ -47,7 +47,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libcap-dev
+          sudo apt-get install -y libcap-dev python3-libcamera
 
       - name: Install Python dependencies
         run: |
@@ -89,7 +89,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libcap-dev
+          sudo apt-get install -y libcap-dev python3-libcamera
 
       - name: Install Python dependencies
         run: |
@@ -178,7 +178,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libcap-dev
+          sudo apt-get install -y libcap-dev python3-libcamera
 
       - name: Install dependencies
         run: |
@@ -227,7 +227,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libcap-dev
+          sudo apt-get install -y libcap-dev python3-libcamera
 
       - name: Install dependencies
         run: |

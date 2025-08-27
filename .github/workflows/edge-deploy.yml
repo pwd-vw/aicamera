@@ -92,7 +92,7 @@ jobs:
               
               # Install system dependencies first
               sudo apt-get update
-              sudo apt-get install -y libcap-dev
+              sudo apt-get install -y libcap-dev python3-libcamera
               
               # Install/update Python dependencies
               pip install -r edge/requirements.txt || {
