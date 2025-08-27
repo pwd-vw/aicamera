@@ -38,7 +38,7 @@ check_root() {
 
 # Check if AI Camera logo exists
 check_logo() {
-    local logo_path="assets/aicmaera_logo.jpg"
+    local logo_path="assets/aicamera_logo.png"
     if [[ ! -f "$logo_path" ]]; then
         log_error "AI Camera logo not found at $logo_path"
         exit 1
@@ -61,7 +61,7 @@ backup_original() {
 # Install AI Camera logo
 install_logo() {
     log_info "Installing AI Camera logo as boot splash..."
-    sudo cp assets/aicmaera_logo.jpg /usr/share/plymouth/themes/pix/splash.png
+    sudo cp assets/aicamera_logo.png /usr/share/plymouth/themes/pix/splash.png
     log_success "AI Camera logo installed"
 }
 

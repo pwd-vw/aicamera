@@ -19,7 +19,7 @@
 {% block additional_css %}
 <link href="{{ url_for('static', filename='css/detection.css', v=timestamp) }}" rel="stylesheet">
 <link href="{{ url_for('static', filename='css/detection_results.css', v=timestamp) }}" rel="stylesheet">
-<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+<link href="{{ url_for('static', filename='libs/font-awesome/all.min.css') }}" rel="stylesheet">
 {% endblock %}
 
 {% block container_class %}mt-4{% endblock %}

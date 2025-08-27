@@ -967,8 +967,8 @@ echo "🎨 Setting up AI Camera boot logo..."
 echo "   ℹ️  This will replace the Raspberry Pi logo with AI Camera logo during boot"
 echo "   ℹ️  This is an optional feature - main installation will continue regardless of logo setup status"
 
-if [[ -f "assets/aicmaera_logo.jpg" ]]; then
-    echo "   📷 Found AI Camera logo: assets/aicmaera_logo.jpg"
+if [[ -f "assets/aicamera_logo.png" ]]; then
+echo "   📷 Found AI Camera logo: assets/aicamera_logo.png"
     
     # Check if Plymouth is available
     if command -v plymouth >/dev/null 2>&1; then
@@ -985,7 +985,7 @@ if [[ -f "assets/aicmaera_logo.jpg" ]]; then
         
         # Install AI Camera logo
         echo "   🎨 Installing AI Camera logo..."
-        sudo cp assets/aicmaera_logo.jpg /usr/share/plymouth/themes/pix/splash.png
+        sudo cp assets/aicamera_logo.png /usr/share/plymouth/themes/pix/splash.png
         echo "   ✅ AI Camera logo installed"
         
         # Set Plymouth theme
@@ -1006,7 +1006,7 @@ if [[ -f "assets/aicmaera_logo.jpg" ]]; then
         echo "   ℹ️  Main installation will continue - you can install Plymouth manually later"
     fi
 else
-    echo "   ⚠️  AI Camera logo not found: assets/aicmaera_logo.jpg"
+    echo "   ⚠️  AI Camera logo not found: assets/aicamera_logo.png"
     echo "   ℹ️  Boot logo setup skipped - main installation continues"
 fi
 
