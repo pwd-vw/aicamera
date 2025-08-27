@@ -1,5 +1,9 @@
 # AI Camera Server - คู่มือการใช้งาน
 
+**Version:** 2.0 
+**Last Updated:** 2025-08-27  
+**Author:** AI Camera Team  
+
 ## 📋 ภาพรวม
 
 AI Camera Server เป็นระบบจัดการข้อมูลและ API สำหรับ AI Camera System ที่พัฒนาด้วย NestJS และ Vue.js โดยมีการแยก build process ระหว่าง Backend และ Frontend เพื่อประสิทธิภาพและความยืดหยุ่นในการพัฒนา
@@ -286,13 +290,6 @@ async function bootstrap() {
 }
 ```
 
-## 📚 เอกสารเพิ่มเติม
-
-- [API Reference](./api-reference.md) - เอกสาร API endpoints
-- [User Manual](./user-manual.md) - คู่มือผู้ใช้
-- [Developer Handbook](./developer-handbook.md) - คู่มือนักพัฒนา
-- [Database Template](./database-template.md) - คู่มือการจัดการฐานข้อมูล
-
 ## 🖥️ การจัดการระบบ (System Management)
 
 ### ภาพรวม
@@ -399,14 +396,49 @@ npm run start:debug
 npm run dev
 ```
 
+## 📚 เอกสารเพิ่มเติม
+
+- [API Reference](./API_REFERENCE.md) - เอกสาร API endpoints
+- [WebSocket API](./WEBSOCKET_API.md) - เอกสาร WebSocket API
+- [Database Schema](./DATABASE_SCHEMA.md) - เอกสารโครงสร้างฐานข้อมูล
+- [Server Deployment](./SERVER_DEPLOYMENT.md) - คู่มือการ Deploy Server
+
+## 🤝 การมีส่วนร่วม
+
+เรายินดีรับการมีส่วนร่วมจากชุมชน! กรุณาอ่าน [คู่มือการมีส่วนร่วม](../../CONTRIBUTING.md) สำหรับรายละเอียด
+
+### การรายงานปัญหา
+- ใช้ [GitHub Issues](https://github.com/your-org/aicamera/issues) สำหรับรายงานปัญหา
+- กรุณาระบุรายละเอียดของปัญหาและขั้นตอนการทำซ้ำ
+
+### การเสนอแนะฟีเจอร์
+- ใช้ [GitHub Discussions](https://github.com/your-org/aicamera/discussions) สำหรับการเสนอแนะ
+- อธิบายประโยชน์และกรณีการใช้งานของฟีเจอร์ที่เสนอ
+
+## 📄 License
+
+โปรเจคนี้อยู่ภายใต้ [MIT License](../../LICENSE)
+
+## 👥 ทีมพัฒนา
+
+- **Project Lead**: Surasak Popwandee
+- **Backend Developer**: Surasak Popwandee
+- **Frontend Developer**: Surasak Popwandee
+- **AI/ML Engineer**: Surasak Popwandee
+- **DevOps Engineer**: Surasak Popwandee
+
 ## 📞 การสนับสนุน
 
 ### ช่องทางการติดต่อ
 
-- **Email**: dev-support@aicamera.com
-- **Slack**: #aicamera-dev
-- **GitHub Issues**: https://github.com/your-org/aicamera/issues
-- **Documentation**: https://docs.aicamera.com
+- **Email**: popwandee@gmail.com
+- **Website**: https://github.com/popwandee/aicamera
+- **Documentation**: https://github.com/popwandee/aicamera
+- **GitHub**: https://github.com/popwandee/aicamera
+
+## 🙏 การขอบคุณ
+
+ขอบคุณชุมชน Open Source และผู้มีส่วนร่วมทุกท่านที่ทำให้โปรเจคนี้เป็นไปได้
 
 ---
 

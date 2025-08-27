@@ -282,18 +282,20 @@ git push origin main
 
 ## 👥 ทีมพัฒนา
 
-- **Project Lead**: [ชื่อผู้ดูแลโปรเจค]
-- **Backend Developer**: [ชื่อนักพัฒนา Backend]
-- **Frontend Developer**: [ชื่อนักพัฒนา Frontend]
-- **AI/ML Engineer**: [ชื่อวิศวกร AI/ML]
-- **DevOps Engineer**: [ชื่อวิศวกร DevOps]
+- **Project Lead**: Surasak Popwandee
+- **Backend Developer**: Surasak Popwandee
+- **Frontend Developer**: Surasak Popwandee
+- **AI/ML Engineer**: Surasak Popwandee
+- **DevOps Engineer**: Surasak Popwandee
 
-## 📞 การติดต่อ
+## 📞 การสนับสนุน
 
-- **Email**: support@aicamera.com
-- **Website**: https://aicamera.com
-- **Documentation**: https://docs.aicamera.com
-- **GitHub**: https://github.com/your-org/aicamera
+### ช่องทางการติดต่อ
+
+- **Email**: popwandee@gmail.com
+- **Website**: https://github.com/popwandee/aicamera
+- **Documentation**: https://github.com/popwandee/aicamera
+- **GitHub**: https://github.com/popwandee/aicamera
 
 ## 🙏 การขอบคุณ
 
