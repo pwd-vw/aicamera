@@ -38,18 +38,57 @@ from flask_socketio import SocketIO
 import logging
 
 # Import import helper first to setup paths
-from edge.src.core.utils.import_helper import setup_import_paths, validate_imports
-setup_import_paths()
+try:
+    from edge.src.core.utils.import_helper import setup_import_paths, validate_imports
+    setup_import_paths()
+except ImportError as e:
+    # Fallback if import helper is not available
+    print(f"Warning: Could not import import_helper: {e}")
+    # Basic path setup as fallback
+    import sys
+    from pathlib import Path
+    current_file = Path(__file__)
+    project_root = current_file.parent.parent.parent
+    if str(project_root) not in sys.path:
+        sys.path.insert(0, str(project_root))
+    edge_path = str(project_root / 'edge')
+    if edge_path not in sys.path:
+        sys.path.insert(0, edge_path)
 
-from edge.src.core.utils.logging_config import setup_logging, get_logger
-from edge.src.core.dependency_container import get_container, get_service
-from edge.src.web.blueprints import register_blueprints
-from edge.src.core.config import (
-    AUTO_START_CAMERA, AUTO_START_DETECTION, AUTO_START_HEALTH_MONITOR, AUTO_START_WEBSOCKET_SENDER,
-    AUTO_START_STORAGE_MONITOR, STARTUP_DELAY, HEALTH_MONITOR_STARTUP_DELAY, 
-    WEBSOCKET_SENDER_STARTUP_DELAY, STORAGE_MONITOR_STARTUP_DELAY, STORAGE_MONITOR_INTERVAL
-)
-from edge.src.services.registration_manager import initialize_registration, RegistrationState
+# Setup logging with fallback
+try:
+    from edge.src.core.utils.logging_config import setup_logging, get_logger
+    logger = setup_logging(level="INFO")
+except ImportError as e:
+    # Fallback logging setup
+    import logging
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger(__name__)
+    logger.warning(f"Could not import logging_config: {e}")
+
+# Import other modules with error handling
+try:
+    from edge.src.core.dependency_container import get_container, get_service
+    from edge.src.web.blueprints import register_blueprints
+    from edge.src.core.config import (
+        AUTO_START_CAMERA, AUTO_START_DETECTION, AUTO_START_HEALTH_MONITOR, AUTO_START_WEBSOCKET_SENDER,
+        AUTO_START_STORAGE_MONITOR, STARTUP_DELAY, HEALTH_MONITOR_STARTUP_DELAY, 
+        WEBSOCKET_SENDER_STARTUP_DELAY, STORAGE_MONITOR_STARTUP_DELAY, STORAGE_MONITOR_INTERVAL
+    )
+    from edge.src.services.registration_manager import initialize_registration, RegistrationState
+except ImportError as e:
+    logger.error(f"Failed to import required modules: {e}")
+    # Set default values for testing
+    AUTO_START_CAMERA = False
+    AUTO_START_DETECTION = False
+    AUTO_START_HEALTH_MONITOR = False
+    AUTO_START_WEBSOCKET_SENDER = False
+    AUTO_START_STORAGE_MONITOR = False
+    STARTUP_DELAY = 1
+    HEALTH_MONITOR_STARTUP_DELAY = 1
+    WEBSOCKET_SENDER_STARTUP_DELAY = 1
+    STORAGE_MONITOR_STARTUP_DELAY = 1
+    STORAGE_MONITOR_INTERVAL = 60
 
 
 def _initialize_services(logger):

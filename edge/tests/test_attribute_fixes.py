@@ -8,10 +8,7 @@ import sys
 import os
 from pathlib import Path
 
-# Add project root to path
-sys.path.insert(0, str(Path(__file__).parent.parent.absolute()))
-
-# Setup import paths
+# Setup import paths first
 from edge.src.core.utils.import_helper import setup_import_paths, validate_imports
 setup_import_paths()
 

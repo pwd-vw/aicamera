@@ -27,13 +27,53 @@ def setup_import_paths(base_path: Optional[str] = None) -> None:
         base_path: Base path to add to sys.path (defaults to project root)
     """
     if base_path is None:
-        # Get the project root directory (aicamera/)
+        # Try multiple strategies to find the project root
+        project_root = None
+        
+        # Strategy 1: Navigate from current file location
         current_file = Path(__file__)
-        project_root = current_file.parent.parent.parent.parent  # Go up from utils/core/src/edge
-        logger.info(f"Auto-detected project root: {project_root.absolute()}")
+        candidate_root = current_file.parent.parent.parent.parent  # Go up from utils/core/src/edge
+        
+        # Check if this looks like the aicamera root (should have edge/ and server/ subdirectories)
+        if (candidate_root / 'edge').exists() and (candidate_root / 'server').exists():
+            project_root = candidate_root
+            logger.info(f"Found project root via file location: {project_root.absolute()}")
+        
+        # Strategy 2: If we're in the edge directory, go up one level
+        if project_root is None:
+            cwd = Path.cwd()
+            if cwd.name == 'edge' and (cwd.parent / 'edge').exists() and (cwd.parent / 'server').exists():
+                project_root = cwd.parent
+                logger.info(f"Found project root via CWD: {project_root.absolute()}")
+        
+        # Strategy 3: Look for aicamera directory in parent paths
+        if project_root is None:
+            current = Path.cwd()
+            while current.parent != current:  # While not at root
+                if (current / 'edge').exists() and (current / 'server').exists():
+                    project_root = current
+                    logger.info(f"Found project root via parent search: {project_root.absolute()}")
+                    break
+                current = current.parent
+        
+        if project_root is None:
+            raise RuntimeError("Could not determine project root. Please provide base_path parameter.")
+            
     else:
         project_root = Path(base_path)
         logger.info(f"Using provided project root: {project_root.absolute()}")
+    
+    # Clear any existing paths that might cause conflicts
+    paths_to_remove = []
+    for path in sys.path:
+        path_str = str(path)
+        if 'aicamera' in path_str and ('edge/src' in path_str or 'edge/tests' in path_str):
+            paths_to_remove.append(path)
+    
+    for path in paths_to_remove:
+        if path in sys.path:
+            sys.path.remove(path)
+            logger.debug(f"Removed conflicting path: {path}")
     
     # Add project root to sys.path for absolute imports
     project_root_str = str(project_root.absolute())
@@ -53,7 +93,7 @@ def setup_import_paths(base_path: Optional[str] = None) -> None:
         sys.path.insert(0, edge_src_path)
         logger.debug(f"Added edge/src path: {edge_src_path}")
     
-    # Add current working directory
+    # Add current working directory (but avoid duplication)
     cwd = str(Path.cwd())
     if cwd not in sys.path:
         sys.path.insert(0, cwd)
