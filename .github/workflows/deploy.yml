@@ -109,7 +109,11 @@ jobs:
           echo "📦 PYTHONPATH: $PYTHONPATH"
 
           # Run pytest with the config in this directory; rootdir will be the current dir (edge)
-          pytest -c pytest.ini -m "not hardware" -q
+          # Ignore hardware-dependent tests that import libcamera/picamera2 at module import time
+          pytest -c pytest.ini -q \
+            --ignore=tests/test_camera.py \
+            --ignore=tests/test_detect.py \
+            --ignore=tests/test_detect_simple.py
 
       - name: Build server
         run: |
