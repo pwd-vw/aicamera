@@ -1,23 +1,25 @@
 #!/usr/bin/env python3
 """
-Sample Detection Data Insertion Script for AI Camera v1.3
+Sample Detection Data Insertion Script for AI Camera v1.3 (Optimized Schema)
 
 This script inserts sample detection results data into the database
 for testing the detection results web UI functionality.
 
 Features:
-- Creates 20 sample detection records
+- Creates 5 sample detection records
 - Uses car1.jpg, car2.jpg, car3.jpg as sample images
 - Generates realistic vehicle and license plate detection data
 - Includes OCR results with Thai and English license plates
 - Varies processing times and confidence scores
+- Compatible with optimized database schema (only original images stored)
+- Supports parallel OCR results (Hailo + EasyOCR)
 
 Usage:
     python3 insert_sample_detection_data.py
 
 Author: AI Camera Team
-Version: 1.3
-Date: August 2025
+Version: 2.0 timized Schema)
+Date: Augst 2025
 """
 
 import sys
@@ -111,15 +113,16 @@ class StandaloneDatabaseManager:
         
         if not cursor.fetchone():
             print("❌ detection_results table does not exist")
-            print("📋 Please run the database schema migration first:")
-            print("   python3 edge/src/database/schema_migration_v2.py")
+            print("📋 Please run the database initialization first:")
+            print("   python3 edge/scripts/init_database.py")
             return False
         
-        # Check if table has the new parallel OCR columns
+        # Check if table has the optimized schema columns
         cursor.execute("PRAGMA table_info(detection_results)")
         columns = [row[1] for row in cursor.fetchall()]
         
         required_columns = [
+            'original_image_path', 'vehicle_detections', 'plate_detections',
             'hailo_ocr_results', 'easyocr_results', 'best_ocr_method',
             'ocr_processing_time_ms', 'parallel_ocr_success'
         ]
@@ -128,11 +131,11 @@ class StandaloneDatabaseManager:
         
         if missing_columns:
             print(f"❌ Missing required columns: {missing_columns}")
-            print("📋 Please run the database schema migration first:")
-            print("   python3 edge/src/database/schema_migration_v2.py")
+            print("📋 Please run the database initialization first:")
+            print("   python3 edge/scripts/init_database.py")
             return False
         
-        print("✅ Database table verified with parallel OCR schema")
+        print("✅ Database table verified with optimized schema")
         return True
     
     def insert_detection_result(self, record):
@@ -143,14 +146,13 @@ class StandaloneDatabaseManager:
             cursor.execute("""
                 INSERT INTO detection_results (
                     timestamp, vehicles_count, plates_count, vehicle_detections,
-                    plate_detections, ocr_results, annotated_image_path,
-                    cropped_plates_paths, processing_time_ms,
-                    hailo_ocr_results, easyocr_results, best_ocr_method,
-                    ocr_processing_time_ms, parallel_ocr_success,
+                    plate_detections, ocr_results, original_image_path,
+                    processing_time_ms, hailo_ocr_results, easyocr_results, 
+                    best_ocr_method, ocr_processing_time_ms, parallel_ocr_success,
                     hailo_ocr_confidence, easyocr_confidence,
                     hailo_processing_time_ms, easyocr_processing_time_ms,
                     hailo_ocr_error, easyocr_error
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 record['timestamp'],
                 record['vehicles_count'],
@@ -158,8 +160,7 @@ class StandaloneDatabaseManager:
                 json.dumps(record['vehicle_detections']),
                 json.dumps(record['plate_detections']),
                 json.dumps(record['ocr_results']),
-                record['annotated_image_path'],
-                json.dumps(record['cropped_plates_paths']),
+                record['original_image_path'],
                 record['processing_time_ms'],
                 json.dumps(record.get('hailo_ocr_results', [])),
                 json.dumps(record.get('easyocr_results', [])),
@@ -304,7 +305,6 @@ def generate_sample_detection_record(record_id):
     vehicle_detections = []
     plate_detections = []
     ocr_results = []
-    cropped_plates_paths = []
     
     plates_count = 0
     
@@ -325,17 +325,14 @@ def generate_sample_detection_record(record_id):
             ocr_result = generate_ocr_result()
             ocr_results.append(ocr_result)
             
-            # Generate cropped plate path
-            sample_image = random.choice(SAMPLE_IMAGES)
-            cropped_path = f"detection_results/{timestamp.strftime('%Y%m%d')}/plate_{record_id}_{i}.jpg"
-            cropped_plates_paths.append(cropped_path)
+                # Note: cropped plates are now generated dynamically from original image + bounding boxes
     
     # Generate processing time (20ms to 200ms)
     processing_time_ms = round(random.uniform(20.0, 200.0), 1)
     
-    # Sample image path
+    # Sample image path (only original image is stored in optimized schema)
     sample_image = random.choice(SAMPLE_IMAGES)
-    annotated_image_path = f"detection_results/{timestamp.strftime('%Y%m%d')}/annotated_{record_id}.jpg"
+    original_image_path = f"captured_images/{timestamp.strftime('%Y%m%d')}/original_{record_id}.jpg"
     
     # Generate parallel OCR data
     hailo_ocr_results = []
@@ -397,8 +394,7 @@ def generate_sample_detection_record(record_id):
         'vehicle_detections': vehicle_detections,
         'plate_detections': plate_detections,
         'ocr_results': ocr_results,
-        'annotated_image_path': annotated_image_path,
-        'cropped_plates_paths': cropped_plates_paths,
+        'original_image_path': original_image_path,
         'processing_time_ms': processing_time_ms,
         'hailo_ocr_results': hailo_ocr_results,
         'easyocr_results': easyocr_results,
