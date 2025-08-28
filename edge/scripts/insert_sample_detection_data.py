@@ -7,7 +7,7 @@ for testing the detection results web UI functionality.
 
 Features:
 - Creates 5 sample detection records
-- Uses car1.jpg, car2.jpg, car3.jpg as sample images
+- Uses car_rec_results.png as the original image for all records
 - Generates realistic vehicle and license plate detection data
 - Includes OCR results with Thai and English license plates
 - Varies processing times and confidence scores
@@ -18,8 +18,8 @@ Usage:
     python3 insert_sample_detection_data.py
 
 Author: AI Camera Team
-Version: 2.0 timized Schema)
-Date: Augst 2025
+Version: 2.0 (Optimized Schema)
+Date: August 2025
 """
 
 import sys
@@ -36,7 +36,7 @@ sys.path.insert(0, str(project_root))
 sys.path.insert(0, str(project_root / 'edge' / 'src'))
 
 # Sample data configurations
-SAMPLE_IMAGES = ['car1.jpg', 'car2.jpg', 'car3.jpg']
+SAMPLE_IMAGE = 'car_rec_results.png'  # Use single image for all records
 
 # Thai license plate patterns
 THAI_PLATES = [
@@ -331,8 +331,7 @@ def generate_sample_detection_record(record_id):
     processing_time_ms = round(random.uniform(20.0, 200.0), 1)
     
     # Sample image path (only original image is stored in optimized schema)
-    sample_image = random.choice(SAMPLE_IMAGES)
-    original_image_path = f"captured_images/{timestamp.strftime('%Y%m%d')}/original_{record_id}.jpg"
+    original_image_path = f"assets/{SAMPLE_IMAGE}"
     
     # Generate parallel OCR data
     hailo_ocr_results = []
@@ -512,6 +511,7 @@ def main():
             print("")
             print("Sample data includes:")
             print("  - 5 detection records")
+            print("  - All records use car_rec_results.png as original image")
             print("  - Mixed Thai and English license plates")
             print("  - Various vehicle types and counts")
             print("  - Realistic confidence scores and processing times")
