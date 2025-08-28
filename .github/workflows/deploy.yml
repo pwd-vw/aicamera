@@ -104,9 +104,9 @@ jobs:
           # Make the test runner executable
           chmod +x edge/run_tests.py
           
-          # Run the tests using our custom runner
-          cd edge
-          python run_tests.py
+          # Run the tests using our custom runner from project root
+          # This avoids the duplicate path issue
+          python edge/run_tests.py
 
       - name: Build server
         run: |

@@ -30,9 +30,13 @@ def run_tests():
     """Run the tests with proper configuration."""
     setup_test_environment()
     
-    # Change to edge directory
+    # Get edge directory (this script is in edge/run_tests.py)
     edge_dir = Path(__file__).parent.absolute()
-    os.chdir(edge_dir)
+    project_root = edge_dir.parent
+    
+    # Stay in project root, don't change directory
+    print(f"🔧 Running from project root: {project_root}")
+    print(f"🔧 Edge directory: {edge_dir}")
     
     # For GitHub Actions, run a simple import test without pytest
     print(f"🚀 Running simple import test for GitHub Actions...")
@@ -44,6 +48,7 @@ import os
 from pathlib import Path
 
 # Add the edge directory to Python path
+# This script is run from project root, so edge_dir is the edge subdirectory
 edge_dir = Path(__file__).parent
 project_root = edge_dir.parent
 sys.path.insert(0, str(project_root))
@@ -56,6 +61,7 @@ os.environ['PYTHONPATH'] = f"{project_root}:{edge_dir}:{os.environ.get('PYTHONPA
 print(f"🔧 Test environment setup:")
 print(f"   Project root: {project_root}")
 print(f"   Edge directory: {edge_dir}")
+print(f"   Current working directory: {os.getcwd()}")
 print(f"   Python path: {os.environ['PYTHONPATH']}")
 
 # Test basic imports that don't require hardware
@@ -88,6 +94,7 @@ except ImportError as e:
     print(f"\\n❌ Import test failed: {e}")
     print(f"   Current working directory: {os.getcwd()}")
     print(f"   Python path: {sys.path}")
+    print(f"   Available modules: {[m for m in sys.modules.keys() if 'edge' in m]}")
     exit(1)
 except Exception as e:
     print(f"\\n❌ Unexpected error: {e}")
