@@ -197,7 +197,6 @@ def get_available_blueprints():
             'health': True,
             'streaming': True,
             'detection': True,
-            'detection_results': True,
             'websocket': websocket_bp is not None
         },
         'optional_blueprints': {

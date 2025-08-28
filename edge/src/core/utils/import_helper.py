@@ -155,7 +155,6 @@ def validate_imports() -> List[str]:
         'edge.src.web.blueprints.main',
         'edge.src.web.blueprints.camera',
         'edge.src.web.blueprints.detection',
-        'edge.src.web.blueprints.detection_results',
         'edge.src.web.blueprints.health',
         'edge.src.web.blueprints.streaming',
         'edge.src.web.blueprints.websocket',
