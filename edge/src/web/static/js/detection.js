@@ -1536,6 +1536,13 @@ displayDetailModal: function(result) {
             </div>
         </div>
     `;
+    
+    // After injecting HTML, initialize any canvases inside the detail modal
+    try {
+        this.renderPendingCanvases(modalBody);
+    } catch (e) {
+        console.error('Error initializing canvases after render:', e);
+    }
 },
 
 /**
@@ -2296,26 +2303,6 @@ renderImageWithBoundingBoxes: function(image) {
                     </span>
                 </div>
             </div>
-            <script>
-                // Render bounding boxes when canvas is ready
-                (function() {
-                    const canvas = document.getElementById('${canvasId}');
-                    const img = new Image();
-                    
-                    img.onload = function() {
-                        console.log('Canvas ${canvasId}: Image loaded', img.width, 'x', img.height);
-                        console.log('Canvas ${canvasId}: Boxes data', ${JSON.stringify(boxes)});
-                        DetectionManager.drawBoundingBoxes(canvas, img, ${JSON.stringify(boxes)}, ${JSON.stringify(ocrResults)}, '${image.type}');
-                    };
-                    
-                    img.onerror = function() {
-                        console.error('Canvas ${canvasId}: Failed to load image', '${image.url}');
-                        canvas.parentElement.innerHTML = '<div class="text-muted"><i class="fas fa-exclamation-triangle fa-2x mb-2"></i><br>Image failed to load<br><small>${image.url}</small></div>';
-                    };
-                    
-                    img.src = '${image.url}';
-                })();
-            </script>
         `;
     }
     
@@ -2328,6 +2315,36 @@ renderImageWithBoundingBoxes: function(image) {
              onclick="DetectionManager.openImageModal('${image.url}', '${image.title}')"
              onerror="this.parentElement.innerHTML='<div class=\\'text-muted\\'><i class=\\'fas fa-image fa-2x mb-2\\'></i><br>Image not found<br><small>${image.path} → ${image.url}</small></div>'">
     `;
+},
+
+/**
+ * Render all pending canvases within a container by using stored canvasData
+ * This ensures canvases render even when HTML is injected via innerHTML
+ */
+renderPendingCanvases: function(container) {
+    if (!container) return;
+    this.canvasData = this.canvasData || {};
+    const canvases = container.querySelectorAll('canvas[id^="canvas-"]');
+    canvases.forEach((canvas) => {
+        const data = this.canvasData[canvas.id];
+        if (!data || !data.imageUrl) return;
+        const img = new Image();
+        img.onload = () => {
+            try {
+                this.drawBoundingBoxes(canvas, img, data.boxes || [], data.ocrResults || [], data.type || 'vehicle_visualization');
+            } catch (e) {
+                console.error('Error drawing bounding boxes for', canvas.id, e);
+            }
+        };
+        img.onerror = () => {
+            console.error('Failed to load image for canvas', canvas.id, data.imageUrl);
+            if (canvas.parentElement) {
+                canvas.parentElement.innerHTML = '<div class="text-muted"><i class="fas fa-exclamation-triangle fa-2x mb-2"></i><br>Image failed to load<br><small>' + (data.imageUrl || '') + '</small></div>';
+            }
+        };
+        // Start loading
+        img.src = data.imageUrl;
+    });
 },
 
 /**
