@@ -98,15 +98,24 @@ jobs:
 
       - name: Run edge tests
         run: |
-          # Fix path issues and set up Python path for edge tests
           echo "🔧 Setting up edge test environment..."
           
-          # Make the test runner executable
-          chmod +x edge/run_tests.py
-          
-          # Run the tests using our custom runner from project root
-          # This avoids the duplicate path issue
-          python edge/run_tests.py
+          # Ensure pytest is available
+          python -m pip install --upgrade pip pytest || true
+
+          # Configure PYTHONPATH so 'edge' package is importable
+          export PYTHONPATH="$GITHUB_WORKSPACE:$GITHUB_WORKSPACE/edge:${PYTHONPATH}"
+
+          echo "📂 GITHUB_WORKSPACE: $GITHUB_WORKSPACE"
+          echo "📦 PYTHONPATH: $PYTHONPATH"
+
+          # Run pytest with config in edge and force rootdir to /home/runner/work/aicamera/edge
+          # This avoids the duplicate segment (/aicamera/aicamera/edge) in rootdir
+          pytest \
+            -c "$GITHUB_WORKSPACE/edge/pytest.ini" \
+            --rootdir="$GITHUB_WORKSPACE/../edge" \
+            -m "not hardware" \
+            -q
 
       - name: Build server
         run: |
