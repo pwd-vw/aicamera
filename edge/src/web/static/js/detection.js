@@ -2301,9 +2301,18 @@ renderImageWithBoundingBoxes: function(image) {
                 (function() {
                     const canvas = document.getElementById('${canvasId}');
                     const img = new Image();
+                    
                     img.onload = function() {
+                        console.log('Canvas ${canvasId}: Image loaded', img.width, 'x', img.height);
+                        console.log('Canvas ${canvasId}: Boxes data', ${JSON.stringify(boxes)});
                         DetectionManager.drawBoundingBoxes(canvas, img, ${JSON.stringify(boxes)}, ${JSON.stringify(ocrResults)}, '${image.type}');
                     };
+                    
+                    img.onerror = function() {
+                        console.error('Canvas ${canvasId}: Failed to load image', '${image.url}');
+                        canvas.parentElement.innerHTML = '<div class="text-muted"><i class="fas fa-exclamation-triangle fa-2x mb-2"></i><br>Image failed to load<br><small>${image.url}</small></div>';
+                    };
+                    
                     img.src = '${image.url}';
                 })();
             </script>
@@ -2327,6 +2336,13 @@ renderImageWithBoundingBoxes: function(image) {
 drawBoundingBoxes: function(canvas, img, boxes, ocrResults, type) {
     const ctx = canvas.getContext('2d');
     
+    console.log('drawBoundingBoxes called:', {
+        canvasId: canvas.id,
+        imgSize: img.width + 'x' + img.height,
+        boxesCount: boxes.length,
+        type: type
+    });
+    
     // Set canvas size to match image
     canvas.width = img.width;
     canvas.height = img.height;
@@ -2336,10 +2352,34 @@ drawBoundingBoxes: function(canvas, img, boxes, ocrResults, type) {
     
     // Draw bounding boxes
     boxes.forEach((box, index) => {
-        const x = box.x || box.x1 || 0;
-        const y = box.y || box.y1 || 0;
-        const width = (box.x2 || box.width || 0) - x;
-        const height = (box.y2 || box.height || 0) - y;
+        let x, y, width, height;
+        
+        // Handle different bbox formats
+        if (box.bbox && Array.isArray(box.bbox)) {
+            // Format: bbox: [x1, y1, x2, y2]
+            x = box.bbox[0];
+            y = box.bbox[1];
+            width = box.bbox[2] - x;
+            height = box.bbox[3] - y;
+        } else if (box.x !== undefined && box.y !== undefined) {
+            // Format: {x, y, width, height}
+            x = box.x;
+            y = box.y;
+            width = box.width || 0;
+            height = box.height || 0;
+        } else if (box.x1 !== undefined && box.y1 !== undefined) {
+            // Format: {x1, y1, x2, y2}
+            x = box.x1;
+            y = box.y1;
+            width = (box.x2 || 0) - x;
+            height = (box.y2 || 0) - y;
+        } else {
+            // Fallback
+            x = 0;
+            y = 0;
+            width = 0;
+            height = 0;
+        }
         
         // Box color based on type
         const color = type === 'vehicle_visualization' ? '#007bff' : '#28a745';
