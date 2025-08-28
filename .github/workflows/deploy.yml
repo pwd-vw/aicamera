@@ -250,6 +250,7 @@ jobs:
                 
                 # Stop services
                 sudo systemctl stop $SERVICE_NAME || true
+                sudo systemctl stop aicamera_lpr.service || true
                 sudo systemctl stop $NGINX_SERVICE || true
                 
                 # Restore from backup
@@ -258,7 +259,7 @@ jobs:
                 echo "✅ Backup restored"
                 
                 # Restart services
-                sudo systemctl start $SERVICE_NAME
+                sudo systemctl start $SERVICE_NAME || sudo systemctl start aicamera_lpr.service
                 sudo systemctl start $NGINX_SERVICE
                 
                 # Wait and test
@@ -372,30 +373,76 @@ jobs:
             git reset --hard origin/main
             echo "✅ Code updated"
             
-            # Step 3: Update dependencies
-            echo "📦 Updating Python dependencies..."
-            if [ -f "edge/requirements.txt" ]; then
-              # Activate virtual environment if it exists
+            # Step 3: Run GitHub Actions installation script
+            echo "📦 Running GitHub Actions installation script..."
+            if [ -f "edge/installation/install_github_actions.sh" ]; then
+              # Make script executable
+              chmod +x edge/installation/install_github_actions.sh
+              
+              # Set environment variables for the installation
+              export AICAMERA_ID="${AICAMERA_ID:-1}"
+              export CHECKPOINT_ID="${CHECKPOINT_ID:-1}"
+              export CAMERA_LOCATION="${CAMERA_LOCATION:-GitHub Actions Deployment}"
+              
+              # Run the installation script
+              ./edge/installation/install_github_actions.sh || {
+                echo "❌ GitHub Actions installation script failed"
+                echo "📋 Falling back to manual dependency installation..."
+                
+                # Fallback: Activate virtual environment if it exists
+                if [ -f "venv_hailo/bin/activate" ]; then
+                  source venv_hailo/bin/activate
+                  echo "✅ Virtual environment activated"
+                fi
+                
+                # Fallback: Install/update Python dependencies
+                if [ -f "edge/requirements.txt" ]; then
+                  pip install -r edge/requirements.txt || {
+                    echo "⚠️  Some dependencies failed to install - this may be expected for system-specific packages"
+                    echo "📋 Attempting to install core dependencies only..."
+                    pip install flask flask-socketio python-socketio werkzeug pillow numpy requests psutil python-dotenv
+                  }
+                  echo "✅ Dependencies updated (fallback method)"
+                else
+                  echo "❌ requirements.txt not found"
+                  exit 1
+                fi
+              }
+              echo "✅ GitHub Actions installation completed"
+            else
+              echo "❌ GitHub Actions installation script not found"
+              echo "📋 Falling back to manual dependency installation..."
+              
+              # Fallback: Activate virtual environment if it exists
               if [ -f "venv_hailo/bin/activate" ]; then
                 source venv_hailo/bin/activate
                 echo "✅ Virtual environment activated"
               fi
               
-              # Install/update Python dependencies
-              pip install -r edge/requirements.txt || {
-                echo "⚠️  Some dependencies failed to install - this may be expected for system-specific packages"
-                echo "📋 Attempting to install core dependencies only..."
-                pip install flask flask-socketio python-socketio werkzeug pillow numpy requests psutil python-dotenv
-              }
-              echo "✅ Dependencies updated"
-            else
-              echo "❌ requirements.txt not found"
-              exit 1
+              # Fallback: Install/update Python dependencies
+              if [ -f "edge/requirements.txt" ]; then
+                pip install -r edge/requirements.txt || {
+                  echo "⚠️  Some dependencies failed to install - this may be expected for system-specific packages"
+                  echo "📋 Attempting to install core dependencies only..."
+                  pip install flask flask-socketio python-socketio werkzeug pillow numpy requests psutil python-dotenv
+                }
+                echo "✅ Dependencies updated (fallback method)"
+              else
+                echo "❌ requirements.txt not found"
+                exit 1
+              fi
             fi
             
             # Step 4: Restart systemd service
             echo "🔄 Restarting systemd service..."
-            sudo systemctl restart $SERVICE_NAME
+            # Try the new service name first, fallback to the old one
+            if sudo systemctl restart aicamera_lpr.service 2>/dev/null; then
+              SERVICE_NAME="aicamera_lpr.service"
+              echo "✅ Using new service name: $SERVICE_NAME"
+            else
+              sudo systemctl restart $SERVICE_NAME
+              echo "✅ Using existing service name: $SERVICE_NAME"
+            fi
             sleep 5
             
             # Step 5: Check service status
@@ -450,6 +497,7 @@ jobs:
                 
                 # Stop services
                 sudo systemctl stop $SERVICE_NAME || true
+                sudo systemctl stop aicamera_lpr.service || true
                 sudo systemctl stop $NGINX_SERVICE || true
                 
                 # Restore from backup
@@ -458,7 +506,7 @@ jobs:
                 echo "✅ Backup restored"
                 
                 # Restart services
-                sudo systemctl start $SERVICE_NAME
+                sudo systemctl start $SERVICE_NAME || sudo systemctl start aicamera_lpr.service
                 sudo systemctl start $NGINX_SERVICE
                 
                 # Wait and test
