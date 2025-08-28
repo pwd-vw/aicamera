@@ -94,8 +94,9 @@ OCR: [{'text': 'ขข 5678 กรุงเทพมหานคร', 'confidenc
 ### **2. Canvas-Based Rendering**
 - **Real-time drawing**: Bounding boxes drawn on canvas when image loads
 - **Performance optimized**: No pre-generated annotated images stored
-- **Interactive**: Click to open full-size image modal
+- **Interactive**: Click to open full-size image modal with visualized content
 - **Responsive**: Canvas scales with container size
+- **Modal integration**: Canvas content captured and displayed in modal
 
 ### **3. Data Integration**
 - **Database schema**: Optimized for disk space (only original images)
@@ -111,6 +112,8 @@ OCR: [{'text': 'ขข 5678 กรุงเทพมหานคร', 'confidenc
 - resolveImageUrl(path)           // URL resolution for various path formats
 - renderImageWithBoundingBoxes(image)  // HTML generation with canvas
 - drawBoundingBoxes(canvas, img, boxes, ocrResults, type)  // Canvas drawing
+- openCanvasModal(canvasId, title)     // Canvas content modal display
+- openImageModal(imageUrl, title)      // Original image modal display
 - formatImagePreview(result)      // Image preview generation
 ```
 
@@ -143,6 +146,8 @@ shutil.copy2(source_image, destination_path)
 - [x] **Web interface** displays visualizations correctly
 - [x] **Error handling** provides fallbacks for missing images
 - [x] **Performance** optimized (no pre-generated annotated images)
+- [x] **Modal functionality** shows visualized images with bounding boxes
+- [x] **Download support** works for both original and visualized images
 
 ## 🚀 **Usage Instructions**
 
@@ -150,7 +155,9 @@ shutil.copy2(source_image, destination_path)
 1. **Access dashboard**: `http://localhost/detection/`
 2. **View results**: Click on detection records to see details
 3. **Check visualizations**: Original, vehicle, and plate views available
-4. **Test interactions**: Click images to open full-size modal
+4. **Test interactions**: Click images to open full-size modal with proper content
+5. **Verify modal**: Canvas visualizations show bounding boxes in modal
+6. **Test download**: Download both original and visualized images
 
 ### **For Development**
 1. **Add sample data**: `python3 scripts/insert_sample_detection_data.py`
