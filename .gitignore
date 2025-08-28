@@ -250,3 +250,7 @@ node_modules
 # DATABASE DOCUMENTATION (contains sensitive information)
 # =============================================================================
 docs/server/database.md
+
+# SSH Deploy Keys
+aicamera_deploy_key
+aicamera_deploy_key.pub
