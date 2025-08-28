@@ -7,12 +7,14 @@ for testing the detection results web UI functionality.
 
 Features:
 - Creates 5 sample detection records
-- Uses car_rec_results.png as the original image for all records
+- Uses car_rec_results.png as source image, copies to captured_images with detection format
+- Generates dynamic filenames: detection_YYYYMMDD_HHMMSS_mmm.jpg
 - Generates realistic vehicle and license plate detection data
 - Includes OCR results with Thai and English license plates
 - Varies processing times and confidence scores
 - Compatible with optimized database schema (only original images stored)
 - Supports parallel OCR results (Hailo + EasyOCR)
+- Supports dashboard preview with proper image paths
 
 Usage:
     python3 insert_sample_detection_data.py
@@ -27,6 +29,7 @@ import os
 import sqlite3
 import json
 import random
+import shutil
 from pathlib import Path
 from datetime import datetime, timedelta
 
@@ -79,12 +82,24 @@ class StandaloneDatabaseManager:
         
         self.db_path = Path(db_path)
         self.connection = None
+        
+        # Image directory setup
+        self.image_save_dir = project_root / 'edge' / 'captured_images'
+        self.source_image = project_root / 'assets' / SAMPLE_IMAGE
     
     def initialize(self):
         """Initialize database connection."""
         try:
             # Ensure database directory exists
             self.db_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            # Ensure image directory exists
+            self.image_save_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Verify source image exists
+            if not self.source_image.exists():
+                print(f"❌ Source image not found: {self.source_image}")
+                return False
             
             # Connect to database
             self.connection = sqlite3.connect(str(self.db_path))
@@ -95,6 +110,7 @@ class StandaloneDatabaseManager:
                 return False
             
             print(f"✅ Database initialized: {self.db_path}")
+            print(f"✅ Image directory ready: {self.image_save_dir}")
             return True
             
         except Exception as e:
@@ -212,6 +228,31 @@ class StandaloneDatabaseManager:
             print(f"❌ Error getting statistics: {e}")
             return {}
     
+    def copy_image_with_dynamic_name(self, timestamp):
+        """
+        Copy source image to captured_images with detection format filename.
+        
+        Args:
+            timestamp: datetime object for filename generation
+            
+        Returns:
+            str: Path to the copied image file
+        """
+        try:
+            # Generate detection format filename: detection_YYYYMMDD_HHMMSS_mmm.jpg
+            filename = f"detection_{timestamp.strftime('%Y%m%d_%H%M%S_%f')[:-3]}.jpg"
+            destination_path = self.image_save_dir / filename
+            
+            # Copy the image file
+            shutil.copy2(self.source_image, destination_path)
+            
+            print(f"✅ Copied image: {filename}")
+            return str(destination_path)
+            
+        except Exception as e:
+            print(f"❌ Error copying image: {e}")
+            return None
+    
     def cleanup(self):
         """Close database connection."""
         if self.connection:
@@ -287,7 +328,7 @@ def generate_ocr_result():
         'language': 'th' if any(char in 'กขคงจฉชซฌญ' for char in plate_text) else 'en'
     }
 
-def generate_sample_detection_record(record_id):
+def generate_sample_detection_record(record_id, db_manager):
     """Generate a complete sample detection record."""
     # Random timestamp within last 30 days
     base_time = datetime.now() - timedelta(days=random.randint(0, 30))
@@ -330,8 +371,11 @@ def generate_sample_detection_record(record_id):
     # Generate processing time (20ms to 200ms)
     processing_time_ms = round(random.uniform(20.0, 200.0), 1)
     
-    # Sample image path (only original image is stored in optimized schema)
-    original_image_path = f"assets/{SAMPLE_IMAGE}"
+    # Copy image with dynamic detection filename format
+    original_image_path = db_manager.copy_image_with_dynamic_name(timestamp)
+    if not original_image_path:
+        print(f"❌ Failed to copy image for record {record_id}")
+        return None
     
     # Generate parallel OCR data
     hailo_ocr_results = []
@@ -428,7 +472,11 @@ def insert_sample_data():
         for i in range(1, 6):  # Generate 5 records
             try:
                 # Generate sample record
-                record = generate_sample_detection_record(i)
+                record = generate_sample_detection_record(i, db_manager)
+                
+                if record is None:
+                    print(f"❌ Failed to generate record {i}")
+                    continue
                 
                 # Insert into database
                 record_id = db_manager.insert_detection_result(record)
@@ -511,12 +559,13 @@ def main():
             print("")
             print("Sample data includes:")
             print("  - 5 detection records")
-            print("  - All records use car_rec_results.png as original image")
+            print("  - Images copied to captured_images with detection format filenames")
             print("  - Mixed Thai and English license plates")
             print("  - Various vehicle types and counts")
             print("  - Realistic confidence scores and processing times")
             print("  - Parallel OCR results (Hailo + EasyOCR)")
             print("  - Timestamps spread over the last 30 days")
+            print("  - Dashboard preview ready with proper image paths")
         else:
             print("❌ Sample data insertion failed!")
             return 1
