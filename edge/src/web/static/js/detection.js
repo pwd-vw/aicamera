@@ -2104,6 +2104,62 @@ openImageModal: function(imageUrl, title) {
 },
 
 /**
+ * Open canvas content in modal for full-size view
+ */
+openCanvasModal: function(canvasId, title) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) {
+        AICameraUtils.showToast('Canvas not found', 'error');
+        return;
+    }
+    
+    // Convert canvas to data URL
+    const dataUrl = canvas.toDataURL('image/png');
+    
+    // Create modal if it doesn't exist
+    let imageModal = document.getElementById('image-viewer-modal');
+    if (!imageModal) {
+        imageModal = document.createElement('div');
+        imageModal.className = 'modal fade';
+        imageModal.id = 'image-viewer-modal';
+        imageModal.innerHTML = `
+            <div class="modal-dialog modal-xl">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="fas fa-image me-2"></i>${title}
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body text-center">
+                        <img src="" class="img-fluid" alt="Full size image" id="full-size-image">
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        <button type="button" class="btn btn-primary" onclick="DetectionManager.downloadImage()">
+                            <i class="fas fa-download me-1"></i>Download
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(imageModal);
+    }
+    
+    // Update image source with canvas data URL
+    const img = imageModal.querySelector('#full-size-image');
+    img.src = dataUrl;
+    img.alt = title;
+    
+    // Store current image info for download
+    this.currentImageInfo = { url: dataUrl, title: title };
+    
+    // Show modal
+    const modal = new bootstrap.Modal(imageModal);
+    modal.show();
+},
+
+/**
  * Download current image from modal
  */
 downloadImage: function() {
@@ -2114,7 +2170,14 @@ downloadImage: function() {
     
     const link = document.createElement('a');
     link.href = this.currentImageInfo.url;
-    link.download = this.currentImageInfo.title.replace(/[^a-z0-9]/gi, '_').toLowerCase() + '.jpg';
+    
+    // Determine file extension based on URL type
+    let extension = '.jpg';
+    if (this.currentImageInfo.url.startsWith('data:image/png')) {
+        extension = '.png';
+    }
+    
+    link.download = this.currentImageInfo.title.replace(/[^a-z0-9]/gi, '_').toLowerCase() + extension;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -2225,7 +2288,7 @@ renderImageWithBoundingBoxes: function(image) {
                 <canvas id="${canvasId}" 
                         class="img-fluid rounded" 
                         style="max-height: 200px; object-fit: contain; cursor: pointer;"
-                        onclick="DetectionManager.openImageModal('${image.url}', '${image.title}')">
+                        onclick="DetectionManager.openCanvasModal('${canvasId}', '${image.title}')">
                 </canvas>
                 <div class="position-absolute top-0 start-0 p-2">
                     <span class="badge bg-${image.type === 'vehicle_visualization' ? 'primary' : 'success'}">
