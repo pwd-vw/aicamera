@@ -156,6 +156,7 @@ celerybeat.pid
 .env
 .venv
 .env.production
+.env.communication
 venv_hailo/
 env/
 venv/
@@ -254,3 +255,6 @@ docs/server/database.md
 # SSH Deploy Keys
 aicamera_deploy_key
 aicamera_deploy_key.pub
+
+# Simulation virtual environment
+edge/venv_simulation/
