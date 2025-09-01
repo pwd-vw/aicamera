@@ -1085,7 +1085,8 @@ def get_ml_frame():
 
 
 def register_camera_events(socketio):
-    """=  Register WebSocket events for camera functionality with browser connection tracking.
+    """
+    Register WebSocket events for camera functionality with browser connection tracking.
     
     Args:
         socketio: Flask-SocketIO instance
@@ -1312,8 +1313,6 @@ def register_camera_events(socketio):
             
         except Exception as e:
             logger.error(f"Error handling browser activity: {e}")
-    
-
     
     logger.info("Browser connection tracking added (optional)")
 

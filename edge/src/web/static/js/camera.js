@@ -65,7 +65,9 @@ const CameraManager = {
     initializeWebSocket: function() {
         if (typeof io === 'undefined') {
             console.log('Socket.IO not available, using HTTP API only');
-            AICameraUtils.addLogMessage('log-container', 'Socket.IO not available, using HTTP API', 'info');
+            AICameraUtils.addLogMessage('log-container', 'Socket.IO not available, using HTTP API only', 'info');
+            // Load status from HTTP API as fallback
+            this.loadStatusFromAPI();
             return;
         }
 
@@ -81,7 +83,31 @@ const CameraManager = {
         } catch (error) {
             console.error('Error initializing WebSocket:', error);
             AICameraUtils.addLogMessage('log-container', `WebSocket error: ${error.message}`, 'warning');
+            // Load status from HTTP API as fallback
+            this.loadStatusFromAPI();
         }
+    },
+
+    /**
+     * Load camera status from HTTP API (fallback)
+     */
+    loadStatusFromAPI: function() {
+        console.log('Loading camera status from HTTP API...');
+        fetch('/camera/status')
+            .then(response => response.json())
+            .then(data => {
+                if (data && data.success && data.status) {
+                    console.log('✅ Status loaded from HTTP API:', data.status);
+                    this.cachedStatus = data.status;
+                    this.updateCameraStatus(data.status);
+                } else {
+                    console.error('❌ Invalid status data from HTTP API:', data);
+                }
+            })
+            .catch(error => {
+                console.error('❌ Error loading status from HTTP API:', error);
+                AICameraUtils.addLogMessage('log-container', `HTTP API error: ${error.message}`, 'error');
+            });
     },
 
     /**
@@ -95,16 +121,28 @@ const CameraManager = {
             AICameraUtils.addLogMessage('log-container', 'Connected to camera service', 'success');
             // Request initial status
             this.socket.emit('camera_status_request');
+            
+            // Set a timeout to fallback to HTTP API if no response received
+            setTimeout(() => {
+                if (!this.cachedStatus) {
+                    console.log('No status received from WebSocket, falling back to HTTP API...');
+                    this.loadStatusFromAPI();
+                }
+            }, 3000); // Wait 3 seconds for WebSocket response
         });
 
         this.socket.on('disconnect', () => {
             console.log('❌ Disconnected from camera service');
-            AICameraUtils.addLogMessage('log-container', 'Disconnected from camera service', 'warning');
+            AICameraUtils.addLogMessage('log-container', 'Disconnected from camera service, using HTTP API fallback', 'warning');
+            // Load status from HTTP API as fallback
+            this.loadStatusFromAPI();
         });
 
         this.socket.on('connect_error', (error) => {
             console.log('WebSocket connection error:', error.message);
-            AICameraUtils.addLogMessage('log-container', 'WebSocket connection failed, using cached data', 'warning');
+            AICameraUtils.addLogMessage('log-container', 'WebSocket connection failed, using HTTP API fallback', 'warning');
+            // Load status from HTTP API as fallback
+            this.loadStatusFromAPI();
         });
 
         this.socket.on('camera_status_update', (data) => {
@@ -1081,6 +1119,7 @@ const CameraManager = {
      * Setup video feed event handlers with improved stability
      */
     setupVideoFeedHandlers: function() {
+        // Video feed error handling
         const videoFeed = document.getElementById('video-feed');
         const videoStatus = document.getElementById('video-status');
         
@@ -1133,38 +1172,20 @@ const CameraManager = {
      * Handle video feed errors with intelligent fallback
      */
     handleVideoFeedError: function(e) {
+        console.log('Video feed error detected:', e);
         this.videoErrorCount++;
-        console.warn(`Video feed error #${this.videoErrorCount}:`, e);
         
-        // Check if camera should be streaming
-        if (this.cachedStatus && this.cachedStatus.streaming) {
-            // Camera is streaming but video feed failed - this is a real error
-            if (this.videoErrorCount <= this.maxVideoErrors) {
-                AICameraUtils.addLogMessage('log-container', `Video feed error #${this.videoErrorCount} - retrying...`, 'warning');
-                this.updateVideoStatus('error', `Video feed error #${this.videoErrorCount} - retrying...`);
-                
-                // Exponential backoff
-                const backoffDelay = Math.min(this.videoErrorBackoff * Math.pow(2, this.videoErrorCount - 1), this.maxVideoErrorBackoff);
-                
-                setTimeout(() => {
-                    this.refreshVideoFeed();
-                }, backoffDelay);
-            } else {
-                console.error('Video feed error limit reached, camera may be offline');
-                AICameraUtils.addLogMessage('log-container', 'Video feed error limit reached - camera may be offline', 'error');
-                this.updateVideoStatus('error', 'Camera may be offline');
-                this.videoErrorState = true;
-                
-                // Try to recover after a longer delay
-                setTimeout(() => {
-                    this.attemptVideoFeedRecovery();
-                }, 30000); // 30 seconds
-            }
+        if (this.videoErrorCount <= this.maxVideoErrors) {
+            const backoff = Math.min(this.videoErrorBackoff * Math.pow(2, this.videoErrorCount - 1), this.maxVideoErrorBackoff);
+            console.log(`Video feed error ${this.videoErrorCount}/${this.maxVideoErrors}, retrying in ${backoff}ms`);
+            
+            setTimeout(() => {
+                this.refreshVideoFeed();
+            }, backoff);
         } else {
-            // Camera is not streaming, so video feed errors are expected
-            console.log('Video feed error while camera not streaming - expected behavior');
-            this.updateVideoStatus('offline', 'Camera not streaming');
-            // Don't retry if camera is not supposed to be streaming
+            console.error('Max video feed errors reached, stopping retries');
+            this.updateVideoStatus('error', 'Video feed error - max retries reached');
+            AICameraUtils.addLogMessage('log-container', 'Video feed error - max retries reached', 'error');
         }
     },
 
@@ -1173,16 +1194,10 @@ const CameraManager = {
      */
     handleVideoFeedSuccess: function() {
         console.log('Video feed loaded successfully');
-        this.videoErrorCount = 0; // Reset error count
-        this.videoErrorState = false; // Clear error state
-        this.videoErrorBackoff = 2000; // Reset backoff
-        AICameraUtils.addLogMessage('log-container', 'Video feed loaded successfully', 'success');
+        this.videoErrorCount = 0;
+        this.videoErrorState = false;
         this.updateVideoStatus('hidden', '');
-        
-        // Verify the video feed is actually working
-        setTimeout(() => {
-            this.updateVideoFeedStatus();
-        }, 1000);
+        AICameraUtils.addLogMessage('log-container', 'Video feed loaded successfully', 'success');
     },
 
     /**
