@@ -18,14 +18,14 @@ Version: 1.3
 Date: August 7, 2025
 """
 
-from src.core.utils.logging_config import get_logger
+from edge.src.core.utils.logging_config import get_logger
 from typing import Dict, Any, Optional, Type, TypeVar
 import logging
 from dataclasses import dataclass
 from pathlib import Path
 
 # Import config values lazily to avoid circular imports
-from src.core.config import (
+from edge.src.core.config import (
     FLASK_HOST, FLASK_PORT, SECRET_KEY,
     VEHICLE_DETECTION_MODEL, LICENSE_PLATE_DETECTION_MODEL,
     EASYOCR_LANGUAGES, IMAGE_SAVE_DIR, DETECTION_INTERVAL,
@@ -71,7 +71,40 @@ class DependencyContainer:
         
         # Register default services
         self._register_default_services()
-    
+
+    def _register_experiment_services(self):
+        """ลงทะเบียน Experiment services"""
+        if EXPERIMENT_ENABLED:
+            try:
+                from edge.src.components.experiment_isolator import ExperimentIsolator
+                from edge.src.services.experiment_service import ExperimentService, create_experiment_service
+                
+                # ลงทะเบียน Experiment Isolator
+                self.register_service('experiment_isolator', ExperimentIsolator, 
+                                    singleton=True, dependencies={
+                                        'camera_manager': 'camera_manager',
+                                        'detection_manager': 'detection_manager'
+                                    })
+                
+                # ลงทะเบียน Experiment Service
+                self.register_service('experiment_service', ExperimentService, 
+                                    singleton=True, 
+                                    factory=create_experiment_service,
+                                    dependencies={
+                                        'camera_manager': 'camera_manager',
+                                        'detection_processor': 'detection_processor',
+                                        'experiment_isolator': 'experiment_isolator'
+                                    })
+                
+                self.logger.info("Experiment services registered successfully")
+                
+            except ImportError as e:
+                self.logger.warning(f"Experiment services not available: {e}")
+            except Exception as e:
+                self.logger.error(f"Error registering experiment services: {e}")
+        else:
+            self.logger.info("Experiment services not registered (disabled in config)")
+
     def _register_default_services(self):
         """Register default services with their configurations using absolute imports."""
         # Core components - ALWAYS REGISTERED
@@ -201,16 +234,7 @@ class DependencyContainer:
             self.logger.info("Storage Management not registered (disabled in config)")
         
         # Experiment Service (Optional)
-        if EXPERIMENT_ENABLED:
-            try:
-                from src.services.experiment_service import ExperimentService
-                self.register_service('experiment_service', ExperimentService, 
-                                    singleton=True, dependencies={})
-                self.logger.info("Experiment Service registered (enabled in config)")
-            except ImportError:
-                self.logger.warning("ExperimentService not available")
-        else:
-            self.logger.info("Experiment Service not registered (disabled in config)")
+        self._register_experiment_services()
             
     def _create_logger(self, **kwargs) -> logging.Logger:
         """Create a logger instance."""

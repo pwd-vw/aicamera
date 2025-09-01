@@ -69,6 +69,8 @@
 body {
     font-family: var(--font-family-en), var(--font-family-th);
     font-size: var(--font-size-base);
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%; /* เพิ่มสำหรับ Chrome 54+ */
     line-height: 1.6;
     color: var(--text-color-dark);
     background-color: var(--background-light);
@@ -76,7 +78,10 @@ body {
     padding: 0;
     padding-top: 120px !important;
 }
-
+th {
+    text-align: -webkit-match-parent;
+    text-align: match-parent; /* เพิ่มสำหรับ Safari 15.4+ */
+}
 /* ===== NAVIGATION STYLES ===== */
 .navbar {
     background: var(--card-background);
@@ -1283,4 +1288,38 @@ p {
         width: 16px;
         height: 16px;
     }
+}
+/* ===== Experiment STYLES ===== */
+.btn-close {
+    position: relative;
+}
+
+.btn-close::before {
+    content: "Close";
+    position: absolute;
+    left: -9999px;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+}
+
+/* Focus styles for accessibility */
+.form-control:focus,
+.form-select:focus,
+.btn:focus {
+    outline: 2px solid #007bff;
+    outline-offset: 2px;
+}
+
+/* Screen reader only text */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
 }

@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bbox Format Test</title>
+    <style>
+        .test-container {
+            border: 1px solid #ddd;
+            margin: 10px;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        canvas {
+            border: 1px solid #ccc;
+            max-width: 100%;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 3px;
+        }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+    <h1>Bbox Format Test</h1>
+    
+    <div class="test-container">
+        <h3>Test 1: Backend Format [x1, y1, x2, y2]</h3>
+        <canvas id="test1" width="400" height="300"></canvas>
+        <div id="result1" class="result"></div>
+    </div>
+    
+    <div class="test-container">
+        <h3>Test 2: Object Format {x, y, width, height}</h3>
+        <canvas id="test2" width="400" height="300"></canvas>
+        <div id="result2" class="result"></div>
+    </div>
+    
+    <div class="test-container">
+        <h3>Test 3: Coordinate Format {x1, y1, x2, y2}</h3>
+        <canvas id="test3" width="400" height="300"></canvas>
+        <div id="result3" class="result"></div>
+    </div>
+
+    <script>
+        // Simulate the drawBoundingBoxes function logic
+        function testBboxFormat(canvasId, boxes, expectedFormat) {
+            const canvas = document.getElementById(canvasId);
+            const ctx = canvas.getContext('2d');
+            const resultDiv = document.getElementById('result' + canvasId.slice(-1));
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw background
+            ctx.fillStyle = '#f0f0f0';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            let successCount = 0;
+            let errorCount = 0;
+            
+            boxes.forEach((box, index) => {
+                let x, y, width, height;
+                
+                // Handle different bbox formats (same logic as our fix)
+                if (box.bbox && Array.isArray(box.bbox)) {
+                    // Format: bbox: [x1, y1, x2, y2]
+                    x = box.bbox[0];
+                    y = box.bbox[1];
+                    width = box.bbox[2] - x;
+                    height = box.bbox[3] - y;
+                    successCount++;
+                } else if (box.x !== undefined && box.y !== undefined) {
+                    // Format: {x, y, width, height}
+                    x = box.x;
+                    y = box.y;
+                    width = box.width || 0;
+                    height = box.height || 0;
+                    successCount++;
+                } else if (box.x1 !== undefined && box.y1 !== undefined) {
+                    // Format: {x1, y1, x2, y2}
+                    x = box.x1;
+                    y = box.y1;
+                    width = (box.x2 || 0) - x;
+                    height = (box.y2 || 0) - y;
+                    successCount++;
+                } else {
+                    // Fallback
+                    x = 0;
+                    y = 0;
+                    width = 0;
+                    height = 0;
+                    errorCount++;
+                }
+                
+                // Draw rectangle
+                ctx.strokeStyle = '#007bff';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(x, y, width, height);
+                
+                // Draw label
+                const label = `Box ${index + 1}`;
+                ctx.font = '12px Arial';
+                ctx.fillStyle = '#007bff';
+                ctx.fillRect(x, y - 20, ctx.measureText(label).width + 10, 20);
+                ctx.fillStyle = 'white';
+                ctx.fillText(label, x + 5, y - 5);
+                
+                // Draw coordinates
+                ctx.fillStyle = '#333';
+                ctx.font = '10px Arial';
+                ctx.fillText(`(${x},${y}) ${width}x${height}`, x, y + height + 15);
+            });
+            
+            // Show result
+            const resultClass = errorCount === 0 ? 'success' : 'error';
+            resultDiv.className = `result ${resultClass}`;
+            resultDiv.innerHTML = `
+                <strong>${expectedFormat}</strong><br>
+                ✅ Successfully processed: ${successCount} boxes<br>
+                ${errorCount > 0 ? `❌ Errors: ${errorCount} boxes` : ''}<br>
+                <small>Format: ${JSON.stringify(boxes)}</small>
+            `;
+        }
+        
+        // Test 1: Backend format [x1, y1, x2, y2]
+        const backendFormat = [
+            { bbox: [50, 50, 150, 100], confidence: 0.8 },
+            { bbox: [200, 100, 300, 200], confidence: 0.9 }
+        ];
+        
+        // Test 2: Object format {x, y, width, height}
+        const objectFormat = [
+            { x: 50, y: 50, width: 100, height: 50 },
+            { x: 200, y: 100, width: 100, height: 100 }
+        ];
+        
+        // Test 3: Coordinate format {x1, y1, x2, y2}
+        const coordinateFormat = [
+            { x1: 50, y1: 50, x2: 150, y2: 100 },
+            { x1: 200, y1: 100, x2: 300, y2: 200 }
+        ];
+        
+        // Run tests
+        window.addEventListener('load', function() {
+            testBboxFormat('test1', backendFormat, 'Backend Format [x1, y1, x2, y2]');
+            testBboxFormat('test2', objectFormat, 'Object Format {x, y, width, height}');
+            testBboxFormat('test3', coordinateFormat, 'Coordinate Format {x1, y1, x2, y2}');
+        });
+    </script>
+</body>
+</html>

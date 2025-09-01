@@ -1,6 +1,7 @@
+# src/services/experiment_service.py
 #!/usr/bin/env python3
 """
-Experiment Service for AI Camera v1.3
+Experiment Service for AI Camera v2.0
 
 This service manages camera experiments and research functionality:
 - Experiment configuration and execution
@@ -8,10 +9,9 @@ This service manages camera experiments and research functionality:
 - Image capture with metadata
 - License plate detection and OCR
 - Results analysis and reporting
-- Night mode lens comparison experiments
 
 Author: AI Camera Team
-Version: 1.3.2
+Version: 2.0
 Date: August 10, 2025
 """
 
@@ -19,579 +19,542 @@ import os
 import json
 import csv
 import cv2
-import subprocess
+import time
 import numpy as np
 from datetime import datetime
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Tuple
 from pathlib import Path
+from dataclasses import dataclass, asdict
 
-# Use absolute imports
 from edge.src.core.utils.logging_config import get_logger
-from edge.src.core.config import (
-    IMAGE_SAVE_DIR, LICENSE_PLATE_DETECTION_MODEL, 
-    EASYOCR_LANGUAGES, HEF_MODEL_PATH, MODEL_ZOO_URL,
-    EXPERIMENT_ENABLED, EXPERIMENT_RESULTS_DIR
-)
+from edge.src.core.config import IMAGE_SAVE_DIR, EXPERIMENT_RESULTS_DIR
+from edge.src.components.experiment_isolator import ExperimentIsolator
 
 logger = get_logger(__name__)
 
 
+@dataclass
+class ExperimentResult:
+    """ผลลัพธ์การทดลอง"""
+    experiment_id: str
+    experiment_type: str
+    timestamp: str
+    image_source: str
+    camera_config: Dict[str, Any]
+    detection_result: Dict[str, Any]
+    processing_time: float
+    frame_info: Dict[str, Any]
+    metadata: Optional[Dict[str, Any]] = None
+
+
+@dataclass
+class ExperimentConfig:
+    """การตั้งค่าการทดลอง"""
+    experiment_type: str
+    image_source: str = 'camera'
+    camera_config: str = 'current'
+    custom_config: Optional[Dict[str, Any]] = None
+    start_length: Optional[float] = None
+    max_length: Optional[float] = None
+    step: Optional[float] = None
+    enable_auto_focus: bool = True
+
+
 class ExperimentService:
-    """
-    Experiment Service for managing camera experiments and research.
+    """Service หลักสำหรับการทดลอง"""
     
-    This service provides:
-    - Experiment configuration and execution
-    - Data collection and logging
-    - Image capture with metadata
-    - License plate detection and OCR
-    - Results analysis and reporting
-    - Night mode lens comparison experiments
-    """
+    def __init__(self, camera_manager, detection_processor, isolator: ExperimentIsolator):
+        self.camera_manager = camera_manager
+        self.detection_processor = detection_processor
+        self.isolator = isolator
+        self.current_experiment: Optional[str] = None
+        self.experiment_results: List[ExperimentResult] = []
+        
+        # สร้างโฟลเดอร์สำหรับเก็บผลการทดลอง
+        self._setup_experiment_directories()
+        
+        logger.info("Experiment Service initialized")
     
-    def __init__(self, app_config: Optional[Dict[str, Any]] = None):
-        """
-        Initialize Experiment Service.
-        
-        Args:
-            app_config: Application configuration dictionary
-        """
-        self.app_config = app_config or {}
-        self.results_dir = self.app_config.get("EXPERIMENT_RESULTS_DIR", EXPERIMENT_RESULTS_DIR)
-        self.csv_path = os.path.join(self.results_dir, "experiment_log.csv")
-        
-        # Create results directory
-        os.makedirs(self.results_dir, exist_ok=True)
-        
-        # Initialize EasyOCR
+    def _setup_experiment_directories(self):
+        """สร้างโฟลเดอร์สำหรับเก็บผลการทดลอง"""
         try:
-            import easyocr
-            self.reader = easyocr.Reader(EASYOCR_LANGUAGES)
-            logger.info("EasyOCR initialized successfully")
-        except ImportError:
-            logger.warning("EasyOCR not available - OCR functionality will be limited")
-            self.reader = None
-        
-        # Initialize Hailo model for license plate detection
-        self.lp_detection_model = None
-        try:
-            # Configure HailoRT logging before importing degirum
-            from edge.config.hailort_logging import configure_hailort_logging
-            configure_hailort_logging()
+            # โฟลเดอร์หลักสำหรับผลการทดลอง
+            self.results_dir = Path(EXPERIMENT_RESULTS_DIR or '/home/camuser/aicamera/experiment_results')
+            self.results_dir.mkdir(parents=True, exist_ok=True)
             
-            import degirum as dg
-            if LICENSE_PLATE_DETECTION_MODEL and HEF_MODEL_PATH:
-                self.lp_detection_model = dg.load_model(
-                    model_name=LICENSE_PLATE_DETECTION_MODEL,
-                    inference_host_address=HEF_MODEL_PATH,
-                    zoo_url=MODEL_ZOO_URL
-                )
-                logger.info("License plate detection model loaded successfully")
-            else:
-                logger.warning("License plate detection model not configured")
-        except ImportError:
-            logger.warning("Degirum not available - license plate detection will be limited")
+            # โฟลเดอร์ย่อยสำหรับแต่ละประเภทการทดลอง
+            self.single_detection_dir = self.results_dir / 'single_detection'
+            self.length_detection_dir = self.results_dir / 'length_detection'
+            self.flexible_config_dir = self.results_dir / 'flexible_config'
+            
+            for directory in [self.single_detection_dir, self.length_detection_dir, self.flexible_config_dir]:
+                directory.mkdir(exist_ok=True)
+                (directory / 'images').mkdir(exist_ok=True)
+                (directory / 'metadata').mkdir(exist_ok=True)
+            
+            logger.info(f"Experiment directories created at {self.results_dir}")
+            
         except Exception as e:
-            logger.error(f"Error loading license plate detection model: {e}")
-        
-        # Ensure CSV file exists
-        self._ensure_csv_exists()
-        
-        logger.info(f"Experiment Service initialized with results directory: {self.results_dir}")
+            logger.error(f"Failed to create experiment directories: {e}")
+            raise
     
-    def _ensure_csv_exists(self):
-        """Ensure CSV log file exists with proper headers."""
-        if not os.path.exists(self.csv_path):
-            with open(self.csv_path, mode="w", newline="", encoding="utf-8") as f:
-                writer = csv.writer(f)
-                writer.writerow([
-                    "Timestamp", "ExperimentID", "ExperimentType", "CameraType", "LensCover", 
-                    "Distance(m)", "LicenseTextCropped", "LicenseTextFull", "ConfidenceCrop", 
-                    "ConfidenceFull", "SharpnessLaplacian", "BlurGaussian", "ExposureTime", 
-                    "AnalogueGain", "DigitalGain", "LensPosition", "FocusFoM", "AfState", 
-                    "SensorTemperature", "FrameDuration", "Lux", "ImagePath", "MetadataPath"
-                ])
-            logger.info(f"Created experiment log CSV: {self.csv_path}")
-    
-    def run_experiment_step(self, experiment_config: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Execute a single experiment step.
+    def run_single_detection_experiment(self, config: ExperimentConfig) -> ExperimentResult:
+        """ทดลอง detection pipeline แบบ single shot"""
+        experiment_id = self._generate_experiment_id('single_detection')
         
-        Args:
-            experiment_config: Configuration for the experiment step
-            
-        Returns:
-            Dict containing experiment results
-        """
         try:
-            distance = experiment_config.get("distance_m")
-            camera_type = experiment_config.get("camera_type")
-            lens_cover = experiment_config.get("lens_cover")
-            is_night_mode = experiment_config.get("is_night_mode", False)
-            experiment_id = experiment_config.get("experiment_id", "unknown")
+            # เข้าสู่โหมด experiment
+            if not self.isolator.enter_experiment_mode():
+                raise RuntimeError("Cannot enter experiment mode")
             
-            logger.info(f"Starting experiment step: {camera_type} at {distance}m with {lens_cover} cover (night: {is_night_mode})")
+            self.current_experiment = experiment_id
+            logger.info(f"Starting single detection experiment: {experiment_id}")
             
-            # Generate timestamp and file names
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            image_name = f"{timestamp}_{camera_type}_{lens_cover}_{distance}m.jpg"
-            metadata_name = f"{timestamp}_{camera_type}_{lens_cover}_{distance}m.json"
-            image_path = os.path.join(self.results_dir, image_name)
-            metadata_path = os.path.join(self.results_dir, metadata_name)
+            # เลือกแหล่งภาพ
+            frame, source_type = self._get_image_frame(config.image_source)
             
-            # 1. Capture image with rpicam-still
-            capture_success = self._capture_image_with_metadata(
-                image_path, metadata_path, experiment_config
+            # ใช้การตั้งค่ากล้อง
+            camera_config = self._get_camera_config(config)
+            
+            # รัน detection pipeline แบบ isolated
+            start_time = time.time()
+            detection_result = self._run_isolated_detection(frame, camera_config)
+            processing_time = time.time() - start_time
+            
+            # สร้างผลลัพธ์การทดลอง
+            experiment_result = ExperimentResult(
+                experiment_id=experiment_id,
+                experiment_type='single_detection',
+                timestamp=datetime.now().isoformat(),
+                image_source=source_type,
+                camera_config=camera_config,
+                detection_result=detection_result,
+                processing_time=processing_time,
+                frame_info={
+                    'width': frame.shape[1],
+                    'height': frame.shape[0],
+                    'channels': frame.shape[2]
+                }
             )
             
-            if not capture_success:
-                return {
-                    "status": "error",
-                    "error": "Failed to capture image",
-                    "timestamp": timestamp
-                }
+            # บันทึกผลลัพธ์
+            self._save_experiment_result(experiment_result, frame)
+            self.experiment_results.append(experiment_result)
             
-            # 2. Extract metadata
-            metadata = self._extract_metadata(metadata_path)
-            
-            # 3. Process image for license plate detection
-            image = cv2.imread(image_path)
-            if image is None:
-                return {
-                    "status": "error",
-                    "error": "Could not read captured image",
-                    "timestamp": timestamp
-                }
-            
-            # Detect and crop license plate
-            cropped_plate_image = None
-            license_plate_detected = "Failed"
-            
-            if self.lp_detection_model:
-                try:
-                    # Resize image for YOLO model
-                    resized_image = self._resize_with_letterbox(image, (640, 640))
-                    if resized_image is not None:
-                        # Detect license plates
-                        detected_plates = self.lp_detection_model(resized_image)
-                        if detected_plates and detected_plates.results:
-                            # Crop detected license plates
-                            cropped_plates = self._crop_license_plates(image, detected_plates.results)
-                            if cropped_plates:
-                                cropped_plate_image = cropped_plates[0]  # Use first detected plate
-                                license_plate_detected = "Good"
-                except Exception as e:
-                    logger.error(f"Error during license plate detection: {e}")
-            
-            # 4. Perform OCR on cropped and full images
-            license_text_cropped = "No Plate Detected"
-            license_text_full = "No Text"
-            confidence_cropped = 0.0
-            confidence_full = 0.0
-            
-            if self.reader:
-                if cropped_plate_image is not None:
-                    license_text_cropped, confidence_cropped = self._read_text_with_easyocr(cropped_plate_image)
-                
-                license_text_full, confidence_full = self._read_text_with_easyocr(image)
-            
-            # 5. Analyze image quality
-            gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-            sharpness_laplacian = cv2.Laplacian(gray_image, cv2.CV_64F).var()
-            
-            # Calculate blur using Gaussian filter
-            try:
-                from skimage import filters
-                blur_gaussian = filters.gaussian(gray_image, sigma=1).std()
-            except ImportError:
-                # Fallback blur calculation
-                blur_gaussian = np.std(gray_image)
-            
-            # 6. Save results to CSV
-            self._save_csv_row(
-                timestamp, experiment_id, experiment_config.get("experiment_type", "Unknown"),
-                camera_type, lens_cover, distance, license_text_cropped, license_text_full,
-                confidence_cropped, confidence_full, sharpness_laplacian, blur_gaussian,
-                metadata.get("ExposureTime"), metadata.get("AnalogueGain"), metadata.get("DigitalGain"),
-                metadata.get("LensPosition"), metadata.get("FocusFoM"), metadata.get("AfState"),
-                metadata.get("SensorTemperature"), metadata.get("FrameDuration"), metadata.get("Lux"),
-                image_path, metadata_path
-            )
-            
-            return {
-                "status": "success",
-                "timestamp": timestamp,
-                "image_path": image_path,
-                "metadata_path": metadata_path,
-                "license_text_cropped": license_text_cropped,
-                "license_text_full": license_text_full,
-                "confidence_cropped": confidence_cropped,
-                "confidence_full": confidence_full,
-                "sharpness_laplacian": sharpness_laplacian,
-                "blur_gaussian": blur_gaussian,
-                "metadata": metadata,
-                "license_plate_detected": license_plate_detected,
-                "experiment_config": experiment_config
-            }
+            logger.info(f"Single detection experiment completed: {experiment_id}")
+            return experiment_result
             
         except Exception as e:
-            logger.error(f"Error in experiment step: {e}")
-            return {
-                "status": "error",
-                "error": str(e),
-                "timestamp": datetime.now().strftime("%Y%m%d_%H%M%S")
-            }
+            logger.error(f"Single detection experiment failed: {e}")
+            raise
+        finally:
+            # ออกจากโหมด experiment
+            self.isolator.exit_experiment_mode()
+            self.current_experiment = None
     
-    def _capture_image_with_metadata(self, image_path: str, metadata_path: str, 
-                                   experiment_config: Dict[str, Any]) -> bool:
-        """
-        Capture image using rpicam-still with metadata.
-        
-        Args:
-            image_path: Path to save captured image
-            metadata_path: Path to save metadata
-            experiment_config: Experiment configuration
-            
-        Returns:
-            bool: True if capture successful, False otherwise
-        """
-        try:
-            cmd = [
-                "rpicam-still", "-o", image_path,
-                "--metadata", metadata_path, "--metadata-format", "json",
-                "--timeout", "1000", "--autofocus-on-capture"
-            ]
-            
-            # Apply night mode parameters if enabled
-            if experiment_config.get("is_night_mode", False):
-                exposure_time = experiment_config.get("exposure_time_us", 499989)
-                analog_gain = experiment_config.get("analog_gain", 16.0)
-                manual_lens_pos = experiment_config.get("lens_position", 0.07)
-                sharpness_val = experiment_config.get("sharpness", 2.0)
-                noise_red_mode = experiment_config.get("noise_reduction_mode", 0)
-                
-                cmd.extend([
-                    "--exposure", str(exposure_time),
-                    "--gain", str(analog_gain),
-                    "--manual-focus", str(manual_lens_pos),
-                    "--sharpness", str(sharpness_val),
-                    "--denoise", str(noise_red_mode)
-                ])
-            
-            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-            logger.info(f"Image captured successfully: {image_path}")
-            return True
-            
-        except subprocess.CalledProcessError as e:
-            logger.error(f"rpicam-still failed: {e}")
-            return False
-        except Exception as e:
-            logger.error(f"Error capturing image: {e}")
-            return False
-    
-    def _extract_metadata(self, metadata_path: str) -> Dict[str, Any]:
-        """
-        Extract metadata from JSON file.
-        
-        Args:
-            metadata_path: Path to metadata JSON file
-            
-        Returns:
-            Dict containing extracted metadata
-        """
-        try:
-            with open(metadata_path, "r") as f:
-                metadata = json.load(f)
-            
-            return {
-                "ExposureTime": metadata.get("ExposureTime"),
-                "AnalogueGain": metadata.get("AnalogueGain"),
-                "DigitalGain": metadata.get("DigitalGain"),
-                "LensPosition": metadata.get("LensPosition"),
-                "FocusFoM": metadata.get("FocusFoM"),
-                "AfState": metadata.get("AfState"),
-                "SensorTemperature": metadata.get("SensorTemperature"),
-                "FrameDuration": metadata.get("FrameDuration"),
-                "Lux": metadata.get("Lux")
-            }
-        except FileNotFoundError:
-            logger.warning(f"Metadata file not found: {metadata_path}")
-            return {}
-        except json.JSONDecodeError:
-            logger.error(f"Error decoding JSON from metadata file: {metadata_path}")
-            return {}
-    
-    def _resize_with_letterbox(self, image: np.ndarray, target_size: tuple = (640, 640)) -> Optional[np.ndarray]:
-        """
-        Resize image with letterbox padding for YOLO model.
-        
-        Args:
-            image: Input image
-            target_size: Target size (width, height)
-            
-        Returns:
-            Resized image with letterbox padding
-        """
-        if image is None or not isinstance(image, np.ndarray):
-            logger.error("Invalid image input for resize_with_letterbox")
-            return None
-        
-        if len(image.shape) == 3 and image.shape[-1] == 3:
-            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        
-        original_height, original_width, channels = image.shape
-        target_width, target_height = target_size
-        
-        scale_factor = min(target_width / original_width, target_height / original_height)
-        new_width = int(original_width * scale_factor)
-        new_height = int(original_height * scale_factor)
-        
-        resized_image = cv2.resize(image, (new_width, new_height), interpolation=cv2.INTER_LINEAR)
-        letterboxed_image = np.full((target_height, target_width, channels), 0, dtype=np.uint8)
-        
-        offset_y = (target_height - new_height) // 2
-        offset_x = (target_width - new_width) // 2
-        letterboxed_image[offset_y:offset_y + new_height, offset_x:offset_x + new_width] = resized_image
-        
-        return letterboxed_image
-    
-    def _crop_license_plates(self, image: np.ndarray, results: List[Dict]) -> List[np.ndarray]:
-        """
-        Crop license plates from image based on detection results.
-        
-        Args:
-            image: Input image
-            results: Detection results from YOLO model
-            
-        Returns:
-            List of cropped license plate images
-        """
-        cropped_images = []
-        
-        for result in results:
-            bbox = result.get("bbox")
-            if not bbox or len(bbox) != 4:
-                continue
-            
-            x_min, y_min, x_max, y_max = map(int, bbox)
-            x_min = max(0, x_min)
-            y_min = max(0, y_min)
-            x_max = min(image.shape[1], x_max)
-            y_max = min(image.shape[0], y_max)
-            
-            if x_min >= x_max or y_min >= y_max:
-                logger.warning(f"Invalid bounding box coordinates: {bbox}")
-                continue
-            
-            cropped_images.append(image[y_min:y_max, x_min:x_max])
-        
-        return cropped_images
-    
-    def _read_text_with_easyocr(self, img: np.ndarray) -> tuple:
-        """
-        Read text from image using EasyOCR.
-        
-        Args:
-            img: Input image
-            
-        Returns:
-            Tuple of (text, confidence)
-        """
-        if img is None or img.size == 0:
-            return "No Image", 0.0
-        
-        if self.reader is None:
-            return "EasyOCR not available", 0.0
+    def run_length_detection_experiment(self, config: ExperimentConfig) -> List[ExperimentResult]:
+        """ทดลอง detection ตามความยาวของวัตถุ"""
+        experiment_id = self._generate_experiment_id('length_detection')
         
         try:
-            results = self.reader.readtext(img)
-            if results:
-                text = " ".join([res[1] for res in results])
-                confidence = np.mean([res[2] for res in results])
-                return text, confidence
-            else:
-                return "No Text", 0.0
-        except Exception as e:
-            logger.error(f"Error during EasyOCR processing: {e}")
-            return "OCR Error", 0.0
-    
-    def _save_csv_row(self, timestamp: str, experiment_id: str, experiment_type: str,
-                     camera_type: str, lens_cover: str, distance: float,
-                     license_text_cropped: str, license_text_full: str,
-                     confidence_cropped: float, confidence_full: float,
-                     sharpness_laplacian: float, blur_gaussian: float,
-                     exposure_time: Optional[float], analogue_gain: Optional[float],
-                     digital_gain: Optional[float], lens_position: Optional[float],
-                     focus_fom: Optional[float], af_state: Optional[str],
-                     sensor_temperature: Optional[float], frame_duration: Optional[float],
-                     lux: Optional[float], image_path: str, metadata_path: str):
-        """
-        Save experiment results to CSV file.
-        
-        Args:
-            All experiment data to be logged
-        """
-        try:
-            with open(self.csv_path, mode="a", newline="", encoding="utf-8") as f:
-                writer = csv.writer(f)
-                writer.writerow([
-                    timestamp, experiment_id, experiment_type, camera_type, lens_cover,
-                    distance, license_text_cropped, license_text_full, confidence_cropped,
-                    confidence_full, sharpness_laplacian, blur_gaussian, exposure_time,
-                    analogue_gain, digital_gain, lens_position, focus_fom, af_state,
-                    sensor_temperature, frame_duration, lux, image_path, metadata_path
-                ])
-        except Exception as e:
-            logger.error(f"Error saving CSV row: {e}")
-    
-    def summarize_results(self, experiment_id: str) -> Dict[str, Any]:
-        """
-        Summarize experiment results from CSV.
-        
-        Args:
-            experiment_id: ID of the experiment to summarize
+            # เข้าสู่โหมด experiment
+            if not self.isolator.enter_experiment_mode():
+                raise RuntimeError("Cannot enter experiment mode")
             
-        Returns:
-            Dictionary containing summary data
-        """
-        try:
+            self.current_experiment = experiment_id
+            logger.info(f"Starting length detection experiment: {experiment_id}")
+            
             results = []
-            with open(self.csv_path, mode="r", newline="", encoding="utf-8") as f:
-                reader = csv.DictReader(f)
-                for row in reader:
-                    if row.get("ExperimentID") == experiment_id:
-                        results.append(row)
             
-            if not results:
-                return {
-                    "experiment_id": experiment_id,
-                    "total_records": 0,
-                    "summary_by_camera_type": {},
-                    "message": "No results found for this experiment"
-                }
+            # ตรวจสอบพารามิเตอร์
+            if not all([config.start_length, config.max_length, config.step]):
+                raise ValueError("Missing length parameters for length detection")
             
-            summary_data = {
-                "experiment_id": experiment_id,
-                "total_records": len(results),
-                "summary_by_camera_type": {},
-                "overall_stats": {
-                    "avg_sharpness": 0.0,
-                    "avg_confidence_cropped": 0.0,
-                    "correct_ocr_count": 0,
-                    "total_ocr_attempts": 0
-                }
-            }
+            if config.start_length >= config.max_length:
+                raise ValueError("start_length must be less than max_length")
             
-            # Calculate statistics by camera type
-            for row in results:
-                cam_type = row.get("CameraType", "N/A")
-                if cam_type not in summary_data["summary_by_camera_type"]:
-                    summary_data["summary_by_camera_type"][cam_type] = {
-                        "correct_ocr_count": 0,
-                        "total_ocr_attempts": 0,
-                        "avg_sharpness": [],
-                        "avg_confidence_cropped": []
+            # รันการทดลองตามลำดับความยาว
+            for distance in np.arange(config.start_length, config.max_length + config.step, config.step):
+                logger.info(f"Processing distance: {distance}m")
+                
+                # ตั้งค่า auto focus (ถ้ารองรับ)
+                if config.enable_auto_focus:
+                    self._set_auto_focus_for_distance(distance)
+                    time.sleep(1)  # รอ auto focus
+                
+                # เก็บภาพและรัน detection
+                frame = self._capture_frame()
+                detection_result = self._run_isolated_detection(frame)
+                
+                # สร้างผลลัพธ์
+                result = ExperimentResult(
+                    experiment_id=experiment_id,
+                    experiment_type='length_detection',
+                    timestamp=datetime.now().isoformat(),
+                    image_source='camera',
+                    camera_config=self._get_camera_config(config),
+                    detection_result=detection_result,
+                    processing_time=0.0,  # จะคำนวณในภายหลัง
+                    frame_info={
+                        'width': frame.shape[1],
+                        'height': frame.shape[0],
+                        'channels': frame.shape[2]
+                    },
+                    metadata={
+                        'distance': distance,
+                        'focus_position': self._get_current_focus_position(),
+                        'image_quality': self._analyze_image_quality(frame)
                     }
+                )
                 
-                # Count correct OCR
-                if row.get("LicenseTextCropped") == "กก 6014 อุบลราชธานี":
-                    summary_data["summary_by_camera_type"][cam_type]["correct_ocr_count"] += 1
-                    summary_data["overall_stats"]["correct_ocr_count"] += 1
-                
-                if row.get("LicenseTextCropped") != "No Plate Detected":
-                    summary_data["summary_by_camera_type"][cam_type]["total_ocr_attempts"] += 1
-                    summary_data["overall_stats"]["total_ocr_attempts"] += 1
-                
-                # Collect numerical data
-                try:
-                    sharpness = float(row.get("SharpnessLaplacian", 0))
-                    confidence = float(row.get("ConfidenceCrop", 0))
-                    
-                    summary_data["summary_by_camera_type"][cam_type]["avg_sharpness"].append(sharpness)
-                    summary_data["summary_by_camera_type"][cam_type]["avg_confidence_cropped"].append(confidence)
-                except ValueError:
-                    pass
+                results.append(result)
+                self._save_experiment_result(result, frame)
             
-            # Calculate averages
-            for cam_type, data in summary_data["summary_by_camera_type"].items():
-                data["avg_sharpness"] = np.mean(data["avg_sharpness"]) if data["avg_sharpness"] else 0
-                data["avg_confidence_cropped"] = np.mean(data["avg_confidence_cropped"]) if data["avg_confidence_cropped"] else 0
-                data["accuracy_rate"] = (data["correct_ocr_count"] / data["total_ocr_attempts"]) if data["total_ocr_attempts"] > 0 else 0
+            # บันทึกผลลัพธ์ทั้งหมด
+            self.experiment_results.extend(results)
             
-            # Calculate overall averages
-            all_sharpness = []
-            all_confidence = []
-            for data in summary_data["summary_by_camera_type"].values():
-                if data["avg_sharpness"] > 0:
-                    all_sharpness.append(data["avg_sharpness"])
-                if data["avg_confidence_cropped"] > 0:
-                    all_confidence.append(data["avg_confidence_cropped"])
-            
-            summary_data["overall_stats"]["avg_sharpness"] = np.mean(all_sharpness) if all_sharpness else 0
-            summary_data["overall_stats"]["avg_confidence_cropped"] = np.mean(all_confidence) if all_confidence else 0
-            summary_data["overall_stats"]["accuracy_rate"] = (
-                summary_data["overall_stats"]["correct_ocr_count"] / 
-                summary_data["overall_stats"]["total_ocr_attempts"]
-            ) if summary_data["overall_stats"]["total_ocr_attempts"] > 0 else 0
-            
-            return summary_data
+            logger.info(f"Length detection experiment completed: {experiment_id}")
+            return results
             
         except Exception as e:
-            logger.error(f"Error summarizing results: {e}")
+            logger.error(f"Length detection experiment failed: {e}")
+            raise
+        finally:
+            # ออกจากโหมด experiment
+            self.isolator.exit_experiment_mode()
+            self.current_experiment = None
+    
+    def run_flexible_experiment(self, config: ExperimentConfig) -> List[ExperimentResult]:
+        """ทดลองด้วยการตั้งค่ากล้องที่กำหนดเอง"""
+        experiment_id = self._generate_experiment_id('flexible_config')
+        
+        try:
+            # เข้าสู่โหมด experiment
+            if not self.isolator.enter_experiment_mode():
+                raise RuntimeError("Cannot enter experiment mode")
+            
+            self.current_experiment = experiment_id
+            logger.info(f"Starting flexible experiment: {experiment_id}")
+            
+            # อัปเดตการตั้งค่ากล้องตามที่กำหนด
+            if config.custom_config:
+                self._update_camera_configuration(config.custom_config)
+            
+            # รันการทดลองตามลำดับความยาว
+            if config.start_length and config.max_length and config.step:
+                return self.run_length_detection_experiment(config)
+            else:
+                # ทดลองแบบ single shot
+                return [self.run_single_detection_experiment(config)]
+            
+        except Exception as e:
+            logger.error(f"Flexible experiment failed: {e}")
+            raise
+        finally:
+            # ออกจากโหมด experiment
+            self.isolator.exit_experiment_mode()
+            self.current_experiment = None
+    
+    def _get_image_frame(self, image_source: str) -> Tuple[np.ndarray, str]:
+        """ดึงภาพจากแหล่งที่กำหนด"""
+        if image_source == 'camera':
+            frame = self._capture_frame()
+            return frame, "Live Camera Frame"
+        else:
+            frame = self._load_still_image(image_source)
+            return frame, "Still Image"
+    
+    def _capture_frame(self) -> np.ndarray:
+        """เก็บภาพจากกล้อง"""
+        try:
+            if hasattr(self.camera_manager, 'capture_main_frame'):
+                frame = self.camera_manager.capture_main_frame()
+            elif hasattr(self.camera_manager, 'get_frame'):
+                frame = self.camera_manager.get_frame()
+            else:
+                raise RuntimeError("Camera manager has no frame capture method")
+            
+            if frame is None:
+                raise RuntimeError("Failed to capture frame from camera")
+            
+            return frame
+            
+        except Exception as e:
+            logger.error(f"Error capturing frame: {e}")
+            raise
+    
+    def _load_still_image(self, image_path: str) -> np.ndarray:
+        """โหลดภาพนิ่ง"""
+        try:
+            # ค้นหาภาพในโฟลเดอร์ assets
+            assets_dir = Path('/home/camuser/aicamera/edge/assets')
+            image_file = assets_dir / image_path
+            
+            if not image_file.exists():
+                raise FileNotFoundError(f"Image not found: {image_file}")
+            
+            frame = cv2.imread(str(image_file))
+            if frame is None:
+                raise RuntimeError(f"Failed to load image: {image_file}")
+            
+            return frame
+            
+        except Exception as e:
+            logger.error(f"Error loading still image: {e}")
+            raise
+    
+    def _get_camera_config(self, config: ExperimentConfig) -> Dict[str, Any]:
+        """ดึงการตั้งค่ากล้อง"""
+        if config.camera_config == 'current':
+            return self._get_current_camera_config()
+        elif config.camera_config == 'default':
+            return self._get_default_camera_config()
+        elif config.camera_config == 'custom' and config.custom_config:
+            return config.custom_config
+        else:
+            return self._get_current_camera_config()
+    
+    def _get_current_camera_config(self) -> Dict[str, Any]:
+        """ดึงการตั้งค่ากล้องปัจจุบัน"""
+        try:
+            if hasattr(self.camera_manager, 'get_camera_config'):
+                return self.camera_manager.get_camera_config()
+            elif hasattr(self.camera_manager, 'camera_config'):
+                return self.camera_manager.camera_config
+            else:
+                return {'status': 'unknown'}
+        except Exception as e:
+            logger.warning(f"Error getting current camera config: {e}")
+            return {'status': 'error', 'message': str(e)}
+    
+    def _get_default_camera_config(self) -> Dict[str, Any]:
+        """ดึงการตั้งค่ากล้องเริ่มต้น"""
+        return {
+            'exposure_time': 100000,
+            'analog_gain': 1.0,
+            'lens_position': 0.0,
+            'sharpness': 1.0,
+            'status': 'default'
+        }
+    
+    def _update_camera_configuration(self, config: Dict[str, Any]):
+        """อัปเดตการตั้งค่ากล้อง"""
+        try:
+            if hasattr(self.camera_manager, 'update_camera_config'):
+                self.camera_manager.update_camera_config(config)
+            elif hasattr(self.camera_manager, 'set_camera_config'):
+                self.camera_manager.set_camera_config(config)
+            else:
+                logger.warning("Camera manager has no config update method")
+        except Exception as e:
+            logger.error(f"Error updating camera config: {e}")
+            raise
+    
+    def _run_isolated_detection(self, frame: np.ndarray, config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """รัน detection แบบ isolated"""
+        try:
+            if hasattr(self.detection_processor, 'process_frame'):
+                return self.detection_processor.process_frame(frame, config)
+            elif hasattr(self.detection_processor, 'detect'):
+                return self.detection_processor.detect(frame)
+            else:
+                raise RuntimeError("Detection processor has no detection method")
+        except Exception as e:
+            logger.error(f"Error in isolated detection: {e}")
             return {
-                "experiment_id": experiment_id,
-                "error": str(e),
-                "total_records": 0,
-                "summary_by_camera_type": {}
+                'status': 'error',
+                'error': str(e),
+                'vehicles_detected': 0,
+                'plates_detected': 0,
+                'ocr_success': False,
+                'ocr_confidence': 0.0
             }
     
-    def get_experiment_details(self, experiment_id: str) -> Dict[str, Any]:
-        """
-        Get experiment configuration details.
-        
-        Args:
-            experiment_id: ID of the experiment
+    def _set_auto_focus_for_distance(self, distance: float):
+        """ตั้งค่า auto focus ตามความยาว"""
+        try:
+            if hasattr(self.camera_manager, 'set_auto_focus_for_distance'):
+                self.camera_manager.set_auto_focus_for_distance(distance)
+            elif hasattr(self.camera_manager, 'set_focus_distance'):
+                self.camera_manager.set_focus_distance(distance)
+            else:
+                logger.warning("Camera manager has no auto focus method")
+        except Exception as e:
+            logger.warning(f"Error setting auto focus: {e}")
+    
+    def _get_current_focus_position(self) -> float:
+        """ดึงตำแหน่ง focus ปัจจุบัน"""
+        try:
+            if hasattr(self.camera_manager, 'get_focus_position'):
+                return self.camera_manager.get_focus_position()
+            elif hasattr(self.camera_manager, 'focus_position'):
+                return self.camera_manager.focus_position
+            else:
+                return 0.0
+        except Exception:
+            return 0.0
+    
+    def _analyze_image_quality(self, frame: np.ndarray) -> Dict[str, Any]:
+        """วิเคราะห์คุณภาพภาพ"""
+        try:
+            # คำนวณความคมชัด (Laplacian variance)
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            laplacian_var = cv2.Laplacian(gray, cv2.CV_64F).var()
             
-        Returns:
-            Dictionary containing experiment details
-        """
-        # This would typically load from a database or config file
-        # For now, return a placeholder
+            # คำนวณความสว่างเฉลี่ย
+            brightness = np.mean(gray)
+            
+            # คำนวณ contrast
+            contrast = np.std(gray)
+            
+            return {
+                'sharpness': laplacian_var,
+                'brightness': brightness,
+                'contrast': contrast,
+                'quality_score': min(laplacian_var / 100, 1.0)  # Normalize to 0-1
+            }
+        except Exception as e:
+            logger.warning(f"Error analyzing image quality: {e}")
+            return {
+                'sharpness': 0.0,
+                'brightness': 0.0,
+                'contrast': 0.0,
+                'quality_score': 0.0
+            }
+    
+    def _save_experiment_result(self, result: ExperimentResult, frame: np.ndarray):
+        """บันทึกผลลัพธ์การทดลอง"""
+        try:
+            # บันทึกภาพ
+            image_filename = f"{result.experiment_id}_{result.experiment_type}.jpg"
+            image_path = self._get_experiment_image_path(result.experiment_type) / image_filename
+            cv2.imwrite(str(image_path), frame)
+            
+            # บันทึก metadata
+            metadata_filename = f"{result.experiment_id}_{result.experiment_type}.json"
+            metadata_path = self._get_experiment_metadata_path(result.experiment_type) / metadata_filename
+            
+            with open(metadata_path, 'w', encoding='utf-8') as f:
+                json.dump(asdict(result), f, indent=2, ensure_ascii=False)
+            
+            # บันทึกลง CSV
+            self._append_to_csv(result)
+            
+            logger.debug(f"Saved experiment result: {result.experiment_id}")
+            
+        except Exception as e:
+            logger.error(f"Error saving experiment result: {e}")
+    
+    def _get_experiment_image_path(self, experiment_type: str) -> Path:
+        """ดึงเส้นทางโฟลเดอร์ภาพตามประเภทการทดลอง"""
+        if experiment_type == 'single_detection':
+            return self.single_detection_dir / 'images'
+        elif experiment_type == 'length_detection':
+            return self.length_detection_dir / 'images'
+        elif experiment_type == 'flexible_config':
+            return self.flexible_config_dir / 'images'
+        else:
+            return self.results_dir / 'images'
+    
+    def _get_experiment_metadata_path(self, experiment_type: str) -> Path:
+        """ดึงเส้นทางโฟลเดอร์ metadata ตามประเภทการทดลอง"""
+        if experiment_type == 'single_detection':
+            return self.single_detection_dir / 'metadata'
+        elif experiment_type == 'length_detection':
+            return self.length_detection_dir / 'metadata'
+        elif experiment_type == 'flexible_config':
+            return self.flexible_config_dir / 'metadata'
+        else:
+            return self.results_dir / 'metadata'
+    
+    def _append_to_csv(self, result: ExperimentResult):
+        """เพิ่มผลลัพธ์ลงในไฟล์ CSV"""
+        try:
+            csv_filename = f"{result.experiment_type}_results.csv"
+            csv_path = self.results_dir / csv_filename
+            
+            # สร้างไฟล์ CSV ถ้ายังไม่มี
+            if not csv_path.exists():
+                with open(csv_path, 'w', newline='', encoding='utf-8') as f:
+                    writer = csv.writer(f)
+                    writer.writerow([
+                        'ExperimentID', 'ExperimentType', 'Timestamp', 'ImageSource',
+                        'VehiclesDetected', 'PlatesDetected', 'OCRSuccess', 'OCRConfidence',
+                        'ProcessingTime', 'ImageQuality', 'CameraConfig'
+                    ])
+            
+            # เพิ่มข้อมูลใหม่
+            with open(csv_path, 'a', newline='', encoding='utf-8') as f:
+                writer = csv.writer(f)
+                writer.writerow([
+                    result.experiment_id,
+                    result.experiment_type,
+                    result.timestamp,
+                    result.image_source,
+                    result.detection_result.get('vehicles_detected', 0),
+                    result.detection_result.get('plates_detected', 0),
+                    result.detection_result.get('ocr_success', False),
+                    result.detection_result.get('ocr_confidence', 0.0),
+                    result.processing_time,
+                    result.frame_info.get('width', 0) * result.frame_info.get('height', 0),
+                    json.dumps(result.camera_config)
+                ])
+                
+        except Exception as e:
+            logger.error(f"Error appending to CSV: {e}")
+    
+    def _generate_experiment_id(self, experiment_type: str) -> str:
+        """สร้าง ID สำหรับการทดลอง"""
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        return f"{experiment_type}_{timestamp}_{len(self.experiment_results)}"
+    
+    def get_experiment_status(self) -> Dict[str, Any]:
+        """ดึงสถานะการทำงานของ experiment service"""
         return {
-            "experiment_id": experiment_id,
-            "name": f"Experiment {experiment_id}",
-            "type": "Night Mode Lens Comparison",
-            "status": "completed"
+            'current_experiment': self.current_experiment,
+            'total_experiments': len(self.experiment_results),
+            'isolator_status': self.isolator.get_experiment_status(),
+            'results_directory': str(self.results_dir)
         }
     
     def get_available_experiments(self) -> List[Dict[str, Any]]:
-        """
-        Get list of available experiments.
-        
-        Returns:
-            List of experiment configurations
-        """
+        """ดึงรายการการทดลองที่สามารถทำได้"""
         return [
             {
-                "id": "night_mode_lens_comparison",
-                "name": "Night Mode Lens Comparison",
-                "description": "Compare lens performance in night mode",
-                "parameters": {
-                    "camera_types": ["IMX708", "IMX708Wide", "IMX708NoIR"],
-                    "lens_covers": ["Curve", "Flat"],
-                    "distances": list(range(1, 11)),  # 1-10 meters
-                    "night_mode": True
-                }
+                'type': 'single_detection',
+                'name': 'Single Detection Pipeline',
+                'description': 'ทดสอบ detection pipeline ด้วยภาพนิ่งหรือเฟรมเดียว',
+                'parameters': ['image_source', 'camera_config']
             },
             {
-                "id": "day_mode_lens_comparison",
-                "name": "Day Mode Lens Comparison",
-                "description": "Compare lens performance in day mode",
-                "parameters": {
-                    "camera_types": ["IMX708", "IMX708Wide", "IMX708NoIR"],
-                    "lens_covers": ["Curve", "Flat"],
-                    "distances": list(range(1, 11)),  # 1-10 meters
-                    "night_mode": False
-                }
+                'type': 'length_detection',
+                'name': 'Length Detection with Auto Focus',
+                'description': 'ทดสอบการตรวจจับตามความยาวด้วย auto focus',
+                'parameters': ['start_length', 'max_length', 'step', 'enable_auto_focus']
+            },
+            {
+                'type': 'flexible_config',
+                'name': 'Flexible Experimental Configuration',
+                'description': 'กำหนดการตั้งค่ากล้องเองและทดสอบ',
+                'parameters': ['custom_config', 'start_length', 'max_length', 'step']
             }
         ]
+    
+    def cleanup(self):
+        """ทำความสะอาด resources"""
+        try:
+            if self.current_experiment:
+                logger.warning("Cleaning up while experiment is running")
+                self.isolator.exit_experiment_mode()
+            
+            self.experiment_results.clear()
+            logger.info("Experiment Service cleaned up")
+            
+        except Exception as e:
+            logger.error(f"Error during cleanup: {e}")
+
+
+# Factory function for dependency injection
+def create_experiment_service(camera_manager, detection_processor, isolator: ExperimentIsolator) -> ExperimentService:
+    """สร้าง Experiment Service instance"""
+    return ExperimentService(camera_manager, detection_processor, isolator)

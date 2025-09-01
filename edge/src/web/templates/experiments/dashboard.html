@@ -15,115 +15,278 @@
 {% block content %}
 <div class="container-fluid">
     <div class="row">
-        <div class="col-12">
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">
-                        <i class="fas fa-flask"></i> Experiments Dashboard
-                    </h3>
-                    <div class="card-tools">
-                        <a href="{{ url_for('experiments.new_experiment') }}" class="btn btn-primary">
-                            <i class="fas fa-plus"></i> New Experiment
-                        </a>
+        <!-- Main content -->
+        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                <h1 class="h2">Experiment Dashboard</h1>
+                <div class="btn-toolbar mb-2 mb-md-0">
+                    <div class="btn-group me-2">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="refreshStatus()">
+                            <i class="fas fa-sync-alt"></i> Refresh
+                        </button>
                     </div>
                 </div>
-                <div class="card-body">
-                    {% if error %}
-                    <div class="alert alert-danger">
-                        <i class="fas fa-exclamation-triangle"></i> {{ error }}
-                    </div>
-                    {% endif %}
+            </div>
 
-                    <!-- Available Experiments -->
+            <!-- Experiment Types -->
+            <div class="row mb-4">
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <i class="fas fa-camera text-primary"></i> Single Detection
+                            </h5>
+                            <p class="card-text">ทดสอบ detection pipeline ด้วยภาพนิ่งหรือเฟรมเดียว</p>
+                            <button class="btn btn-primary" onclick="showSingleDetectionForm()">
+                                เริ่มการทดลอง
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <i class="fas fa-ruler text-success"></i> Length Detection
+                            </h5>
+                            <p class="card-text">ทดสอบการตรวจจับตามความยาวด้วย auto focus</p>
+                            <button class="btn btn-success" onclick="showLengthDetectionForm()">
+                                เริ่มการทดลอง
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <i class="fas fa-sliders-h text-warning"></i> Flexible Config
+                            </h5>
+                            <p class="card-text">กำหนดการตั้งค่ากล้องเองและทดสอบ</p>
+                            <button class="btn btn-warning" onclick="showFlexibleConfigForm()">
+                                เริ่มการทดลอง
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Active Experiments -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5><i class="fas fa-play-circle"></i> การทดลองที่กำลังดำเนินการ</h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="active-experiments-list">
+                                <!-- Dynamic content -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Results -->
+            <div class="row">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5><i class="fas fa-chart-bar"></i> ผลการทดลองล่าสุด</h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="recent-results">
+                                <!-- Dynamic content -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- History Results -->
+            <div class="row">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5><i class="fas fa-chart-bar"></i> ประวัติการทดลอง</h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="recent-results">
+                                <!-- Dynamic content -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<!-- Modals -->
+<!-- Single Detection Modal -->
+<div class="modal fade" id="singleDetectionModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Single Detection Experiment</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"
+                aria-label="Close" title="Close modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="singleDetectionForm">
+                    <div class="mb-3">
+                        <label class="form-label" for="image_source">แหล่งภาพ</label>
+                        <select class="form-select" id="image_source" name="image_source" required 
+                                title="เลือกแหล่งภาพสำหรับการทดลอง">
+                            <option value="camera">Live Camera Frame</option>
+                            <option value="still">Still Image</option>
+                        </select>
+                    </div>
+                    <div class="mb-3" id="stillImageSection" style="display: none;">
+                        <label class="form-label" for="still_image">เลือกภาพนิ่ง</label>
+                        <select class="form-select" id="still_image" name="still_image" 
+                                title="เลือกภาพนิ่งสำหรับการทดลอง">
+                            <option value="">เลือกภาพ...</option>
+                            <!-- Dynamic options -->
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="camera_config">การตั้งค่ากล้อง</label>
+                        <select class="form-select" id="camera_config" name="camera_config" 
+                                title="เลือกการตั้งค่ากล้องสำหรับการทดลอง">
+                            <option value="current">ใช้การตั้งค่าปัจจุบัน</option>
+                            <option value="default">ใช้การตั้งค่าเริ่มต้น</option>
+                            <option value="custom">กำหนดเอง</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3" id="customConfigSection" style="display: none;">
+                        <label class="form-label">การตั้งค่าที่กำหนดเอง</label>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <input type="number" class="form-control" name="exposure_time" placeholder="Exposure Time (μs)">
+                            </div>
+                            <div class="col-md-6">
+                                <input type="number" class="form-control" name="analog_gain" placeholder="Analog Gain" step="0.1">
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
+                <button type="button" class="btn btn-primary" onclick="startSingleDetectionExperiment()">
+                    เริ่มการทดลอง
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Length Detection Modal -->
+<div class="modal fade" id="lengthDetectionModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Length Detection Experiment</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="lengthDetectionForm">
                     <div class="row">
-                        <div class="col-12">
-                            <h4>Available Experiments</h4>
-                            <div class="row">
-                                {% for experiment in available_experiments %}
-                                <div class="col-md-6 col-lg-4 mb-3">
-                                    <div class="card h-100">
-                                        <div class="card-header">
-                                            <h5 class="card-title mb-0">{{ experiment.name }}</h5>
-                                        </div>
-                                        <div class="card-body">
-                                            <p class="card-text">{{ experiment.description }}</p>
-                                            <div class="small text-muted">
-                                                <strong>Parameters:</strong><br>
-                                                <ul class="list-unstyled">
-                                                    <li><i class="fas fa-camera"></i> Camera Types: {{ experiment.parameters.camera_types|join(', ') }}</li>
-                                                    <li><i class="fas fa-eye"></i> Lens Covers: {{ experiment.parameters.lens_covers|join(', ') }}</li>
-                                                    <li><i class="fas fa-ruler-horizontal"></i> Distances: {{ experiment.parameters.distances[0] }}-{{ experiment.parameters.distances[-1] }}m</li>
-                                                    <li><i class="fas fa-moon"></i> Night Mode: {{ "Yes" if experiment.parameters.night_mode else "No" }}</li>
-                                                </ul>
-                                            </div>
-                                        </div>
-                                        <div class="card-footer">
-                                            <a href="{{ url_for('experiments.new_experiment') }}?type={{ experiment.id }}" 
-                                               class="btn btn-sm btn-primary">
-                                                <i class="fas fa-play"></i> Start Experiment
-                                            </a>
-                                        </div>
-                                    </div>
-                                </div>
-                                {% endfor %}
-                            </div>
+                        <div class="col-md-4">
+                            <label class="form-label" for="start_length">ความยาวเริ่มต้น (เมตร)</label>
+                            <input type="number" class="form-control" id="start_length"  name="start_length" 
+                            value="1" min="0.5" max="20" step="0.5" required placeholder="1.0" title="ความยาวเริ่มต้นในการทดลอง">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label" for="max_length">ความยาวสูงสุด (เมตร)</label>
+                            <input type="number" class="form-control" id="max_length" name="max_length" 
+                                   value="10" min="1" max="50" step="0.5" required 
+                                   placeholder="10.0" title="ความยาวสูงสุดในการทดลอง">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label" for="step">ขั้นความยาว (เมตร)</label>
+                            <input type="number" class="form-control" id="step" name="step" 
+                                   value="1" min="0.1" max="5" step="0.1" required 
+                                   placeholder="1.0" title="ขั้นความยาวในการทดลอง">
                         </div>
                     </div>
-
-                    <!-- Past Experiments -->
-                    <div class="row mt-4">
-                        <div class="col-12">
-                            <h4>Past Experiments</h4>
-                            {% if experiments %}
-                            <div class="table-responsive">
-                                <table class="table table-striped">
-                                    <thead>
-                                        <tr>
-                                            <th>ID</th>
-                                            <th>Type</th>
-                                            <th>Created</th>
-                                            <th>Status</th>
-                                            <th>Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {% for experiment in experiments %}
-                                        <tr>
-                                            <td>{{ experiment.id[:8] }}...</td>
-                                            <td>{{ experiment.type }}</td>
-                                            <td>{{ experiment.created_at }}</td>
-                                            <td>
-                                                <span class="badge badge-{{ 'success' if experiment.status == 'completed' else 'warning' }}">
-                                                    {{ experiment.status }}
-                                                </span>
-                                            </td>
-                                            <td>
-                                                <a href="{{ url_for('experiments.view_results', experiment_id=experiment.id) }}" 
-                                                   class="btn btn-sm btn-info">
-                                                    <i class="fas fa-chart-bar"></i> Results
-                                                </a>
-                                                <a href="{{ url_for('experiments.run_experiment', experiment_id=experiment.id) }}" 
-                                                   class="btn btn-sm btn-primary">
-                                                    <i class="fas fa-play"></i> Run
-                                                </a>
-                                            </td>
-                                        </tr>
-                                        {% endfor %}
-                                    </tbody>
-                                </table>
-                            </div>
-                            {% else %}
-                            <div class="text-center text-muted">
-                                <i class="fas fa-flask fa-3x mb-3"></i>
-                                <p>No experiments have been run yet.</p>
-                                <a href="{{ url_for('experiments.new_experiment') }}" class="btn btn-primary">
-                                    <i class="fas fa-plus"></i> Create Your First Experiment
-                                </a>
-                            </div>
-                            {% endif %}
+                    
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="enable_auto_focus" id="enableAutoFocus" checked>
+                            <label class="form-check-label" for="enableAutoFocus">
+                                เปิดใช้งาน Auto Focus
+                            </label>
                         </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">การตั้งค่ากล้อง</label>
+                        <select class="form-select" name="camera_config">
+                            <option value="default">ใช้การตั้งค่าเริ่มต้น</option>
+                            <option value="current">ใช้การตั้งค่าปัจจุบัน</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
+                <button type="button" class="btn btn-success" onclick="startLengthDetectionExperiment()">
+                    เริ่มการทดลอง
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Experiment Progress Modal -->
+<div class="modal fade" id="experimentProgressModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">ความคืบหน้าการทดลอง</h5>
+            </div>
+            <div class="modal-body">
+                <div class="progress mb-3">
+                    <div class="progress-bar" id="experimentProgressBar" role="progressbar" 
+                         style="width: 0%" aria-label="Experiment progress" 
+                         aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" 
+                         title="ความคืบหน้าการทดลอง">
                     </div>
                 </div>
+                <div class="text-center mb-3">
+                    <span id="experimentProgressText">0%</span>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>สถานะ</h6>
+                        <p id="experimentStatus">กำลังเริ่มต้น...</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>รายละเอียด</h6>
+                        <p id="experimentDetails">-</p>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>ไฟล์ที่ประมวลผล</h6>
+                        <p id="processedFiles">0</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>เวลาที่ใช้</h6>
+                        <p id="elapsedTime">00:00</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-danger" onclick="stopExperiment()">
+                    หยุดการทดลอง
+                </button>
             </div>
         </div>
     </div>
@@ -131,12 +294,8 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
-$(document).ready(function() {
-    // Auto-refresh experiments list every 30 seconds
-    setInterval(function() {
-        // Could implement AJAX refresh here
-    }, 30000);
-});
-</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+<script src="/static/js/experiment.js"></script>
 {% endblock %}
