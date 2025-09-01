@@ -1,4 +1,4 @@
-#!/bin/bash
+s#!/bin/bash
 
 # Download Google Fonts for offline use
 # This script downloads all the font files referenced in fonts.css
