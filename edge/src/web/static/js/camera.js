@@ -121,7 +121,7 @@ const CameraManager = {
                 
                 // Only refresh video feed if camera streaming status changed AND video feed is broken
                 const wasStreaming = this.lastStreamingStatus;
-                const isStreaming = data.status.streaming;
+                const isStreaming = data.status.initialized && data.status.streaming;
                 this.lastStreamingStatus = isStreaming;
                 
                 if (wasStreaming !== isStreaming && isStreaming) {
@@ -267,16 +267,20 @@ const CameraManager = {
     updateCameraStatus: function(status) {
         console.log('Updating camera status:', status);
 
-        // Update status indicator
+        // Update status indicator based on API reference format
         let statusClass = 'status-offline';
         let statusText = 'Offline';
 
-        if (status.streaming) {
+        // Check status according to API reference: initialized and streaming flags
+        if (status.initialized && status.streaming) {
             statusClass = 'status-online';
             statusText = 'Online';
-        } else if (status.initialized) {
+        } else if (status.initialized && !status.streaming) {
             statusClass = 'status-warning';
             statusText = 'Ready';
+        } else if (!status.initialized) {
+            statusClass = 'status-offline';
+            statusText = 'Offline';
         }
 
         const statusIndicator = document.getElementById('camera-status-main');
@@ -297,11 +301,11 @@ const CameraManager = {
         }
 
         // Update video status based on camera status
-        if (status.streaming) {
+        if (status.initialized && status.streaming) {
             this.updateVideoStatus('hidden', '');
             // Force refresh video feed when camera starts streaming
             this.refreshVideoFeed();
-        } else if (status.initialized) {
+        } else if (status.initialized && !status.streaming) {
             this.updateVideoStatus('offline', 'Camera ready but not streaming');
         } else {
             this.updateVideoStatus('offline', 'Camera not initialized');
@@ -312,7 +316,7 @@ const CameraManager = {
     },
 
     /**
-     * Update detailed status content
+     * Update detailed status content according to API reference
      */
     updateStatusContent: function(status) {
         const statusContent = document.getElementById('status-content');
@@ -321,30 +325,28 @@ const CameraManager = {
             return;
         }
 
-        // Extract metadata information
-        const metadata = status.metadata || {};
-        const cameraProps = status.camera_handler?.camera_properties || {};
-        const currentConfig = status.config || {};
+        // Extract data according to API reference format
+        const cameraHandler = status.camera_handler || {};
+        const cameraProps = cameraHandler.camera_properties || {};
+        const currentConfig = cameraHandler.current_config || {};
         const mainConfig = currentConfig.main || {};
+        const controls = currentConfig.controls || {};
         
         console.log('Status update variables:', {
-            metadata: metadata,
+            cameraHandler: cameraHandler,
             cameraProps: cameraProps,
             currentConfig: currentConfig,
-            mainConfig: mainConfig
+            mainConfig: mainConfig,
+            controls: controls
         });
         
-        // Get resolution from metadata
+        // Get resolution from main config according to API reference
         let resolution = 'Unknown';
         if (mainConfig.size && Array.isArray(mainConfig.size)) {
             resolution = `${mainConfig.size[0]}x${mainConfig.size[1]}`;
-        } else if (currentConfig.main && currentConfig.main.size) {
-            resolution = `${currentConfig.main.size[0]}x${currentConfig.main.size[1]}`;
-        } else if (status.config && status.config.resolution) {
-            resolution = `${status.config.resolution[0]}x${status.config.resolution[1]}`;
         }
         
-        // Get sensor model from metadata
+        // Get sensor model from camera properties according to API reference
         let sensorModel = 'Unknown';
         if (cameraProps && cameraProps.Model) {
             sensorModel = `${cameraProps.Model}`;
@@ -371,8 +373,8 @@ const CameraManager = {
             <div class="row g-1">
                 <div class="col-6">
                     <small class="text-muted">Status:</small><br>
-                    <strong class="text-${status.streaming ? 'success' : status.initialized ? 'warning' : 'danger'}">
-                        ${status.streaming ? 'Online' : status.initialized ? 'Ready' : 'Offline'}
+                    <strong class="text-${status.initialized && status.streaming ? 'success' : status.initialized ? 'warning' : 'danger'}">
+                        ${status.initialized && status.streaming ? 'Online' : status.initialized ? 'Ready' : 'Offline'}
                     </strong>
                 </div>
                 <div class="col-6">
@@ -390,6 +392,18 @@ const CameraManager = {
                     <strong>${sensorModel}</strong>
                 </div>
             </div>
+            ${status.frame_count ? `
+                <div class="row g-1 mt-1">
+                    <div class="col-6">
+                        <small class="text-muted">Frame Count:</small><br>
+                        <strong>${status.frame_count.toLocaleString()}</strong>
+                    </div>
+                    <div class="col-6">
+                        <small class="text-muted">Avg FPS:</small><br>
+                        <strong>${status.average_fps ? status.average_fps.toFixed(1) : '0.0'}</strong>
+                    </div>
+                </div>
+            ` : ''}
             ${status.uptime ? `
                 <div class="row g-1 mt-1">
                     <div class="col-12">
