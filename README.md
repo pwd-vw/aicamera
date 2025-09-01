@@ -48,13 +48,13 @@ AI Camera System เป็นระบบตรวจจับป้ายทะ
 ### ความต้องการของระบบ
 
 #### Backend (Server)
-- Node.js 18+
-- PostgreSQL 14+
-- Redis 6+
+- Node.js 22+
+- PostgreSQL 17+
+- Redis 7+
 - npm หรือ yarn
 
 #### Frontend (Web)
-- Node.js 18+
+- Node.js 22+
 - npm หรือ yarn
 - Modern Browser (Chrome, Firefox, Safari, Edge)
 

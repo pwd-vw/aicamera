@@ -26,6 +26,7 @@ from flask_socketio import emit, join_room, leave_room
 from edge.src.core.dependency_container import get_service
 from edge.src.core.utils.logging_config import get_logger
 from edge.src.components.camera_handler import make_json_serializable
+from edge.src.core.config import MAIN_RESOLUTION
 
 # Create blueprint
 camera_bp = Blueprint('camera', __name__, url_prefix='/camera')
@@ -713,7 +714,8 @@ def _generate_status_frame(manager_status, frame_count):
     """
     try:
         # Create a simple status display frame
-        width, height = 640, 480
+        from edge.src.core.config import LORES_RESOLUTION
+        width, height = LORES_RESOLUTION
         frame = np.zeros((height, width, 3), dtype=np.uint8)
         
         # Fill with dark background

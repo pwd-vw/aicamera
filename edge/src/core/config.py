@@ -54,8 +54,12 @@ OCR_MODEL = os.getenv("OCR_MODEL", "easyOCR_raw_image")
 # OCR Configuration
 EASYOCR_LANGUAGES = ['en', 'th']
 
-# Image Storage
-IMAGE_SAVE_DIR =  os.path.join(BASE_DIR, 'edge', 'captured_images')
+# Image Storage - Can be overridden via environment variables
+raw_dir = os.getenv("IMAGE_SAVE_DIR")
+if raw_dir:
+    IMAGE_SAVE_DIR = raw_dir if os.path.isabs(raw_dir) else os.path.join(BASE_DIR, 'edge', raw_dir)
+else:
+    IMAGE_SAVE_DIR = os.path.join(BASE_DIR, 'edge', 'captured_images')
 
 # WebSocket server configuration
 WEBSOCKET_SERVER_URL = os.getenv("WEBSOCKET_SERVER_URL")
@@ -69,6 +73,10 @@ CAMERA_LOCATION = os.getenv("CAMERA_LOCATION", "Main Entrance")
 
 # Camera properties defaults - Can be overridden via environment variables
 DEFAULT_RESOLUTION = tuple(map(int, os.getenv("CAMERA_RESOLUTION", "640x640").split('x')))
+
+# Main and Lores stream resolutions - Can be overridden via environment variables
+MAIN_RESOLUTION = tuple(map(int, os.getenv("MAIN_RESOLUTION", "640x640").split('x')))
+LORES_RESOLUTION = tuple(map(int, os.getenv("LORES_RESOLUTION", "1280x720").split('x')))
 DEFAULT_FRAMERATE = int(os.getenv("CAMERA_FPS", "30"))
 DEFAULT_BRIGHTNESS = float(os.getenv("CAMERA_BRIGHTNESS", "0.0"))  # -1.0 to 1.0
 DEFAULT_CONTRAST = float(os.getenv("CAMERA_CONTRAST", "1.0"))    # 0.0 to 2.0

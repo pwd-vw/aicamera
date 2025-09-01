@@ -26,6 +26,26 @@ Tailscale เป็น mesh VPN ที่ใช้สำหรับเชื่
 - **Secure by default** - ใช้ WireGuard protocol
 - **Easy management** - จัดการผ่าน web dashboard
 
+## Network Architecture
+
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   LPR Server    │    │   Edge Device   │    │   Edge Device   │
+│                 │    │                 │    │                 │
+│ lprserver.      │◄──►│ aicamera1.      │◄──►│ aicamera2.      │
+│ tail605477.ts.net│    │ tail605477.ts.net│    │ tail605477.ts.net│
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+         │                       │                       │
+         │                       │                       │
+         ▼                       ▼                       ▼
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Edge Device   │    │   Edge Device   │    │   Edge Device   │
+│                 │    │                 │    │                 │
+│ aicamera3.      │    │ aicamera4.      │    │ aicamera5.      │
+│ tail605477.ts.net│    │ tail605477.ts.net│    │ tail605477.ts.net│
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+```
+
 ## Prerequisites
 
 - Tailscale account (https://login.tailscale.com)
@@ -209,6 +229,82 @@ sudo chmod +x /usr/local/bin/tailscale-health-check.sh
   }
 }
 ```
+
+## GitHub Actions Configuration
+
+### Required Secrets
+
+Configure these secrets in your GitHub repository:
+
+1. **SSH_PRIVATE_KEY**: SSH private key for deployment
+2. **SERVER_USER**: Username for LPR server (e.g., `lpruser`)
+3. **EDGE_USER**: Username for edge devices (e.g., `camuser`)
+
+### Environment Variables
+
+Set these repository variables:
+
+1. **ENABLE_SERVER_DEPLOYMENT**: `true` to enable server deployment
+2. **ENABLE_EDGE_DEPLOYMENT**: `true` to enable edge deployment
+
+## Deployment Workflow
+
+### Automatic Deployment
+
+The system supports automatic deployment through GitHub Actions:
+
+1. Push to main: Triggers automatic deployment
+2. Manual trigger: Use workflow dispatch for manual deployment
+3. Selective deployment: Choose specific devices or all devices
+
+### Deployment Options
+
+```yaml
+workflow_dispatch:
+  inputs:
+    deploy_server: true/false      # Deploy LPR server
+    deploy_edge: true/false        # Deploy edge devices
+    target_edge: all/aicamera1/aicamera2/aicamera3/aicamera4/aicamera5
+    single_edge_host: "custom.device.com"  # Custom device
+```
+
+## Health Monitoring
+
+### Automatic Health Checks
+
+The system includes automatic health monitoring:
+
+- **Frequency**: Every 5 minutes
+- **Checks**: All devices in the network
+- **Alerts**: Automatic issue creation for failed devices
+- **Status**: Real-time health status tracking
+
+### Manual Health Check
+
+```bash
+# Check LPR server health (via nginx proxy)
+curl -f http://lprserver.tail605477.ts.net/health
+
+# Check edge device health (via nginx proxy)
+curl -f http://aicamera1.tail605477.ts.net/health
+
+# Check all devices
+./scripts/check_network_health.sh
+```
+
+## Monitoring Dashboard
+
+Access the monitoring dashboard at:
+- LPR Server: http://lprserver.tail605477.ts.net
+- Edge Devices: http://aicamera1.tail605477.ts.net
+
+## Support
+
+For issues related to:
+- Tailscale: https://tailscale.com/kb/
+- AI Camera: Project documentation
+- Deployment: GitHub Actions logs
+- Network: Health monitoring workflow
 
 ### Advanced ACLs with Groups
 

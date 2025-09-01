@@ -274,8 +274,8 @@ class DetectionManager:
                 self.logger.warning("Camera manager not available")
                 return None
             
-            # Capture frame from camera
-            frame = camera_manager.capture_frame()
+            # Capture main frame from camera for detection processing
+            frame = camera_manager.capture_main_frame()
             if frame is None:
                 self.logger.debug("No frame available from camera")
                 return None

@@ -59,8 +59,9 @@ class VideoStreamingService:
         self.streaming_thread = None
         self.stop_event = threading.Event()
         
-        # Video settings
-        self.width, self.height = DEFAULT_RESOLUTION
+        # Video settings - Use MAIN_RESOLUTION for video feed
+        from edge.src.core.config import MAIN_RESOLUTION
+        self.width, self.height = MAIN_RESOLUTION
         self.fps = DEFAULT_FRAMERATE
         self.quality = 80
         

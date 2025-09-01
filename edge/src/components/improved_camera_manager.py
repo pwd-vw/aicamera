@@ -49,15 +49,14 @@ def check_picamera2_availability():
     
     return PICAMERA2_AVAILABLE and LIBCAMERA_AVAILABLE
 
-# Default camera settings
-DEFAULT_RESOLUTION = (1280, 720)
+# Default camera settings - Import from config
+from edge.src.core.config import DEFAULT_RESOLUTION, MAIN_RESOLUTION, LORES_RESOLUTION, IMAGE_SAVE_DIR
 DEFAULT_FRAMERATE = 30
 DEFAULT_BRIGHTNESS = 0.0
 DEFAULT_CONTRAST = 1.0
 DEFAULT_SATURATION = 1.0
 DEFAULT_SHARPNESS = 1.0
 DEFAULT_AWB_MODE = 'auto'
-IMAGE_SAVE_DIR = '/home/camuser/aicamera/captured_images'
 
 logger = logging.getLogger(__name__)
 
@@ -214,8 +213,8 @@ class ImprovedCameraManager:
                 resolution = camera_settings.get('resolution', DEFAULT_RESOLUTION)
                 framerate = camera_settings.get('framerate', DEFAULT_FRAMERATE)
                 
-                main_config = {"size": resolution}
-                lores_config = {"size": (640, 480)}  # For efficient processing
+                main_config = {"size": MAIN_RESOLUTION}
+                lores_config = {"size": LORES_RESOLUTION}  # For efficient processing
                 
                 config = self.picam2.create_video_configuration(
                     main=main_config,

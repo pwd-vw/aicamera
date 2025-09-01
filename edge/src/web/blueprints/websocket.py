@@ -18,6 +18,7 @@ from datetime import datetime
 # Use absolute imports
 from edge.src.core.dependency_container import get_service
 from edge.src.core.utils.logging_config import get_logger
+from edge.src.core.config import MAIN_RESOLUTION, LORES_RESOLUTION
 
 # Create blueprint
 websocket_bp = Blueprint('websocket', __name__, url_prefix='/websocket')
@@ -208,7 +209,7 @@ def streaming_status():
                     'active': status.get('streaming', False),
                     'streaming': status.get('streaming', False),
                     'fps': status.get('config', {}).get('framerate', 30),
-                    'resolution': status.get('config', {}).get('resolution', [640, 480])
+                    'resolution': status.get('config', {}).get('resolution', LORES_RESOLUTION)
                 }
             })
         else:
@@ -218,7 +219,7 @@ def streaming_status():
                     'active': False,
                     'streaming': False,
                     'fps': 30,
-                    'resolution': [640, 480]
+                    'resolution': LORES_RESOLUTION
                 }
             })
     except Exception as e:

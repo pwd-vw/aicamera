@@ -1,6 +1,6 @@
 # AI Camera Edge System - Documentation
 
-**Version:** 1.3.4  
+**Version:** 2.0  
 **Last Updated:** 2025-08-19  
 **Author:** AI Camera Team  
 
@@ -18,7 +18,6 @@ Documentation specific to edge device deployment and operation.
 - **[project-overview.md](edge/project-overview.md)** - Project overview and architecture
 - **[api-reference.md](edge/api-reference.md)** - Edge device API reference
 - **[picamera2-reference.md](edge/picamera2-reference.md)** - PiCamera2 configuration reference
-- **[metadata-debugging.md](edge/metadata-debugging.md)** - Metadata debugging guide
 - **[dashboard-improvements.md](edge/dashboard-improvements.md)** - Dashboard improvements guide
 
 ### 🖥️ **Server Documentation** (`server/`)

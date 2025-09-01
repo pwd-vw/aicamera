@@ -81,7 +81,8 @@ class DetectionProcessor:
         }
         
         # Configuration
-        self.detection_resolution = (640, 640)
+        from edge.src.core.config import LORES_RESOLUTION
+        self.detection_resolution = LORES_RESOLUTION
         self.confidence_threshold = CONFIDENCE_THRESHOLD
         self.plate_confidence_threshold = PLATE_CONFIDENCE_THRESHOLD
         self.logger.info("DetectionProcessor initialized")

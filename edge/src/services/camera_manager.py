@@ -544,6 +544,38 @@ class CameraManager:
             self.logger.error(f"Error capturing frame: {e}")
             return None
     
+    def capture_main_frame(self):
+        """
+        Capture a main resolution frame for detection processing.
+        Thread-safe access to main stream using frame buffer.
+        
+        Returns:
+            numpy.ndarray or None: Main resolution camera frame as numpy array, None if capture failed
+        """
+        try:
+            if not self.camera_handler or not self.camera_handler.initialized:
+                self.logger.warning("Cannot capture main frame - camera not initialized")
+                return None
+            
+            # Check if frame buffer is ready
+            if not self.camera_handler.is_frame_buffer_ready():
+                self.logger.warning("Frame buffer not ready yet")
+                return None
+            
+            # Get main frame from camera handler buffer
+            frame = self.camera_handler.get_main_frame()
+            
+            if frame is not None:
+                self.logger.debug(f"Main frame captured, shape: {frame.shape}")
+                return frame
+            else:
+                self.logger.warning("No main frame available from camera handler")
+                return None
+                
+        except Exception as e:
+            self.logger.error(f"Error capturing main frame: {e}")
+            return None
+
     def capture_lores_frame(self):
         """
         Capture a low-resolution frame for web interface video streaming.
@@ -562,25 +594,14 @@ class CameraManager:
                 self.logger.warning("Frame buffer not ready yet")
                 return None
             
-            # Capture lores frame from camera handler
-            frame_data = self.camera_handler.capture_lores_frame()
+            # Get lores frame from camera handler buffer
+            frame = self.camera_handler.get_lores_frame()
             
-            # Debug: Log frame data information
-            self.logger.debug(f"Camera handler returned lores frame_data type: {type(frame_data)}")
-            if isinstance(frame_data, dict):
-                self.logger.debug(f"Lores frame data keys: {list(frame_data.keys())}")
-                if 'frame' in frame_data:
-                    frame = frame_data['frame']
-                    self.logger.debug(f"Extracted lores frame shape: {frame.shape if hasattr(frame, 'shape') else 'No shape'}")
-                    return frame
-                else:
-                    self.logger.warning("Lores frame data dict does not contain 'frame' key")
-                    return None
-            elif isinstance(frame_data, np.ndarray):
-                self.logger.debug(f"Lores frame data is numpy array, shape: {frame_data.shape}")
-                return frame_data
+            if frame is not None:
+                self.logger.debug(f"Lores frame captured, shape: {frame.shape}")
+                return frame
             else:
-                self.logger.warning(f"Invalid lores frame data type: {type(frame_data)}")
+                self.logger.warning("No lores frame available from camera handler")
                 return None
                 
         except Exception as e:

@@ -390,7 +390,6 @@ class CameraHandler:
             bool: True if initialization successful, False otherwise
         """
         def _initialize_camera_internal():
-            with self._lock:
                 if self.initialized:
                     self.logger.warning("Camera already initialized (Singleton protection)")
                     return True
@@ -455,8 +454,9 @@ class CameraHandler:
                 
                 # Create video configuration optimized for ML detection
                 # According to Picamera2 manual, use proper stream configuration
-                main_config = {"size": (1280, 720), "format": "RGB888"}
-                lores_config = {"size": (640, 480), "format": "XBGR8888"}
+                from src.core.config import MAIN_RESOLUTION, LORES_RESOLUTION
+                main_config = {"size": MAIN_RESOLUTION, "format": "RGB888"}
+                lores_config = {"size": LORES_RESOLUTION, "format": "XBGR8888"}
                 
                 # Create configuration with proper stream setup
                 config = self.picam2.create_video_configuration(
@@ -487,7 +487,6 @@ class CameraHandler:
             bool: True if started successfully, False otherwise
         """
         def _start_camera_internal():
-            with self._lock:
                 if not self.initialized:
                     self.logger.error("Camera not initialized")
                     return False
@@ -1934,7 +1933,7 @@ class CameraHandler:
         """
         try:
             # Acquire camera access lock for thread safety
-            with self._camera_lock:
+            with self._lock:
                 self.logger.debug("Acquired camera access lock")
                 
                 # Execute the operation
