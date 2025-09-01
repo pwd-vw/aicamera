@@ -1,0 +1,48 @@
+[Unit]
+Description=AI Camera Smart Browser Service (Auto-detect Monitor/Headless)
+After=network.target aicamera_lpr.service nginx.service
+Wants=network.target
+Requires=network.target aicamera_lpr.service nginx.service
+
+[Service]
+Type=simple
+User=camuser
+Group=camuser
+WorkingDirectory=/home/camuser/aicamera
+
+# Environment variables
+Environment=PYTHONPATH=/home/camuser/aicamera/edge/src
+Environment=WEB_URL=http://localhost/
+Environment=BROWSER_PATH=/usr/lib/chromium/chromium
+Environment=USER_DATA_DIR=/tmp/chromium-ai-camera
+Environment=REMOTE_DEBUG_PORT=9222
+Environment=WAIT_TIMEOUT=120
+Environment=CHECK_INTERVAL=30
+Environment=MAX_RETRIES=3
+Environment=HEADLESS_FALLBACK=true
+
+# ใช้ startup script ที่จะ detect environment และ launch browser
+ExecStart=/home/camuser/aicamera/edge/scripts/startup_browser.sh
+
+# Restart policy
+Restart=always
+RestartSec=30
+
+# Kill mode
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ai-camera-browser-smart
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/tmp /home/camuser/aicamera
+
+[Install]
+WantedBy=multi-user.target

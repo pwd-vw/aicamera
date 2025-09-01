@@ -920,7 +920,7 @@ def _generate_error_stream(message):
 @camera_bp.route('/video_feed')
 def video_feed():
     """
-    Video streaming endpoint with enhanced fallback mechanisms.
+    Video streaming endpoint with enhanced fallback mechanisms and improved chunked encoding.
     
     Returns:
         Response: Multipart video stream
@@ -931,29 +931,73 @@ def video_feed():
         if video_streaming and hasattr(video_streaming, 'get_frame'):
             # Use video streaming service if available
             logger.info("Using video streaming service for video feed")
-            return Response(_generate_frames_from_service_improved(video_streaming),
-                           mimetype='multipart/x-mixed-replace; boundary=frame')
+            return Response(
+                _generate_frames_from_service_improved(video_streaming),
+                mimetype='multipart/x-mixed-replace; boundary=frame',
+                headers={
+                    'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
+                    'Pragma': 'no-cache',
+                    'Expires': '0',
+                    'Connection': 'keep-alive',
+                    'Transfer-Encoding': 'chunked',
+                    'X-Accel-Buffering': 'no',  # Disable nginx buffering
+                    'X-Content-Type-Options': 'nosniff'
+                }
+            )
         else:
             # Fallback to direct camera manager
             logger.info("Video streaming service not available, using direct camera manager")
             try:
-                return Response(generate_frames(),
-                               mimetype='multipart/x-mixed-replace; boundary=frame')
+                return Response(
+                    generate_frames(),
+                    mimetype='multipart/x-mixed-replace; boundary=frame',
+                    headers={
+                        'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
+                        'Pragma': 'no-cache',
+                        'Expires': '0',
+                        'Connection': 'keep-alive',
+                        'Transfer-Encoding': 'chunked',
+                        'X-Accel-Buffering': 'no',  # Disable nginx buffering
+                        'X-Content-Type-Options': 'nosniff'
+                    }
+                )
             except Exception as fallback_error:
                 logger.error(f"Direct camera manager fallback failed: {fallback_error}")
                 # Ultimate fallback: error stream
-                return Response(_generate_error_stream("Camera service unavailable"),
-                               mimetype='multipart/x-mixed-replace; boundary=frame')
+                return Response(
+                    _generate_error_stream("Camera service unavailable"),
+                    mimetype='multipart/x-mixed-replace; boundary=frame',
+                    headers={
+                        'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
+                        'Pragma': 'no-cache',
+                        'Expires': '0',
+                        'Connection': 'keep-alive',
+                        'Transfer-Encoding': 'chunked',
+                        'X-Accel-Buffering': 'no',  # Disable nginx buffering
+                        'X-Content-Type-Options': 'nosniff'
+                    }
+                )
     except Exception as e:
         logger.error(f"Error in video_feed endpoint: {e}")
         # Return error stream instead of failing completely
-        return Response(_generate_error_stream("Video feed error"),
-                       mimetype='multipart/x-mixed-replace; boundary=frame')
+        return Response(
+            _generate_error_stream("Video feed error"),
+            mimetype='multipart/x-mixed-replace; boundary=frame',
+            headers={
+                'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
+                'Pragma': 'no-cache',
+                'Expires': '0',
+                'Connection': 'keep-alive',
+                'Transfer-Encoding': 'chunked',
+                'X-Accel-Buffering': 'no',  # Disable nginx buffering
+                'X-Content-Type-Options': 'nosniff'
+            }
+        )
 
 
 def _generate_frames_from_service_improved(video_streaming):
     """
-    Generate frames using video streaming service with improved error handling.
+    Generate frames using video streaming service with improved error handling and complete MJPEG stream formatting.
     
     Args:
         video_streaming: Video streaming service instance
@@ -965,6 +1009,7 @@ def _generate_frames_from_service_improved(video_streaming):
     max_errors = 3  # Reduced from 5 to 3
     error_delay = 0.5  # Reduced from 1.0 to 0.5
     frame_count = 0
+    last_frame_time = time.time()
     
     try:
         # Start streaming if not already started
@@ -999,28 +1044,47 @@ def _generate_frames_from_service_improved(video_streaming):
                             # Reset error counter on success
                             consecutive_errors = 0
                             frame_count += 1
+                            current_time = time.time()
                             
                             # Log success periodically with frame details
                             if frame_count % 30 == 0:  # Every 30 frames
-                                logger.info(f"Video feed: {frame_count} frames sent successfully - Source: {source}, Size: {width}x{height}, Quality: {quality}, Frame bytes: {len(frame_bytes)}")
+                                fps = 30.0 / (current_time - last_frame_time) if current_time > last_frame_time else 0
+                                logger.info(f"Video feed: {frame_count} frames sent successfully - Source: {source}, Size: {width}x{height}, Quality: {quality}, Frame bytes: {len(frame_bytes)}, FPS: {fps:.1f}")
+                                last_frame_time = current_time
                             
-                            yield (b'--frame\r\n'
-                                   b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+                            # Send frame with proper MJPEG formatting
+                            # Ensure complete multipart boundary and content
+                            frame_data = (b'--frame\r\n'
+                                         b'Content-Type: image/jpeg\r\n'
+                                         b'Content-Length: ' + str(len(frame_bytes)).encode() + b'\r\n'
+                                         b'\r\n' + frame_bytes + b'\r\n')
+                            
+                            # Ensure proper encoding and yield
+                            yield frame_data
+                            
+                            # Small delay to prevent overwhelming the client
+                            time.sleep(0.033)  # ~30 FPS
+                            
                         else:
                             consecutive_errors += 1
                             logger.warning(f"Frame too small: {len(frame_bytes)} bytes, Source: {source}, Expected size: {width}x{height}")
                             # Generate error frame for small frames
                             error_frame = _generate_error_frame(f"Frame data too small: {len(frame_bytes)} bytes")
                             yield (b'--frame\r\n'
-                                   b'Content-Type: image/jpeg\r\n\r\n' + error_frame + b'\r\n')
+                                   b'Content-Type: image/jpeg\r\n'
+                                   b'Content-Length: ' + str(len(error_frame)).encode() + b'\r\n'
+                                   b'\r\n' + error_frame + b'\r\n')
                             time.sleep(error_delay)
+                            
                     except Exception as decode_error:
                         consecutive_errors += 1
                         logger.error(f"Frame decode error: {decode_error}, Source: {source}, Frame data keys: {list(frame_data.keys()) if frame_data else 'None'}")
                         # Generate error frame for decode errors
                         error_frame = _generate_error_frame(f"Frame decode error: {str(decode_error)[:50]}")
                         yield (b'--frame\r\n'
-                               b'Content-Type: image/jpeg\r\n\r\n' + error_frame + b'\r\n')
+                               b'Content-Type: image/jpeg\r\n'
+                               b'Content-Length: ' + str(len(error_frame)).encode() + b'\r\n'
+                               b'\r\n' + error_frame + b'\r\n')
                         time.sleep(error_delay)
                 else:
                     consecutive_errors += 1
@@ -1028,7 +1092,9 @@ def _generate_frames_from_service_improved(video_streaming):
                         # Generate error frame instead of placeholder
                         error_frame = _generate_error_frame("No frame data from streaming service")
                         yield (b'--frame\r\n'
-                               b'Content-Type: image/jpeg\r\n\r\n' + error_frame + b'\r\n')
+                               b'Content-Type: image/jpeg\r\n'
+                               b'Content-Length: ' + str(len(error_frame)).encode() + b'\r\n'
+                               b'\r\n' + error_frame + b'\r\n')
                         time.sleep(error_delay)
                     else:
                         time.sleep(0.1)
@@ -1041,7 +1107,9 @@ def _generate_frames_from_service_improved(video_streaming):
                     # Generate error frame instead of placeholder
                     error_frame = _generate_error_frame("Streaming service error")
                     yield (b'--frame\r\n'
-                           b'Content-Type: image/jpeg\r\n\r\n' + error_frame + b'\r\n')
+                           b'Content-Type: image/jpeg\r\n'
+                           b'Content-Length: ' + str(len(error_frame)).encode() + b'\r\n'
+                           b'\r\n' + error_frame + b'\r\n')
                     time.sleep(error_delay)
                 else:
                     time.sleep(0.1)
@@ -1051,12 +1119,16 @@ def _generate_frames_from_service_improved(video_streaming):
         # Generate error frame
         error_frame = _generate_error_frame("Critical streaming service error")
         yield (b'--frame\r\n'
-               b'Content-Type: image/jpeg\r\n\r\n' + error_frame + b'\r\n')
+               b'Content-Type: image/jpeg\r\n'
+               b'Content-Length: ' + str(len(error_frame)).encode() + b'\r\n'
+               b'\r\n' + error_frame + b'\r\n')
         # Continue generating error frames
         while True:
             time.sleep(2.0)
             yield (b'--frame\r\n'
-                   b'Content-Type: image/jpeg\r\n\r\n' + error_frame + b'\r\n')
+                   b'Content-Type: image/jpeg\r\n'
+                   b'Content-Length: ' + str(len(error_frame)).encode() + b'\r\n'
+                   b'\r\n' + error_frame + b'\r\n')
 
 
 def _generate_lores_frames_from_service(video_streaming):
@@ -1185,19 +1257,22 @@ def register_camera_events(socketio):
     
     @socketio.on('connect')
     def handle_camera_connect():
-        """Handle browser connection to camera WebSocket with improved error handling."""
+        """Handle browser connection to camera WebSocket with improved error handling and navigation detection."""
         try:
             session_id = request.sid
             logger.info(f"New WebSocket connection: {session_id}")
             
-            # Get browser information (simplified)
+            # Get comprehensive browser information for fingerprinting
             browser_info = {
                 'user_agent': request.headers.get('User-Agent', 'Unknown')[:100],  # Limit length
                 'ip_address': request.remote_addr,
+                'accept_language': request.headers.get('Accept-Language', 'Unknown'),
+                'accept_encoding': request.headers.get('Accept-Encoding', 'Unknown'),
+                'accept': request.headers.get('Accept', 'Unknown'),
                 'connected_at': datetime.now().isoformat()
             }
             
-            # Track browser connection (non-blocking)
+            # Track browser connection (non-blocking) with navigation detection
             try:
                 browser_manager = get_service('browser_connection_manager')
                 if browser_manager:
@@ -2191,3 +2266,72 @@ def video_feed_debug():
             'error': str(e),
             'timestamp': datetime.now().isoformat()
         })
+
+def _generate_fallback_stream():
+    """
+    Generate a fallback stream with test pattern when video streaming service is not available.
+    
+    Yields:
+        bytes: Test pattern frames in multipart format
+    """
+    logger.info("Generating fallback stream with test pattern")
+    
+    try:
+        # Generate a simple test pattern
+        test_frame = _generate_test_pattern_frame()
+        
+        while True:
+            # Send test frame
+            yield (b'--frame\r\n'
+                   b'Content-Type: image/jpeg\r\n\r\n' + test_frame + b'\r\n')
+            
+            # Wait before sending next frame
+            time.sleep(0.1)  # 10 FPS
+            
+    except Exception as e:
+        logger.error(f"Error in fallback stream: {e}")
+        # Generate error frame
+        error_frame = _generate_error_frame("Fallback stream error")
+        yield (b'--frame\r\n'
+               b'Content-Type: image/jpeg\r\n\r\n' + error_frame + b'\r\n')
+
+def _generate_test_pattern_frame():
+    """
+    Generate a test pattern frame for fallback stream.
+    
+    Returns:
+        bytes: JPEG test pattern frame
+    """
+    try:
+        from PIL import Image, ImageDraw, ImageFont
+        import io
+        
+        # Create test pattern image
+        img = Image.new('RGB', (640, 480), color='blue')
+        draw = ImageDraw.Draw(img)
+        
+        # Add test pattern
+        for i in range(0, 640, 40):
+            for j in range(0, 480, 40):
+                color = 'red' if (i + j) % 80 == 0 else 'green'
+                draw.rectangle([i, j, i + 39, j + 39], fill=color)
+        
+        # Add text
+        try:
+            # Try to load a font
+            font = ImageFont.load_default()
+            draw.text((320, 240), "TEST PATTERN", fill='white', font=font, anchor='mm')
+            draw.text((320, 260), "Video Service Unavailable", fill='yellow', font=font, anchor='mm')
+        except:
+            # If font loading fails, just draw rectangles
+            pass
+        
+        # Convert to JPEG
+        img_io = io.BytesIO()
+        img.save(img_io, 'JPEG', quality=85)
+        return img_io.getvalue()
+        
+    except Exception as e:
+        logger.error(f"Error generating test pattern frame: {e}")
+        # Return minimal JPEG data
+        return b'\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x01\x00H\x00H\x00\x00\xff\xdb\x00C\x00\x08\x06\x06\x07\x06\x05\x08\x07\x07\x07\t\t\x08\n\x0c\x14\r\x0c\x0b\x0b\x0c\x19\x12\x13\x0f\x14\x1d\x1a\x1f\x1e\x1d\x1a\x1c\x1c $.\' ",#\x1c\x1c(7),01444\x1f\'9=82<.342\xff\xc0\x00\x11\x08\x00\x01\x00\x01\x01\x01\x11\x00\x02\x11\x01\x03\x11\x01\xff\xc4\x00\x14\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x08\xff\xc4\x00\x14\x10\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xda\x00\x0c\x03\x01\x00\x02\x11\x03\x11\x00\x3f\x00\xaa\xff\xd9'

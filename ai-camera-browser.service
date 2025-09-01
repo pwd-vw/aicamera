@@ -1,0 +1,41 @@
+[Unit]
+Description=AI Camera Browser Service (Auto-detect Monitor/Headless)
+After=network.target aicamera_lpr.service nginx.service
+Wants=network.target
+Requires=network.target aicamera_lpr.service nginx.service
+
+[Service]
+Type=simple
+User=camuser
+Group=camuser
+WorkingDirectory=/home/camuser/aicamera
+
+# Environment variables สำหรับ handler
+Environment=WEB_URL=http://localhost/
+Environment=BROWSER_PATH=/usr/lib/chromium/chromium
+Environment=USER_DATA_DIR=/tmp/chromium-ai-camera
+Environment=REMOTE_DEBUG_PORT=9222
+Environment=WAIT_TIMEOUT=120
+Environment=CHECK_INTERVAL=30
+Environment=MAX_RETRIES=3
+Environment=HEADLESS_FALLBACK=true
+
+# ใช้ handler script แทนการเรียก browser โดยตรง
+ExecStart=/home/camuser/aicamera/edge/scripts/kiosk_browser_handler.py
+
+# Restart policy
+Restart=always
+RestartSec=30
+
+# Kill mode
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=15
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ai-camera-browser
+
+[Install]
+WantedBy=multi-user.target

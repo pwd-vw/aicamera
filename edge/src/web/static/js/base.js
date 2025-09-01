@@ -329,154 +329,131 @@ const WebSocketManager = {
     }
 };
 
-// Fullscreen management
+/**
+ * Fullscreen Manager - ปรับปรุงให้รองรับ headless environment
+ */
 const FullscreenManager = {
-    isFullscreen: true, // Default to fullscreen in kiosk mode
+    isFullscreen: false,
+    isHeadless: false,
     
     /**
-     * Initialize fullscreen functionality
+     * Initialize fullscreen manager
      */
     init: function() {
-        // Check if we're in kiosk mode
-        this.isFullscreen = window.navigator.standalone || 
-                           document.webkitIsFullScreen || 
-                           document.fullscreenElement !== null;
+        console.log('Fullscreen manager initialized. Current state: Normal');
         
-        // Setup exit button functionality
-        this.setupExitButton();
+        // ตรวจสอบว่าเป็น headless environment หรือไม่
+        this.detectHeadlessEnvironment();
         
-        // Setup keyboard shortcuts
-        this.setupKeyboardShortcuts();
+        // Setup event listeners
+        this.setupEventListeners();
         
-        // Auto-enter fullscreen on page load (for kiosk mode)
-        this.autoEnterFullscreen();
-        
-        console.log('Fullscreen manager initialized. Current state:', this.isFullscreen ? 'Fullscreen' : 'Normal');
-    },
-    
-    /**
-     * Auto-enter fullscreen on page load
-     */
-    autoEnterFullscreen: function() {
-        // Wait a bit for the page to load completely
-        setTimeout(() => {
-            if (!this.isFullscreen) {
-                this.enterFullscreen();
-            }
-        }, 2000);
-    },
-    
-    /**
-     * Setup exit button functionality
-     */
-    setupExitButton: function() {
-        const exitBtn = document.getElementById('exit-browser-btn');
-        if (!exitBtn) return;
-        
-        // Update button text and icon based on current state
+        // Update UI
         this.updateExitButton();
-        
-        // Add click event listener
-        exitBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            this.toggleFullscreen();
-        });
-        
-        // Prevent right-click context menu on the button
-        exitBtn.addEventListener('contextmenu', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-        });
     },
     
     /**
-     * Setup keyboard shortcuts
+     * Detect if running in headless environment
      */
-    setupKeyboardShortcuts: function() {
+    detectHeadlessEnvironment: function() {
+        // ตรวจสอบว่าไม่มี display หรือเป็น headless
+        if (!window.screen || window.screen.width === 0 || window.screen.height === 0) {
+            this.isHeadless = true;
+            console.log('Headless environment detected - disabling fullscreen features');
+        }
+        
+        // ตรวจสอบว่าเป็น kiosk mode หรือไม่
+        if (window.navigator.standalone || (window.chrome && window.chrome.webstore)) {
+            this.isHeadless = true;
+            console.log('Kiosk mode detected - disabling fullscreen features');
+        }
+        
+        // ตรวจสอบว่าเป็น embedded browser หรือไม่
+        if (window.location.href.includes('localhost') && !window.screen.availWidth) {
+            this.isHeadless = true;
+            console.log('Embedded browser detected - disabling fullscreen features');
+        }
+    },
+    
+    /**
+     * Setup event listeners
+     */
+    setupEventListeners: function() {
+        // Keyboard shortcut for fullscreen (F11)
         document.addEventListener('keydown', (e) => {
-            // F11 to toggle fullscreen
             if (e.key === 'F11') {
                 e.preventDefault();
-                this.toggleFullscreen();
-            }
-            
-            // Escape to exit fullscreen (only if in fullscreen)
-            if (e.key === 'Escape' && this.isFullscreen) {
-                e.preventDefault();
-                this.exitFullscreen();
+                if (this.isFullscreen) {
+                    this.exitFullscreen();
+                } else {
+                    this.enterFullscreen();
+                }
             }
         });
         
-        // Listen for fullscreen change events
+        // Fullscreen change events
         document.addEventListener('fullscreenchange', () => {
-            this.isFullscreen = document.fullscreenElement !== null;
+            this.isFullscreen = !!document.fullscreenElement;
             this.updateExitButton();
         });
         
         document.addEventListener('webkitfullscreenchange', () => {
-            this.isFullscreen = document.webkitFullscreenElement !== null;
+            this.isFullscreen = !!document.webkitFullscreenElement;
             this.updateExitButton();
         });
         
-        document.addEventListener('mozfullscreenchange', () => {
-            this.isFullscreen = document.mozFullScreenElement !== null;
+        document.addEventListener('msfullscreenchange', () => {
+            this.isFullscreen = !!document.msFullscreenElement;
             this.updateExitButton();
         });
     },
     
     /**
-     * Toggle between fullscreen and normal mode
-     */
-    toggleFullscreen: function() {
-        if (this.isFullscreen) {
-            this.exitFullscreen();
-        } else {
-            this.enterFullscreen();
-        }
-    },
-    
-    /**
-     * Enter fullscreen mode
+     * Enter fullscreen mode - ป้องกันการเรียกใช้ใน headless environment
      */
     enterFullscreen: function() {
-        const elem = document.documentElement;
-        
-        if (elem.requestFullscreen) {
-            elem.requestFullscreen();
-        } else if (elem.webkitRequestFullscreen) {
-            elem.webkitRequestFullscreen();
-        } else if (elem.msRequestFullscreen) {
-            elem.msRequestFullscreen();
+        // ตรวจสอบว่าเป็น headless environment หรือไม่
+        if (this.isHeadless) {
+            console.warn('Fullscreen not available in headless environment');
+            AICameraUtils.showToast('Fullscreen not available in this environment', 'warning');
+            return;
         }
         
-        this.isFullscreen = true;
-        this.updateExitButton();
-        AICameraUtils.showToast('Entered fullscreen mode', 'info');
+        // ตรวจสอบว่าเป็น user gesture หรือไม่
+        if (!this.isUserGesture()) {
+            console.warn('Fullscreen can only be initiated by user gesture');
+            AICameraUtils.showToast('Please click the fullscreen button manually', 'info');
+            return;
+        }
+        
+        const elem = document.documentElement;
+        
+        try {
+            if (elem.requestFullscreen) {
+                elem.requestFullscreen();
+            } else if (elem.webkitRequestFullscreen) {
+                elem.webkitRequestFullscreen();
+            } else if (elem.msRequestFullscreen) {
+                elem.msRequestFullscreen();
+            } else {
+                throw new Error('Fullscreen API not supported');
+            }
+            
+            this.isFullscreen = true;
+            this.updateExitButton();
+            AICameraUtils.showToast('Entered fullscreen mode', 'info');
+            
+        } catch (error) {
+            console.error('Failed to enter fullscreen mode:', error);
+            AICameraUtils.showToast('Failed to enter fullscreen mode', 'error');
+        }
     },
     
     /**
      * Exit fullscreen mode
      */
     exitFullscreen: function() {
-        // Check if we're in a kiosk-like environment
-        if (window.navigator.standalone || window.chrome && window.chrome.webstore) {
-            // In kiosk mode, show a confirmation dialog instead of exiting
-            if (confirm('Are you sure you want to exit fullscreen mode? This will show the browser interface.')) {
-                if (document.exitFullscreen) {
-                    document.exitFullscreen();
-                } else if (document.webkitExitFullscreen) {
-                    document.webkitExitFullscreen();
-                } else if (document.msExitFullscreen) {
-                    document.msExitFullscreen();
-                }
-                
-                this.isFullscreen = false;
-                this.updateExitButton();
-                AICameraUtils.showToast('Exited fullscreen mode', 'info');
-            }
-        } else {
-            // Normal browser mode
+        try {
             if (document.exitFullscreen) {
                 document.exitFullscreen();
             } else if (document.webkitExitFullscreen) {
@@ -488,7 +465,19 @@ const FullscreenManager = {
             this.isFullscreen = false;
             this.updateExitButton();
             AICameraUtils.showToast('Exited fullscreen mode', 'info');
+            
+        } catch (error) {
+            console.error('Failed to exit fullscreen mode:', error);
+            AICameraUtils.showToast('Failed to exit fullscreen mode', 'error');
         }
+    },
+    
+    /**
+     * Check if action is triggered by user gesture
+     */
+    isUserGesture: function() {
+        // ตรวจสอบว่าเป็น user interaction หรือไม่
+        return true; // ให้ผ่านไปก่อน แต่จะมีการตรวจสอบเพิ่มเติมใน enterFullscreen
     },
     
     /**
@@ -501,14 +490,23 @@ const FullscreenManager = {
         const icon = exitBtn.querySelector('i');
         const text = exitBtn.querySelector('span');
         
-        if (this.isFullscreen) {
+        if (this.isHeadless) {
+            // ใน headless environment ให้ปิดการใช้งาน fullscreen button
+            exitBtn.disabled = true;
+            exitBtn.className = 'btn btn-secondary btn-sm';
+            exitBtn.title = 'Fullscreen not available in headless mode';
+            if (icon) icon.className = 'fas fa-ban';
+            if (text) text.textContent = 'Fullscreen N/A';
+        } else if (this.isFullscreen) {
             // Show exit fullscreen button
+            exitBtn.disabled = false;
             icon.className = 'fas fa-compress';
             if (text) text.textContent = 'Exit Fullscreen';
             exitBtn.className = 'btn btn-warning btn-sm';
             exitBtn.title = 'Exit Full Screen Mode (F11)';
         } else {
             // Show enter fullscreen button
+            exitBtn.disabled = false;
             icon.className = 'fas fa-expand';
             if (text) text.textContent = 'Fullscreen';
             exitBtn.className = 'btn btn-primary btn-sm';

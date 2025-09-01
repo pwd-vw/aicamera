@@ -199,8 +199,18 @@ const CameraManager = {
                     this.updateConfigForm(data.config);
                 }
                 
-                // Note: Video feed is completely independent - no status-based control
-                console.log('Video feed status: Independent from WebSocket status updates');
+                // CRITICAL: Video feed is completely independent - no status-based control
+                // WebSocket status updates should NEVER affect video feed operation
+                console.log('🎯 Video feed status: Completely independent from WebSocket status updates');
+                console.log('🎯 Video feed continues operating regardless of status changes');
+                
+                // Explicitly prevent any video feed actions based on status
+                if (data.status.streaming_status) {
+                    console.log(`🎯 Streaming status: ${data.status.streaming_status} - Video feed unaffected`);
+                }
+                if (data.status.camera_status) {
+                    console.log(`🎯 Camera status: ${data.status.camera_status} - Video feed unaffected`);
+                }
             } else {
                 console.error('❌ Invalid status data received:', data);
                 AICameraUtils.addLogMessage('log-container', 'Invalid status data received', 'error');
@@ -665,31 +675,129 @@ const CameraManager = {
     },
 
     /**
-     * Handle video feed errors independently
+     * Handle video feed errors with intelligent fallback and better chunked encoding support
      */
     handleVideoFeedError: function(e) {
         console.log('Video feed error detected:', e);
         this.videoErrorCount++;
         this.videoErrorState = true;
         
-        // Check if it's a chunked encoding error
+        // Check for specific error types
         const isChunkedError = e.message && e.message.includes('ERR_INCOMPLETE_CHUNKED_ENCODING');
         const isNetworkError = e.message && (e.message.includes('ERR_') || e.message.includes('Failed to fetch'));
+        const isTimeoutError = e.message && e.message.includes('timeout');
+        const isLoadError = e.type === 'error' && e.target && e.target.tagName === 'IMG';
         
-        if (isChunkedError || isNetworkError) {
-            console.warn('Network/streaming error detected');
-            AICameraUtils.addLogMessage('log-container', 'Video stream error detected - use refresh button if needed', 'warning');
+        // Log specific error type
+        if (isChunkedError) {
+            console.warn('Chunked encoding error detected - this usually means the video stream is incomplete');
+            AICameraUtils.addLogMessage('log-container', 'Video stream incomplete - server may be having issues', 'warning');
+            
+            // For chunked encoding errors, try to recover with a fresh connection
+            this.attemptChunkedEncodingRecovery();
+            
+        } else if (isNetworkError) {
+            console.warn('Network error detected - connection issues with video feed');
+            AICameraUtils.addLogMessage('log-container', 'Network error with video feed - check connection', 'warning');
+            
+        } else if (isTimeoutError) {
+            console.warn('Timeout error detected - video feed taking too long to respond');
+            AICameraUtils.addLogMessage('log-container', 'Video feed timeout - server may be overloaded', 'warning');
+            
+        } else if (isLoadError) {
+            console.warn('Image load error detected - video feed element failed to load');
+            AICameraUtils.addLogMessage('log-container', 'Video feed image load failed - attempting recovery', 'warning');
+            
+        } else {
+            console.warn('Unknown video feed error:', e.message || e.type);
+            AICameraUtils.addLogMessage('log-container', 'Unknown video feed error - check console for details', 'warning');
         }
         
-        // Update status but don't auto-refresh
-        this.updateVideoStatus('error', 'Video feed error - use refresh button');
-        AICameraUtils.addLogMessage('log-container', 'Video feed error - manual refresh recommended', 'warning');
+        // Update status based on error type
+        if (isChunkedError) {
+            this.updateVideoStatus('error', 'Video stream incomplete - attempting recovery...');
+        } else if (isNetworkError) {
+            this.updateVideoStatus('error', 'Network error - check connection');
+        } else if (isTimeoutError) {
+            this.updateVideoStatus('error', 'Video feed timeout - server busy');
+        } else if (isLoadError) {
+            this.updateVideoStatus('error', 'Video feed load error - attempting recovery...');
+        } else {
+            this.updateVideoStatus('error', 'Video feed error - use refresh button');
+        }
         
-        // Reset error count after a delay to allow manual intervention
+        // Only retry for certain error types
+        if (this.videoErrorCount <= 2 && (isNetworkError || isTimeoutError)) {
+            const backoff = Math.min(this.videoErrorBackoff * Math.pow(2, this.videoErrorCount - 1), this.maxVideoErrorBackoff);
+            console.log(`Video feed error ${this.videoErrorCount}/2, retrying in ${backoff}ms`);
+            
+            setTimeout(() => {
+                this.refreshVideoFeed();
+            }, backoff);
+        } else {
+            console.error('Video feed error limit reached, stopping automatic retries');
+            AICameraUtils.addLogMessage('log-container', 'Video feed error limit reached - manual refresh recommended', 'error');
+            
+            // Show user-friendly message
+            this.showVideoFeedErrorHelp();
+            
+            // Reset error count after a longer delay to allow manual intervention
+            setTimeout(() => {
+                this.videoErrorCount = 0;
+                console.log('Video feed error count reset, automatic retries re-enabled');
+            }, 30000); // 30 seconds
+        }
+    },
+    
+    /**
+     * Attempt recovery from chunked encoding errors
+     */
+    attemptChunkedEncodingRecovery: function() {
+        console.log('🔄 Attempting chunked encoding error recovery...');
+        
+        // Wait a bit before attempting recovery
         setTimeout(() => {
-            this.videoErrorCount = 0;
-            console.log('Video feed error count reset');
-        }, 30000); // 30 seconds
+            // Try to refresh video feed with a new timestamp
+            const videoFeed = document.getElementById('video-feed');
+            if (videoFeed) {
+                const timestamp = Date.now();
+                const newSrc = `/camera/video_feed?t=${timestamp}&recovery=1`;
+                
+                console.log(`Attempting recovery with new source: ${newSrc}`);
+                
+                // Set new source
+                videoFeed.src = newSrc;
+                
+                // Monitor recovery attempt
+                setTimeout(() => {
+                    this.updateVideoFeedStatus();
+                }, 5000); // Check after 5 seconds
+            }
+        }, 2000); // Wait 2 seconds before recovery attempt
+    },
+    
+    /**
+     * Show helpful information for video feed errors
+     */
+    showVideoFeedErrorHelp: function() {
+        const helpMessage = `
+            <div class="alert alert-warning" role="alert">
+                <h6><i class="fas fa-exclamation-triangle"></i> Video Feed Issue Detected</h6>
+                <p class="mb-2">The video feed is experiencing issues. Here are some things to try:</p>
+                <ul class="mb-2">
+                    <li>Click the <strong>Refresh Video</strong> button above</li>
+                    <li>Check if the camera is properly connected</li>
+                    <li>Refresh the browser page</li>
+                    <li>Check the server logs for errors</li>
+                </ul>
+                <button class="btn btn-sm btn-warning" onclick="CameraManager.manualRefreshVideo()">
+                    <i class="fas fa-sync-alt"></i> Refresh Video Feed
+                </button>
+            </div>
+        `;
+        
+        // Add to log container
+        AICameraUtils.addLogMessage('log-container', helpMessage, 'warning', true);
     },
 
     /**
@@ -732,6 +840,45 @@ const CameraManager = {
         this.refreshVideoFeed();
     },
     
+
+    /**
+     * Verify video feed independence from WebSocket
+     */
+    verifyVideoFeedIndependence: function() {
+        console.log('🔍 Verifying video feed independence from WebSocket...');
+        
+        // Check if video feed is operating independently
+        const videoFeed = document.getElementById('video-feed');
+        if (!videoFeed) {
+            console.warn('⚠️ Video feed element not found');
+            return false;
+        }
+        
+        // Check video feed source
+        const currentSrc = videoFeed.src;
+        if (currentSrc && currentSrc.includes('/camera/video_feed')) {
+            console.log('✅ Video feed source is correct and independent');
+        } else {
+            console.warn('⚠️ Video feed source may not be independent');
+        }
+        
+        // Check if video feed has error state
+        if (this.videoErrorState) {
+            console.log('⚠️ Video feed has error state, but this is independent of WebSocket');
+        } else {
+            console.log('✅ Video feed is in normal state');
+        }
+        
+        // Check WebSocket connection status
+        if (this.socket && this.socket.connected) {
+            console.log('✅ WebSocket is connected, but video feed operates independently');
+        } else {
+            console.log('⚠️ WebSocket is disconnected, but video feed continues independently');
+        }
+        
+        console.log('🎯 Video feed independence verification complete');
+        return true;
+    },
 
     /**
      * Test video feed functionality

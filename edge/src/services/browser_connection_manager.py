@@ -84,10 +84,20 @@ class BrowserConnectionManager:
         self.resource_allocation_enabled = True
         self.conditional_resource_allocation = True
         
+        # WebSocket stability optimizations
+        self.websocket_connection_threshold = 5  # Max connections before throttling
+        self.websocket_health_check_interval = 30  # Health check every 30 seconds
+        self.websocket_connection_timeout = 60  # Connection timeout in seconds
+        
         # Statistics
         self.total_connections = 0
         self.current_connections = 0
         self.max_concurrent_connections = 0
+        
+        # WebSocket health monitoring
+        self.websocket_health_status = 'healthy'
+        self.last_websocket_health_check = time.time()
+        self.websocket_error_count = 0
         
         # Thread safety
         self.lock = threading.Lock()
@@ -103,7 +113,7 @@ class BrowserConnectionManager:
     
     def on_browser_connect(self, session_id: str, browser_info: Dict[str, Any]) -> bool:
         """
-        Handle new browser connection.
+        Handle new browser connection with navigation detection.
         
         Args:
             session_id: WebSocket session ID
@@ -114,6 +124,37 @@ class BrowserConnectionManager:
         """
         try:
             with self.lock:
+                # Check if this is navigation from the same browser
+                if self._is_navigation_from_same_browser(session_id, browser_info):
+                    self.logger.info(f"Navigation detected for session {session_id} - treating as existing connection")
+                    
+                    # Update navigation cooldown
+                    self.navigation_cooldown[session_id] = time.time()
+                    
+                    # Don't create new connection record - just update existing
+                    # This prevents resource allocation/deallocation cycles
+                    return True
+                
+                # Generate browser fingerprint
+                fingerprint = self._generate_browser_fingerprint(browser_info)
+                
+                # Check if we already have a connection from this browser
+                if fingerprint in self.browser_fingerprints:
+                    existing_session = self.browser_fingerprints[fingerprint]
+                    self.logger.info(f"Browser reconnection detected: {fingerprint} (existing: {existing_session}, new: {session_id})")
+                    
+                    # Update fingerprint mapping to new session
+                    self.browser_fingerprints[fingerprint] = session_id
+                    
+                    # Set navigation cooldown
+                    self.navigation_cooldown[session_id] = time.time()
+                    
+                    # Don't create new connection record - treat as navigation
+                    return True
+                
+                # This is a genuinely new browser connection
+                self.logger.info(f"New browser connection: {session_id} (fingerprint: {fingerprint})")
+                
                 # Create connection record
                 connection = BrowserConnection(
                     session_id=session_id,
@@ -126,6 +167,9 @@ class BrowserConnectionManager:
                 
                 # Add to active connections
                 self.active_connections[session_id] = connection
+                
+                # Store fingerprint mapping
+                self.browser_fingerprints[fingerprint] = session_id
                 
                 # Update statistics
                 self.total_connections += 1
@@ -357,6 +401,50 @@ class BrowserConnectionManager:
             
         except Exception as e:
             self.logger.error(f"Error during cleanup: {e}")
+
+    def check_websocket_health(self) -> str:
+        """
+        Check WebSocket connection health and stability.
+        
+        Returns:
+            str: Health status ('healthy', 'warning', 'critical')
+        """
+        current_time = time.time()
+        
+        # Check if health check is due
+        if current_time - self.last_websocket_health_check < self.websocket_health_check_interval:
+            return self.websocket_health_status
+        
+        # Update health check time
+        self.last_websocket_health_check = current_time
+        
+        # Check connection count
+        if self.current_connections > self.websocket_connection_threshold:
+            self.websocket_health_status = 'warning'
+            self.logger.warning(f"WebSocket health: High connection count ({self.current_connections})")
+        elif self.websocket_error_count > 3:
+            self.websocket_health_status = 'critical'
+            self.logger.error(f"WebSocket health: High error count ({self.websocket_error_count})")
+        else:
+            self.websocket_health_status = 'healthy'
+            # Reset error count if healthy
+            if self.websocket_error_count > 0:
+                self.websocket_error_count = 0
+        
+        return self.websocket_health_status
+    
+    def report_websocket_error(self, error_type: str = 'connection'):
+        """
+        Report WebSocket error for health monitoring.
+        
+        Args:
+            error_type: Type of error ('connection', 'timeout', 'data')
+        """
+        self.websocket_error_count += 1
+        self.logger.warning(f"WebSocket error reported: {error_type} (total: {self.websocket_error_count})")
+        
+        # Check health immediately
+        self.check_websocket_health()
 
 
 def create_browser_connection_manager() -> BrowserConnectionManager:
