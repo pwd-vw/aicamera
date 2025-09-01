@@ -480,8 +480,18 @@ def create_app():
     container = get_container()
     logger.info("Dependency container initialized")
     
-    # Initialize SocketIO
-    socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
+    # Initialize SocketIO with improved configuration
+    socketio = SocketIO(
+        app, 
+        cors_allowed_origins="*", 
+        async_mode='threading',
+        ping_timeout=60,  # Increase ping timeout
+        ping_interval=25,  # Reduce ping interval
+        max_http_buffer_size=1e8,  # Increase buffer size
+        logger=True,  # Enable logging
+        engineio_logger=True,  # Enable engineio logging
+        cors_credentials=True
+    )
     
     # Register blueprints using existing structure
     register_blueprints(app, socketio)

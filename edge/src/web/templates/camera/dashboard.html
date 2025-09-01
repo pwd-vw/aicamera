@@ -19,6 +19,101 @@
 {% block additional_css %}
 <link href="{{ url_for('static', filename='css/camera.css', v=timestamp) }}" rel="stylesheet">
 <style>
+/* Video Container and Controls Styles */
+.video-container-compact {
+    position: relative;
+    background: #000;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+}
+
+.video-controls-above {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    right: 10px;
+    z-index: 10;
+    background: rgba(0, 0, 0, 0.7);
+    padding: 10px;
+    border-radius: 0.5rem;
+    backdrop-filter: blur(5px);
+}
+
+.video-controls-above button {
+    background: rgba(78, 115, 223, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: white;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.video-controls-above button:hover {
+    background: rgba(78, 115, 223, 1);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.video-controls-above small {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.75rem;
+}
+
+.video-feed-wrapper {
+    position: relative;
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+.video-feed-compact {
+    width: 100%;
+    height: auto;
+    display: block;
+    object-fit: contain;
+    background: #000;
+}
+
+.video-status-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    display: none; /* Hidden by default */
+    align-items: center;
+    justify-content: center;
+    z-index: 5;
+    transition: opacity 0.3s ease;
+}
+
+.video-status-overlay.show {
+    display: flex;
+}
+
+.video-status-content {
+    text-align: center;
+    color: white;
+    padding: 2rem;
+    background: rgba(0, 0, 0, 0.7);
+    border-radius: 1rem;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.video-status-content i {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+    color: #4e73df;
+}
+
+.video-status-content span {
+    font-size: 1rem;
+    font-weight: 500;
+    display: block;
+}
+
 /* Metadata Viewer Styles */
 .metadata-container {
     max-width: 100%;
@@ -370,28 +465,25 @@
                 <!-- Compact Camera Controls -->
                 <div class="camera-controls-compact mb-2">
                     <div class="d-flex justify-content-center gap-1">
-                        <button id="start-btn" class="btn btn-success btn-sm control-btn-compact">
-                            <i class="fas fa-play"></i> Start
-                        </button>
-                        <button id="stop-btn" class="btn btn-danger btn-sm control-btn-compact">
-                            <i class="fas fa-stop"></i> Stop
-                        </button>
-                        <button id="restart-btn" class="btn btn-warning btn-sm control-btn-compact">
-                            <i class="fas fa-redo"></i> Restart
-                        </button>
                         <button id="capture-btn" class="btn btn-info btn-sm control-btn-compact">
                             <i class="fas fa-camera"></i> Capture
+                        </button>
+                       <button id="manual-refresh-video-btn" class="btn btn-info btn-sm control-btn-compact" onclick="CameraManager.manualRefreshVideo()">
+                            <i class="fas fa-sync-alt"></i> Refresh Video
                         </button>
                     </div>
                 </div>
                 
                 <!-- Video Container -->
                 <div class="video-container-compact">
-                    <img id="video-feed" src="/camera/video_feed" class="video-feed-compact" alt="Camera Feed">
-                    <div id="video-status" class="video-status-overlay">
-                        <div class="video-status-content">
-                            <i class="fas fa-spinner fa-spin"></i>
-                            <span>Loading video feed...</span>
+                    <!-- Video Feed Container with proper positioning -->
+                    <div class="video-feed-wrapper position-relative">
+                        <img id="video-feed" src="/camera/video_feed" class="video-feed-compact" alt="Camera Feed">
+                        <div id="video-status" class="video-status-overlay">
+                            <div class="video-status-content">
+                                <i class="fas fa-spinner fa-spin"></i>
+                                <span>Loading video feed...</span>
+                            </div>
                         </div>
                     </div>
                 </div>

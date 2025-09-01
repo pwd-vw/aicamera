@@ -14,6 +14,7 @@ Version: 2.0.0
 Date: August 23, 2025
 """
 
+import sys
 import cv2
 import numpy as np
 import json
@@ -27,6 +28,7 @@ from edge.src.core.dependency_container import get_service
 from edge.src.core.utils.logging_config import get_logger
 from edge.src.components.camera_handler import make_json_serializable
 from edge.src.core.config import MAIN_RESOLUTION
+from edge.src.services.browser_connection_manager import BrowserConnectionManager
 
 # Create blueprint
 camera_bp = Blueprint('camera', __name__, url_prefix='/camera')
@@ -846,6 +848,75 @@ def _generate_error_placeholder(message):
                b'Content-Type: text/plain\r\n\r\nCamera Error: ' + message.encode() + b'\r\n')
 
 
+def _generate_error_frame(message):
+    """
+    Generate a proper JPEG error frame instead of text placeholder.
+    
+    Args:
+        message: Error message to display
+        
+    Returns:
+        bytes: JPEG image data
+    """
+    try:
+        from PIL import Image, ImageDraw, ImageFont
+        import io
+        
+        # Create a simple error image
+        img = Image.new('RGB', (640, 480), color='red')
+        draw = ImageDraw.Draw(img)
+        
+        # Try to use a default font, fallback to basic if not available
+        try:
+            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 24)
+        except:
+            try:
+                font = ImageFont.load_default()
+            except:
+                font = None
+        
+        # Draw error message
+        text = f"Camera Error: {message}"
+        if font:
+            # Center the text
+            bbox = draw.textbbox((0, 0), text, font=font)
+            text_width = bbox[2] - bbox[0]
+            text_height = bbox[3] - bbox[1]
+            x = (640 - text_width) // 2
+            y = (480 - text_height) // 2
+            draw.text((x, y), text, fill='white', font=font)
+        else:
+            # Fallback: draw text at fixed position
+            draw.text((50, 200), text, fill='white')
+        
+        # Convert to JPEG bytes
+        img_io = io.BytesIO()
+        img.save(img_io, 'JPEG', quality=85)
+        return img_io.getvalue()
+        
+    except Exception as e:
+        logger.error(f"Error generating error frame: {e}")
+        # Ultimate fallback: return a minimal valid JPEG
+        return b'\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x01\x00H\x00H\x00\x00\xff\xdb\x00C\x00\x08\x06\x06\x07\x06\x05\x08\x07\x07\x07\t\t\x08\n\x0c\x14\r\x0c\x0b\x0b\x0c\x19\x12\x13\x0f\x14\x1d\x1a\x1f\x1e\x1d\x1a\x1c\x1c $.\' ",#\x1c\x1c(7),01444\x1f\'9=82<.342\xff\xc0\x00\x11\x08\x00\x01\x00\x01\x01\x01\x11\x00\x02\x11\x01\x03\x11\x01\xff\xc4\x00\x14\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x08\xff\xc4\x00\x14\x10\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xda\x00\x0c\x03\x01\x00\x02\x11\x03\x11\x00\x3f\x00\xaa\xff\xd9'
+
+
+def _generate_error_stream(message):
+    """
+    Generate a continuous error stream with proper JPEG frames.
+    
+    Args:
+        message: Error message to display
+        
+    Yields:
+        bytes: Error frame data
+    """
+    error_frame = _generate_error_frame(message)
+    while True:
+        yield (b'--frame\r\n'
+               b'Content-Type: image/jpeg\r\n\r\n' + error_frame + b'\r\n')
+        time.sleep(2.0)  # Show error frame every 2 seconds
+
+
 @camera_bp.route('/video_feed')
 def video_feed():
     """
@@ -857,24 +928,32 @@ def video_feed():
     try:
         # Check if video streaming service is available
         video_streaming = get_service('video_streaming')
-        if video_streaming:
+        if video_streaming and hasattr(video_streaming, 'get_frame'):
             # Use video streaming service if available
-            return Response(_generate_frames_from_service(video_streaming),
+            logger.info("Using video streaming service for video feed")
+            return Response(_generate_frames_from_service_improved(video_streaming),
                            mimetype='multipart/x-mixed-replace; boundary=frame')
         else:
             # Fallback to direct camera manager
             logger.info("Video streaming service not available, using direct camera manager")
-            return Response(generate_frames(),
-                           mimetype='multipart/x-mixed-replace; boundary=frame')
+            try:
+                return Response(generate_frames(),
+                               mimetype='multipart/x-mixed-replace; boundary=frame')
+            except Exception as fallback_error:
+                logger.error(f"Direct camera manager fallback failed: {fallback_error}")
+                # Ultimate fallback: error stream
+                return Response(_generate_error_stream("Camera service unavailable"),
+                               mimetype='multipart/x-mixed-replace; boundary=frame')
     except Exception as e:
         logger.error(f"Error in video_feed endpoint: {e}")
+        # Return error stream instead of failing completely
         return Response(_generate_error_stream("Video feed error"),
                        mimetype='multipart/x-mixed-replace; boundary=frame')
 
 
-def _generate_frames_from_service(video_streaming):
+def _generate_frames_from_service_improved(video_streaming):
     """
-    Generate frames using video streaming service with fallback.
+    Generate frames using video streaming service with improved error handling.
     
     Args:
         video_streaming: Video streaming service instance
@@ -883,34 +962,73 @@ def _generate_frames_from_service(video_streaming):
         bytes: Frame data in multipart format
     """
     consecutive_errors = 0
-    max_errors = 5
-    error_delay = 1.0
+    max_errors = 3  # Reduced from 5 to 3
+    error_delay = 0.5  # Reduced from 1.0 to 0.5
+    frame_count = 0
     
     try:
         # Start streaming if not already started
         if not video_streaming.streaming:
-            video_streaming.start_streaming()
-            time.sleep(0.5)  # Wait for streaming to start
+            try:
+                video_streaming.start_streaming()
+                time.sleep(0.5)  # Wait for streaming to start
+                logger.info("Video streaming started successfully")
+            except Exception as start_error:
+                logger.error(f"Failed to start video streaming: {start_error}")
+                # Continue with fallback frames
         
         while True:
             try:
-                # Get frame from service
-                frame_data = video_streaming.get_frame(timeout=2.0)
+                # Get frame from service with shorter timeout
+                frame_data = video_streaming.get_frame(timeout=1.0)  # Reduced from 2.0 to 1.0
                 
                 if frame_data and 'frame' in frame_data:
                     # Decode base64 frame
                     import base64
-                    frame_bytes = base64.b64decode(frame_data['frame'])
-                    
-                    # Reset error counter on success
-                    consecutive_errors = 0
-                    
-                    yield (b'--frame\r\n'
-                           b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+                    try:
+                        frame_bytes = base64.b64decode(frame_data['frame'])
+                        
+                        # Log frame information for debugging
+                        source = frame_data.get('source', 'unknown')
+                        width = frame_data.get('width', 'unknown')
+                        height = frame_data.get('height', 'unknown')
+                        quality = frame_data.get('quality', 'unknown')
+                        
+                        # Validate frame data
+                        if len(frame_bytes) > 100:  # Ensure frame has reasonable size
+                            # Reset error counter on success
+                            consecutive_errors = 0
+                            frame_count += 1
+                            
+                            # Log success periodically with frame details
+                            if frame_count % 30 == 0:  # Every 30 frames
+                                logger.info(f"Video feed: {frame_count} frames sent successfully - Source: {source}, Size: {width}x{height}, Quality: {quality}, Frame bytes: {len(frame_bytes)}")
+                            
+                            yield (b'--frame\r\n'
+                                   b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+                        else:
+                            consecutive_errors += 1
+                            logger.warning(f"Frame too small: {len(frame_bytes)} bytes, Source: {source}, Expected size: {width}x{height}")
+                            # Generate error frame for small frames
+                            error_frame = _generate_error_frame(f"Frame data too small: {len(frame_bytes)} bytes")
+                            yield (b'--frame\r\n'
+                                   b'Content-Type: image/jpeg\r\n\r\n' + error_frame + b'\r\n')
+                            time.sleep(error_delay)
+                    except Exception as decode_error:
+                        consecutive_errors += 1
+                        logger.error(f"Frame decode error: {decode_error}, Source: {source}, Frame data keys: {list(frame_data.keys()) if frame_data else 'None'}")
+                        # Generate error frame for decode errors
+                        error_frame = _generate_error_frame(f"Frame decode error: {str(decode_error)[:50]}")
+                        yield (b'--frame\r\n'
+                               b'Content-Type: image/jpeg\r\n\r\n' + error_frame + b'\r\n')
+                        time.sleep(error_delay)
                 else:
                     consecutive_errors += 1
                     if consecutive_errors > max_errors:
-                        yield _generate_error_placeholder("No frame data from streaming service")
+                        # Generate error frame instead of placeholder
+                        error_frame = _generate_error_frame("No frame data from streaming service")
+                        yield (b'--frame\r\n'
+                               b'Content-Type: image/jpeg\r\n\r\n' + error_frame + b'\r\n')
                         time.sleep(error_delay)
                     else:
                         time.sleep(0.1)
@@ -920,55 +1038,25 @@ def _generate_frames_from_service(video_streaming):
                 logger.error(f"Error getting frame from streaming service: {e}")
                 
                 if consecutive_errors > max_errors:
-                    yield _generate_error_placeholder("Streaming service error")
+                    # Generate error frame instead of placeholder
+                    error_frame = _generate_error_frame("Streaming service error")
+                    yield (b'--frame\r\n'
+                           b'Content-Type: image/jpeg\r\n\r\n' + error_frame + b'\r\n')
                     time.sleep(error_delay)
                 else:
                     time.sleep(0.1)
                     
     except Exception as e:
-        logger.error(f"Critical error in _generate_frames_from_service: {e}")
-        yield _generate_error_placeholder("Critical streaming service error")
-
-
-def _generate_error_stream(message):
-    """
-    Generate a continuous error stream.
-    
-    Args:
-        message: Error message to display
-        
-    Yields:
-        bytes: Error frame data
-    """
-    while True:
-        yield _generate_error_placeholder(message)
-        time.sleep(2.0)  # Show error frame every 2 seconds
-
-
-@camera_bp.route('/video_feed_lores')
-def video_feed_lores():
-    """
-    Low resolution video streaming endpoint with enhanced fallback.
-    
-    Returns:
-        Response: Multipart video stream
-    """
-    try:
-        # Check if video streaming service is available
-        video_streaming = get_service('video_streaming')
-        if video_streaming:
-            # Use video streaming service if available
-            return Response(_generate_lores_frames_from_service(video_streaming),
-                           mimetype='multipart/x-mixed-replace; boundary=frame')
-        else:
-            # Fallback to direct camera manager
-            logger.info("Video streaming service not available, using direct camera manager for lores")
-            return Response(generate_lores_frames(),
-                           mimetype='multipart/x-mixed-replace; boundary=frame')
-    except Exception as e:
-        logger.error(f"Error in video_feed_lores endpoint: {e}")
-        return Response(_generate_error_stream("Lores video feed error"),
-                       mimetype='multipart/x-mixed-replace; boundary=frame')
+        logger.error(f"Critical error in _generate_frames_from_service_improved: {e}")
+        # Generate error frame
+        error_frame = _generate_error_frame("Critical streaming service error")
+        yield (b'--frame\r\n'
+               b'Content-Type: image/jpeg\r\n\r\n' + error_frame + b'\r\n')
+        # Continue generating error frames
+        while True:
+            time.sleep(2.0)
+            yield (b'--frame\r\n'
+                   b'Content-Type: image/jpeg\r\n\r\n' + error_frame + b'\r\n')
 
 
 def _generate_lores_frames_from_service(video_streaming):
@@ -1026,7 +1114,7 @@ def _generate_lores_frames_from_service(video_streaming):
                     
     except Exception as e:
         logger.error(f"Critical error in _generate_lores_frames_from_service: {e}")
-        yield _generate_error_placeholder("Critical lores streaming service error")
+        yield _generate_error_placeholder(f"Critical lores streaming service error")
 
 
 @camera_bp.route('/ml_frame')
@@ -1088,36 +1176,49 @@ def get_ml_frame():
 
 def register_camera_events(socketio):
     """
-    Register WebSocket events for camera functionality with browser connection tracking.
+    Register WebSocket events for camera functionality with improved stability.
     
     Args:
         socketio: Flask-SocketIO instance
     """
-    logger.info("Registering camera WebSocket events with browser connection tracking")
+    logger.info("Registering camera WebSocket events with improved stability")
     
     @socketio.on('connect')
     def handle_camera_connect():
-        """Handle browser connection to camera WebSocket."""
+        """Handle browser connection to camera WebSocket with improved error handling."""
         try:
             session_id = request.sid
+            logger.info(f"New WebSocket connection: {session_id}")
             
-            # Get browser information
+            # Get browser information (simplified)
             browser_info = {
-                'user_agent': request.headers.get('User-Agent', 'Unknown'),
+                'user_agent': request.headers.get('User-Agent', 'Unknown')[:100],  # Limit length
                 'ip_address': request.remote_addr,
                 'connected_at': datetime.now().isoformat()
             }
             
-            # Track browser connection
-            browser_manager = get_service('browser_connection_manager')
-            if browser_manager:
-                success = browser_manager.on_browser_connect(session_id, browser_info)
-                if success:
-                    logger.info(f"Browser connection tracked: {session_id}")
-                else:
-                    logger.warning(f"Failed to track browser connection: {session_id}")
+            # Track browser connection (non-blocking)
+            try:
+                browser_manager = get_service('browser_connection_manager')
+                if browser_manager:
+                    # Use threading to avoid blocking
+                    import threading
+                    def track_connection():
+                        try:
+                            success = browser_manager.on_browser_connect(session_id, browser_info)
+                            if success:
+                                logger.debug(f"Browser connection tracked: {session_id}")
+                            else:
+                                logger.warning(f"Failed to track browser connection: {session_id}")
+                        except Exception as e:
+                            logger.error(f"Error tracking browser connection: {e}")
+                    
+                    thread = threading.Thread(target=track_connection, daemon=True)
+                    thread.start()
+            except Exception as e:
+                logger.warning(f"Browser connection tracking failed: {e}")
             
-            # Send connection confirmation
+            # Send connection confirmation immediately
             emit('camera_connected', {
                 'success': True,
                 'message': 'Connected to camera WebSocket',
@@ -1125,42 +1226,72 @@ def register_camera_events(socketio):
                 'timestamp': datetime.now().isoformat()
             })
             
+            logger.info(f"WebSocket connection established: {session_id}")
+            
         except Exception as e:
-            logger.error(f"Error handling camera connect: {e}")
-            emit('camera_connected', {
-                'success': False,
-                'error': str(e),
-                'timestamp': datetime.now().isoformat()
-            })
+            logger.error(f"Critical error in camera connect handler: {e}")
+            try:
+                emit('camera_connected', {
+                    'success': False,
+                    'error': 'Connection error',
+                    'timestamp': datetime.now().isoformat()
+                })
+            except:
+                pass  # Don't let emit errors crash the handler
     
     @socketio.on('disconnect')
     def handle_camera_disconnect():
-        """Handle browser disconnection from camera WebSocket."""
+        """Handle browser disconnection with improved error handling."""
         try:
             session_id = request.sid
+            logger.info(f"WebSocket disconnection: {session_id}")
             
-            # Track browser disconnection
-            browser_manager = get_service('browser_connection_manager')
-            if browser_manager:
-                success = browser_manager.on_browser_disconnect(session_id)
-                if success:
-                    logger.info(f"Browser disconnection tracked: {session_id}")
-                else:
-                    logger.warning(f"Failed to track browser disconnection: {session_id}")
+            # Track browser disconnection (non-blocking)
+            try:
+                browser_manager = get_service('browser_connection_manager')
+                if browser_manager:
+                    # Use threading to avoid blocking
+                    import threading
+                    def track_disconnection():
+                        try:
+                            success = browser_manager.on_browser_disconnect(session_id)
+                            if success:
+                                logger.debug(f"Browser disconnection tracked: {session_id}")
+                            else:
+                                logger.warning(f"Failed to track browser disconnection: {session_id}")
+                        except Exception as e:
+                            logger.error(f"Error tracking browser disconnection: {e}")
+                    
+                    thread = threading.Thread(target=track_disconnection, daemon=True)
+                    thread.start()
+            except Exception as e:
+                logger.warning(f"Browser disconnection tracking failed: {e}")
             
         except Exception as e:
-            logger.error(f"Error handling camera disconnect: {e}")
+            logger.error(f"Error in camera disconnect handler: {e}")
     
     @socketio.on('camera_status_request')
     def handle_camera_status_request():
-        """Handle camera status request with connection tracking."""
+        """Handle camera status request with improved error handling."""
         try:
             session_id = request.sid
             
-            # Update activity for this connection
-            browser_manager = get_service('browser_connection_manager')
-            if browser_manager:
-                browser_manager.update_activity(session_id)
+            # Update activity for this connection (non-blocking)
+            try:
+                browser_manager = get_service('browser_connection_manager')
+                if browser_manager:
+                    # Use threading to avoid blocking
+                    import threading
+                    def update_activity():
+                        try:
+                            browser_manager.update_activity(session_id)
+                        except Exception as e:
+                            logger.debug(f"Activity update failed: {e}")
+                    
+                    thread = threading.Thread(target=update_activity, daemon=True)
+                    thread.start()
+            except Exception as e:
+                logger.debug(f"Activity tracking failed: {e}")
             
             # Get camera status
             camera_manager = get_service('camera_manager')
@@ -1185,7 +1316,7 @@ def register_camera_events(socketio):
             logger.error(f"Error handling camera status request: {e}")
             emit('camera_status_update', {
                 'success': False,
-                'error': str(e),
+                'error': 'Status request failed',
                 'timestamp': datetime.now().isoformat()
             })
     
@@ -1960,3 +2091,103 @@ def clear_browser_connections():
             'error': str(e),
             'timestamp': datetime.now().isoformat()
         }), 500
+
+
+@camera_bp.route('/video_feed/health')
+def video_feed_health():
+    """
+    Health check endpoint for video feed to help debug issues.
+    
+    Returns:
+        JSON response with video feed health status
+    """
+    try:
+        video_streaming = get_service('video_streaming')
+        if not video_streaming:
+            return jsonify({
+                'success': False,
+                'error': 'Video streaming service not available',
+                'timestamp': datetime.now().isoformat()
+            })
+        
+        # Get video streaming service status
+        status = video_streaming.get_status()
+        
+        # Check if frames are being generated
+        frame_queue_size = status.get('queue_size', 0)
+        frames_processed = status.get('frames_processed', 0)
+        streaming = status.get('streaming', False)
+        
+        # Health indicators
+        health_status = 'healthy'
+        if frame_queue_size == 0 and frames_processed == 0:
+            health_status = 'no_frames'
+        elif not streaming:
+            health_status = 'not_streaming'
+        elif frame_queue_size < 2:
+            health_status = 'low_frames'
+        
+        return jsonify({
+            'success': True,
+            'health_status': health_status,
+            'video_streaming_status': status,
+            'timestamp': datetime.now().isoformat(),
+            'recommendations': {
+                'no_frames': 'Check camera manager and frame capture',
+                'not_streaming': 'Start video streaming service',
+                'low_frames': 'Monitor frame generation rate',
+                'healthy': 'Video feed should work normally'
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in video feed health check: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'timestamp': datetime.now().isoformat()
+        })
+
+
+@camera_bp.route('/video_feed/debug')
+def video_feed_debug():
+    """
+    Debug endpoint for video feed to get detailed information.
+    
+    Returns:
+        JSON response with debug information
+    """
+    try:
+        video_streaming = get_service('video_streaming')
+        camera_manager = get_service('camera_manager')
+        
+        debug_info = {
+            'timestamp': datetime.now().isoformat(),
+            'video_streaming_service': {
+                'available': video_streaming is not None,
+                'streaming': video_streaming.streaming if video_streaming else False,
+                'frame_queue_size': video_streaming.frame_queue.qsize() if video_streaming else 0,
+                'error_count': video_streaming.error_count if video_streaming else 0,
+                'fallback_mode': video_streaming.fallback_mode if video_streaming else False,
+            } if video_streaming else None,
+            'camera_manager': {
+                'available': camera_manager is not None,
+                'initialized': camera_manager.initialized if camera_manager else False,
+                'streaming': camera_manager.streaming if camera_manager else False,
+            } if camera_manager else None,
+            'system_info': {
+                'python_version': sys.version,
+                'opencv_version': cv2.__version__ if 'cv2' in sys.modules else 'Not available',
+                'numpy_version': np.__version__ if 'numpy' in sys.modules else 'Not available',
+            }
+        }
+        
+        return jsonify(debug_info)
+        
+    except Exception as e:
+        logger.error(f"Error in video feed debug: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'timestamp': datetime.now().isoformat()
+        })

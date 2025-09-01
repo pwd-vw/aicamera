@@ -19,7 +19,7 @@ sys.path.insert(0, str(src_path))
 
 # Import import helper first
 try:
-    from src.core.utils.import_helper import setup_import_paths, validate_imports
+    from edge.src.core.utils.import_helper import setup_import_paths, validate_imports
     setup_import_paths()
 except ImportError:
     # Fallback: try direct import
@@ -38,7 +38,7 @@ def test_imports():
     # Test core imports
     print("\n📦 Testing Core Imports:")
     try:
-        from core.utils.import_helper import setup_import_paths, validate_imports
+        from edge.src.core.utils.import_helper import setup_import_paths, validate_imports
         print("  ✅ core.utils.import_helper")
         
         from core.config import FLASK_HOST, FLASK_PORT

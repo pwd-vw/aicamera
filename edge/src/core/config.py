@@ -149,7 +149,7 @@ if DATABASE_PATH:
 Path(BASE_DIR, 'edge', 'logs').mkdir(parents=True, exist_ok=True)
 
 # Debug: Print BASE_DIR for verification
-from src.core.utils.logging_config import get_logger
+from edge.src.core.utils.logging_config import get_logger
 logger = get_logger(__name__)
 logger.info(f"Config BASE_DIR set to: {BASE_DIR}")
 logger.info(f"IMAGE_SAVE_DIR: {IMAGE_SAVE_DIR}")

@@ -14,9 +14,9 @@ Version: 1.3
 Date: August 7, 2025
 """
 
-from src.core.utils.logging_config import setup_logging, get_logger
-from src.core.utils.camera_config import CameraConfiguration
-from src.core.utils.import_helper import setup_import_paths, validate_imports, safe_import
+from edge.src.core.utils.logging_config import setup_logging, get_logger
+from edge.src.core.utils.camera_config import CameraConfiguration
+from edge.src.core.utils.import_helper import setup_import_paths, validate_imports, safe_import
 
 __all__ = [
     'setup_logging',

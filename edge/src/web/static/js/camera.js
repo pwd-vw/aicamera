@@ -40,12 +40,14 @@ const CameraManager = {
         this.cachedMetadata = null; // Initialize new cache
         this.metadataLoaded = false; // Track if metadata has been loaded once
         
-        // Setup WebSocket connection
+        // Initialize video feed independently first
+        this.initVideoFeed();
+        
+        // Setup WebSocket connection for status monitoring only
         this.initializeWebSocket();
         
         // Setup event handlers
         this.setupEventHandlers();
-        this.setupVideoFeedHandlers();
         this.setupFormHandlers();
         
         // Load metadata once when dashboard loads
@@ -57,6 +59,33 @@ const CameraManager = {
         }, 3000);
         
         console.log('Camera Manager initialized successfully (cached data mode)');
+    },
+
+    /**
+     * Initialize video feed independently from WebSocket
+     */
+    initVideoFeed: function() {
+        console.log('Initializing video feed independently...');
+        
+        // Setup video feed event handlers
+        this.setupVideoFeedHandlers();
+        
+        // Start independent video feed status monitoring
+        this.startVideoFeedMonitoring();
+        
+        console.log('Video feed initialized independently');
+    },
+
+    /**
+     * Start independent video feed monitoring
+     */
+    startVideoFeedMonitoring: function() {
+        // Start periodic status checks (independent of WebSocket)
+        this.videoFeedRefreshTimeout = setTimeout(() => {
+            this.updateVideoFeedStatus();
+        }, 15000); // Check every 15 seconds
+        
+        console.log('Independent video feed monitoring started');
     },
 
     /**
@@ -73,10 +102,12 @@ const CameraManager = {
 
         try {
             this.socket = io('/camera', {
-                timeout: 5000,
+                timeout: 10000, // Increased timeout
                 reconnection: true,
-                reconnectionAttempts: 3,
-                reconnectionDelay: 2000
+                reconnectionAttempts: 2, // Reduced from 3 to 2
+                reconnectionDelay: 5000, // Increased from 2000 to 5000
+                maxReconnectionAttempts: 2, // Limit total reconnection attempts
+                reconnectionDelayMax: 10000 // Maximum delay between attempts
             });
             this.setupSocketHandlers();
             console.log('WebSocket connection initialized');
@@ -94,7 +125,14 @@ const CameraManager = {
     loadStatusFromAPI: function() {
         console.log('Loading camera status from HTTP API...');
         fetch('/camera/status')
-            .then(response => response.json())
+            .then(response => {
+                // Check if response is JSON
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    throw new Error(`Expected JSON response, got ${contentType || 'unknown content type'}`);
+                }
+                return response.json();
+            })
             .then(data => {
                 if (data && data.success && data.status) {
                     console.log('✅ Status loaded from HTTP API:', data.status);
@@ -102,11 +140,15 @@ const CameraManager = {
                     this.updateCameraStatus(data.status);
                 } else {
                     console.error('❌ Invalid status data from HTTP API:', data);
+                    AICameraUtils.addLogMessage('log-container', 'Invalid status data from HTTP API', 'warning');
                 }
             })
             .catch(error => {
                 console.error('❌ Error loading status from HTTP API:', error);
-                AICameraUtils.addLogMessage('log-container', `HTTP API error: ${error.message}`, 'error');
+                AICameraUtils.addLogMessage('log-container', `HTTP API error: ${error.message}`, 'warning');
+                
+                // Don't retry immediately on HTTP API errors
+                // The WebSocket will attempt reconnection instead
             });
     },
 
@@ -128,7 +170,7 @@ const CameraManager = {
                     console.log('No status received from WebSocket, falling back to HTTP API...');
                     this.loadStatusFromAPI();
                 }
-            }, 3000); // Wait 3 seconds for WebSocket response
+            }, 5000); // Increased from 3 to 5 seconds for WebSocket response
         });
 
         this.socket.on('disconnect', () => {
@@ -157,18 +199,8 @@ const CameraManager = {
                     this.updateConfigForm(data.config);
                 }
                 
-                // Only refresh video feed if camera streaming status changed AND video feed is broken
-                const wasStreaming = this.lastStreamingStatus;
-                const isStreaming = data.status.initialized && data.status.streaming;
-                this.lastStreamingStatus = isStreaming;
-                
-                if (wasStreaming !== isStreaming && isStreaming) {
-                    console.log('Camera streaming started, checking video feed status...');
-                    // Check if video feed needs refresh (only if it's broken)
-                    setTimeout(() => {
-                        this.updateVideoFeedStatus(); // This will only refresh if needed
-                    }, 2000); // Give video feed time to start naturally
-                }
+                // Note: Video feed is completely independent - no status-based control
+                console.log('Video feed status: Independent from WebSocket status updates');
             } else {
                 console.error('❌ Invalid status data received:', data);
                 AICameraUtils.addLogMessage('log-container', 'Invalid status data received', 'error');
@@ -553,43 +585,151 @@ const CameraManager = {
     },
 
     /**
-     * Refresh video feed (simplified to avoid conflicts)
+     * Refresh video feed independently from WebSocket
      */
     refreshVideoFeed: function() {
+        const now = Date.now();
+        const cooldown = 2000; // 2 second cooldown
+        
+        // Check cooldown to prevent rapid refreshes
+        if (now - this.lastVideoRefresh < cooldown) {
+            console.log(`Video feed refresh cooldown active (${cooldown - (now - this.lastVideoRefresh)}ms remaining)`);
+            return;
+        }
+        
+        console.log('🔄 Refreshing video feed independently...');
+        this.lastVideoRefresh = now;
+        
+        // Reset error state
+        this.videoErrorState = false;
+        this.videoErrorCount = 0;
+        
+        // Don't show loading state for refresh - video should continue showing
+        // Only show brief status update in console
+        console.log('Video feed refresh in progress...');
+        
+        // Get video feed element
         const videoFeed = document.getElementById('video-feed');
-        if (!videoFeed) return;
+        if (!videoFeed) {
+            console.error('Video feed element not found');
+            return;
+        }
         
-        console.log('Refreshing video feed...');
+        // Force refresh by changing src with timestamp
+        const timestamp = Date.now();
+        const newSrc = `/camera/video_feed?t=${timestamp}`;
         
-        // Simple refresh without cache buster to avoid conflicts
-        const currentSrc = videoFeed.src;
-        videoFeed.src = '';
+        console.log(`Setting video feed source: ${newSrc}`);
+        videoFeed.src = newSrc;
+        
+        // Set timeout to check if video loaded successfully
         setTimeout(() => {
-            videoFeed.src = currentSrc;
-        }, 100);
-        
-        AICameraUtils.addLogMessage('log-container', 'Video feed refreshed', 'info');
+            this.updateVideoFeedStatus();
+        }, 3000);
     },
 
     /**
-     * Check video feed status (simplified)
+     * Update video feed status independently
      */
-    checkVideoFeedStatus: function() {
+    updateVideoFeedStatus: function() {
         const videoFeed = document.getElementById('video-feed');
         if (!videoFeed) return;
         
-        console.log('Checking video feed status...');
-        console.log('Video feed src:', videoFeed.src);
-        console.log('Video feed naturalWidth:', videoFeed.naturalWidth);
-        console.log('Video feed naturalHeight:', videoFeed.naturalHeight);
+        // Check if video is actually displaying content
+        const isVideoWorking = videoFeed.complete && 
+                              videoFeed.naturalWidth > 0 && 
+                              videoFeed.naturalHeight > 0 &&
+                              !this.videoErrorState;
         
-        if (videoFeed.complete && videoFeed.naturalWidth > 0) {
-            console.log('Video feed appears to be working');
-            this.updateVideoStatus('online', 'Video feed active');
+        if (isVideoWorking) {
+            console.log('✅ Video feed is working properly');
+            // Hide status overlay when video is working
+            this.updateVideoStatus('hidden', '');
+            this.videoErrorCount = 0;
+            this.videoErrorState = false;
         } else {
-            console.log('Video feed not working properly');
-            this.updateVideoStatus('offline', 'Video feed not available');
+            console.log('⚠️ Video feed may have issues');
+            // Only show warning status if there are actual issues
+            if (this.videoErrorState || this.videoErrorCount > 0) {
+                this.updateVideoStatus('warning', 'Video feed may need refresh');
+            } else {
+                // Hide status overlay if no issues detected
+                this.updateVideoStatus('hidden', '');
+            }
         }
+        
+        // Schedule next status check (independent of WebSocket)
+        this.videoFeedRefreshTimeout = setTimeout(() => {
+            this.updateVideoFeedStatus();
+        }, 15000); // Check every 15 seconds
+    },
+
+    /**
+     * Handle video feed errors independently
+     */
+    handleVideoFeedError: function(e) {
+        console.log('Video feed error detected:', e);
+        this.videoErrorCount++;
+        this.videoErrorState = true;
+        
+        // Check if it's a chunked encoding error
+        const isChunkedError = e.message && e.message.includes('ERR_INCOMPLETE_CHUNKED_ENCODING');
+        const isNetworkError = e.message && (e.message.includes('ERR_') || e.message.includes('Failed to fetch'));
+        
+        if (isChunkedError || isNetworkError) {
+            console.warn('Network/streaming error detected');
+            AICameraUtils.addLogMessage('log-container', 'Video stream error detected - use refresh button if needed', 'warning');
+        }
+        
+        // Update status but don't auto-refresh
+        this.updateVideoStatus('error', 'Video feed error - use refresh button');
+        AICameraUtils.addLogMessage('log-container', 'Video feed error - manual refresh recommended', 'warning');
+        
+        // Reset error count after a delay to allow manual intervention
+        setTimeout(() => {
+            this.videoErrorCount = 0;
+            console.log('Video feed error count reset');
+        }, 30000); // 30 seconds
+    },
+
+    /**
+     * Handle successful video feed load
+     */
+    handleVideoFeedSuccess: function() {
+        console.log('Video feed loaded successfully');
+        this.videoErrorCount = 0;
+        this.videoErrorState = false;
+        this.updateVideoStatus('hidden', '');
+        AICameraUtils.addLogMessage('log-container', 'Video feed loaded successfully', 'success');
+    },
+
+    /**
+     * Attempt video feed recovery
+     */
+    attemptVideoFeedRecovery: function() {
+        if (this.videoErrorState) {
+            console.log('Attempting video feed recovery...');
+            AICameraUtils.addLogMessage('log-container', 'Attempting video feed recovery...', 'info');
+            this.videoErrorCount = 0;
+            this.videoErrorState = false;
+            this.refreshVideoFeed();
+        }
+    },
+
+    /**
+     * Manual video refresh function (user-initiated)
+     */
+    manualRefreshVideo: function() {
+        console.log('Manual video feed refresh requested by user');
+        AICameraUtils.addLogMessage('log-container', 'Manual video feed refresh requested', 'info');
+        
+        // Reset error states
+        this.videoErrorCount = 0;
+        this.videoErrorState = false;
+        this.lastVideoRefresh = 0; // Force refresh regardless of cooldown
+        
+        // Perform refresh
+        this.refreshVideoFeed();
     },
     
 
@@ -627,7 +767,7 @@ const CameraManager = {
     },
     
     /**
-     * Update video status overlay
+     * Update video status overlay - only show when necessary
      */
     updateVideoStatus: function(status, message) {
         const videoStatus = document.getElementById('video-status');
@@ -639,21 +779,41 @@ const CameraManager = {
         const icon = statusContent.querySelector('i');
         const text = statusContent.querySelector('span');
         
-        if (status === 'hidden') {
-            videoStatus.classList.add('hidden');
-        } else {
-            videoStatus.classList.remove('hidden');
-            
-            if (status === 'loading') {
+        // Only show status overlay for critical states
+        if (status === 'hidden' || status === 'success') {
+            videoStatus.classList.remove('show');
+            return;
+        }
+        
+        // Show status overlay only for important states
+        videoStatus.classList.add('show');
+        
+        if (status === 'loading') {
+            // Only show loading for initial load, not for refresh
+            if (message === 'Loading video feed...') {
                 icon.className = 'fas fa-spinner fa-spin';
-                text.textContent = message || 'Loading video feed...';
-            } else if (status === 'error') {
-                icon.className = 'fas fa-exclamation-triangle';
-                text.textContent = message || 'Video feed error';
-            } else if (status === 'offline') {
-                icon.className = 'fas fa-video-slash';
-                text.textContent = message || 'Camera offline';
+                text.textContent = message;
+            } else {
+                // For refresh operations, show briefly then hide
+                icon.className = 'fas fa-sync-alt fa-spin';
+                text.textContent = message;
+                
+                // Auto-hide refresh status after 2 seconds
+                setTimeout(() => {
+                    if (videoStatus.classList.contains('show')) {
+                        this.updateVideoStatus('hidden', '');
+                    }
+                }, 2000);
             }
+        } else if (status === 'error') {
+            icon.className = 'fas fa-exclamation-triangle';
+            text.textContent = message || 'Video feed error';
+        } else if (status === 'warning') {
+            icon.className = 'fas fa-exclamation-circle';
+            text.textContent = message || 'Video feed warning';
+        } else if (status === 'offline') {
+            icon.className = 'fas fa-video-slash';
+            text.textContent = message || 'Camera offline';
         }
     },
     
@@ -672,40 +832,6 @@ const CameraManager = {
         
         // Update video feed status
         this.updateVideoFeedStatus();
-    },
-
-    /**
-     * Update video feed status and implement fallback mechanism
-     */
-    updateVideoFeedStatus: function() {
-        const videoFeed = document.getElementById('video-feed');
-        if (!videoFeed) return;
-        
-        // Check if video feed is working properly
-        const isVideoWorking = videoFeed.complete && videoFeed.naturalWidth > 0;
-        
-        if (isVideoWorking) {
-            this.updateVideoStatus('hidden', '');
-            // Video is working, no need to refresh
-            return;
-        }
-        
-        // Video feed is not working - check if camera should be streaming
-        if (this.cachedStatus && this.cachedStatus.streaming) {
-            // Camera is streaming but video feed is broken - this is a fallback case
-            console.log('Camera is streaming but video feed is broken - initiating fallback refresh');
-            AICameraUtils.addLogMessage('log-container', 'Video feed broken while camera streaming - initiating fallback', 'warning');
-            this.updateVideoStatus('error', 'Video feed broken - attempting recovery');
-            
-            // Only refresh if we haven't recently tried
-            const now = Date.now();
-            if (now - this.lastVideoRefresh > this.videoRefreshCooldown) {
-                this.refreshVideoFeed();
-            }
-        } else {
-            // Camera is not streaming, so video feed should be offline
-            this.updateVideoStatus('offline', 'Camera not streaming');
-        }
     },
 
     /**
@@ -1116,56 +1242,45 @@ const CameraManager = {
     },
 
     /**
-     * Setup video feed event handlers with improved stability
+     * Setup video feed event handlers with independence from WebSocket
      */
     setupVideoFeedHandlers: function() {
-        // Video feed error handling
-        const videoFeed = document.getElementById('video-feed');
-        const videoStatus = document.getElementById('video-status');
+        console.log('Setting up video feed event handlers with independence from WebSocket');
         
-        if (videoFeed) {
-            console.log('Setting up video feed event handlers with improved stability');
-            
-            // Enhanced error handling with exponential backoff
-            this.videoErrorCount = 0;
-            this.maxVideoErrors = 3;
-            this.videoErrorBackoff = 2000; // Start with 2 seconds
-            this.maxVideoErrorBackoff = 30000; // Max 30 seconds
-            this.videoErrorState = false;
-            this.lastVideoRefresh = 0;
-            this.videoRefreshCooldown = 15000; // Increased to 15 seconds between refreshes (was 5 seconds)
-            
-            videoFeed.addEventListener('error', (e) => {
-                this.handleVideoFeedError(e);
-            });
-
-            videoFeed.addEventListener('load', () => {
-                this.handleVideoFeedSuccess();
-            });
-            
-            videoFeed.addEventListener('loadstart', () => {
-                console.log('Video feed loading started');
-                this.updateVideoStatus('loading', 'Loading video feed...');
-            });
-            
-            videoFeed.addEventListener('abort', () => {
-                console.warn('Video feed loading aborted');
-                AICameraUtils.addLogMessage('log-container', 'Video feed loading aborted', 'warning');
-            });
-            
-            videoFeed.addEventListener('stalled', () => {
-                console.warn('Video feed stalled');
-                AICameraUtils.addLogMessage('log-container', 'Video feed stalled', 'warning');
-                // Don't immediately retry on stall, let the error handler manage it
-            });
-            
-            // Check if video feed is working after a delay
-            setTimeout(() => {
-                this.updateVideoFeedStatus();
-            }, 5000);
-        } else {
+        const videoFeed = document.getElementById('video-feed');
+        if (!videoFeed) {
             console.error('Video feed element not found');
+            return;
         }
+
+        // Video feed load success
+        videoFeed.addEventListener('load', () => {
+            console.log('Video feed loaded successfully');
+            this.handleVideoFeedSuccess();
+        });
+
+        // Video feed error handling
+        videoFeed.addEventListener('error', (e) => {
+            console.log('Video feed error event:', e);
+            this.handleVideoFeedError(e);
+        });
+
+        // Video feed load start
+        videoFeed.addEventListener('loadstart', () => {
+            console.log('Video feed loading started');
+            this.updateVideoStatus('loading', 'Loading video feed...');
+        });
+
+        // Video feed load end
+        videoFeed.addEventListener('loadend', () => {
+            console.log('Video feed loading completed');
+            // Status will be updated by load or error event
+        });
+
+        // Initial video feed status check (independent of WebSocket)
+        setTimeout(() => {
+            this.updateVideoFeedStatus();
+        }, 2000); // Check after 2 seconds
     },
 
     /**
@@ -1175,17 +1290,33 @@ const CameraManager = {
         console.log('Video feed error detected:', e);
         this.videoErrorCount++;
         
-        if (this.videoErrorCount <= this.maxVideoErrors) {
+        // Check if it's a chunked encoding error
+        const isChunkedError = e.message && e.message.includes('ERR_INCOMPLETE_CHUNKED_ENCODING');
+        const isNetworkError = e.message && (e.message.includes('ERR_') || e.message.includes('Failed to fetch'));
+        
+        if (isChunkedError || isNetworkError) {
+            console.warn('Network/streaming error detected, will attempt recovery');
+            AICameraUtils.addLogMessage('log-container', 'Video stream error detected - attempting recovery', 'warning');
+        }
+        
+        // Only retry if error count is low and we haven't recently tried
+        if (this.videoErrorCount <= 2 && this.videoErrorCount <= this.maxVideoErrors) {
             const backoff = Math.min(this.videoErrorBackoff * Math.pow(2, this.videoErrorCount - 1), this.maxVideoErrorBackoff);
-            console.log(`Video feed error ${this.videoErrorCount}/${this.maxVideoErrors}, retrying in ${backoff}ms`);
+            console.log(`Video feed error ${this.videoErrorCount}/2, retrying in ${backoff}ms`);
             
             setTimeout(() => {
                 this.refreshVideoFeed();
             }, backoff);
         } else {
-            console.error('Max video feed errors reached, stopping retries');
-            this.updateVideoStatus('error', 'Video feed error - max retries reached');
-            AICameraUtils.addLogMessage('log-container', 'Video feed error - max retries reached', 'error');
+            console.error('Video feed error limit reached, stopping automatic retries');
+            this.updateVideoStatus('error', 'Video feed error - manual refresh recommended');
+            AICameraUtils.addLogMessage('log-container', 'Video feed error - manual refresh recommended', 'warning');
+            
+            // Reset error count after a longer delay to allow manual intervention
+            setTimeout(() => {
+                this.videoErrorCount = 0;
+                console.log('Video feed error count reset, automatic retries re-enabled');
+            }, 30000); // 30 seconds
         }
     },
 
@@ -1214,26 +1345,19 @@ const CameraManager = {
     },
 
     /**
-     * Refresh video feed with cooldown protection
+     * Manual video feed refresh (user-initiated)
      */
-    refreshVideoFeed: function() {
-        const now = Date.now();
-        if (now - this.lastVideoRefresh < this.videoRefreshCooldown) {
-            console.log('Video feed refresh skipped - cooldown active');
-            return;
-        }
+    manualRefreshVideo: function() {
+        console.log('Manual video feed refresh requested by user');
+        AICameraUtils.addLogMessage('log-container', 'Manual video feed refresh requested', 'info');
         
-        this.lastVideoRefresh = now;
-        console.log('Refreshing video feed...');
-        AICameraUtils.addLogMessage('log-container', 'Video feed refreshed', 'info');
+        // Reset error count for manual refresh
+        this.videoErrorCount = 0;
+        this.videoErrorState = false;
         
-        const videoFeed = document.getElementById('video-feed');
-        if (videoFeed) {
-            // Add cache-busting parameter
-            const currentSrc = videoFeed.src;
-            const separator = currentSrc.includes('?') ? '&' : '?';
-            videoFeed.src = currentSrc + separator + 't=' + now;
-        }
+        // Force refresh regardless of cooldown
+        this.lastVideoRefresh = 0;
+        this.refreshVideoFeed();
     },
 };
 
@@ -1248,4 +1372,33 @@ document.addEventListener('DOMContentLoaded', function() {
     CameraManager.init();
     
     console.log('Camera Dashboard JavaScript loaded');
+});
+
+// Add beforeunload handler to properly cleanup resources
+window.addEventListener('beforeunload', function() {
+    console.log('Browser closing/refreshing - cleaning up video feed and WebSocket');
+    
+    // Cleanup WebSocket connection
+    if (CameraManager.socket) {
+        CameraManager.socket.disconnect();
+        CameraManager.socket = null;
+    }
+    
+    // Stop video feed status checks
+    if (CameraManager.videoFeedRefreshTimeout) {
+        clearTimeout(CameraManager.videoFeedRefreshTimeout);
+        CameraManager.videoFeedRefreshTimeout = null;
+    }
+    
+    // Reset error states
+    CameraManager.videoErrorCount = 0;
+    CameraManager.videoErrorState = false;
+    
+    // Clear any pending timeouts
+    if (CameraManager.statusUpdateInterval) {
+        clearInterval(CameraManager.statusUpdateInterval);
+        CameraManager.statusUpdateInterval = null;
+    }
+    
+    console.log('Camera Manager cleanup completed');
 });

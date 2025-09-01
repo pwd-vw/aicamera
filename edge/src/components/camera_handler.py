@@ -454,7 +454,7 @@ class CameraHandler:
                 
                 # Create video configuration optimized for ML detection
                 # According to Picamera2 manual, use proper stream configuration
-                from src.core.config import MAIN_RESOLUTION, LORES_RESOLUTION
+                from edge.src.core.config import MAIN_RESOLUTION, LORES_RESOLUTION
                 main_config = {"size": MAIN_RESOLUTION, "format": "RGB888"}
                 lores_config = {"size": LORES_RESOLUTION, "format": "XBGR8888"}
                 

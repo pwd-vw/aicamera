@@ -295,51 +295,48 @@ class BrowserConnectionManager:
             self.logger.error(f"Error triggering resource cleanup: {e}")
     
     def _start_cleanup_thread(self):
-        """Start background thread for cleaning up stale connections."""
-        try:
-            self.cleanup_thread = threading.Thread(
-                target=self._cleanup_worker,
-                daemon=True,
-                name="BrowserConnectionCleanup"
-            )
+        """Start cleanup thread with reduced frequency."""
+        if self.cleanup_thread is None or not self.cleanup_thread.is_alive():
+            self.cleanup_thread = threading.Thread(target=self._cleanup_worker, daemon=True)
             self.cleanup_thread.start()
-            self.logger.info("Browser connection cleanup thread started")
-        except Exception as e:
-            self.logger.error(f"Error starting cleanup thread: {e}")
+            self.logger.info("Browser connection cleanup thread started (reduced frequency)")
     
     def _cleanup_worker(self):
-        """Background worker for cleaning up stale connections."""
+        """Cleanup worker thread with reduced frequency."""
         while not self.stop_cleanup.is_set():
             try:
-                self._cleanup_stale_connections()
-                time.sleep(BROWSER_CLEANUP_INTERVAL)
+                # Reduced cleanup frequency: every 60 seconds instead of 30
+                time.sleep(60)  # Increased from 30 to 60 seconds
+                
+                with self.lock:
+                    current_time = datetime.now()
+                    stale_connections = []
+                    
+                    # Find stale connections
+                    for session_id, connection in self.active_connections.items():
+                        if (current_time - connection.last_activity).total_seconds() > BROWSER_CONNECTION_TIMEOUT:
+                            stale_connections.append(session_id)
+                    
+                    # Remove stale connections
+                    for session_id in stale_connections:
+                        connection = self.active_connections.pop(session_id, None)
+                        if connection:
+                            connection.is_active = False
+                            self.connection_history.append(connection)
+                            self.current_connections = max(0, self.current_connections - 1)
+                            self.logger.debug(f"Removed stale connection: {session_id}")
+                    
+                    # Limit history size to prevent memory issues
+                    if len(self.connection_history) > 100:  # Reduced from 1000 to 100
+                        self.connection_history = self.connection_history[-100:]
+                    
+                    # Log cleanup status periodically
+                    if stale_connections:
+                        self.logger.info(f"Cleanup: removed {len(stale_connections)} stale connections")
+                    
             except Exception as e:
                 self.logger.error(f"Error in cleanup worker: {e}")
-                time.sleep(5)  # Wait before retrying
-    
-    def _cleanup_stale_connections(self):
-        """Clean up connections that have been inactive for too long."""
-        try:
-            with self.lock:
-                current_time = datetime.now()
-                stale_sessions = []
-                
-                for session_id, connection in self.active_connections.items():
-                    time_since_activity = (current_time - connection.last_activity).total_seconds()
-                    
-                    if time_since_activity > BROWSER_CONNECTION_TIMEOUT:
-                        stale_sessions.append(session_id)
-                        self.logger.warning(f"Stale connection detected: {session_id} (inactive for {time_since_activity:.1f}s)")
-                
-                # Remove stale connections
-                for session_id in stale_sessions:
-                    self.on_browser_disconnect(session_id)
-                
-                if stale_sessions:
-                    self.logger.info(f"Cleaned up {len(stale_sessions)} stale connections")
-                    
-        except Exception as e:
-            self.logger.error(f"Error cleaning up stale connections: {e}")
+                time.sleep(10)  # Brief pause on error
     
     def cleanup(self):
         """Cleanup resources."""

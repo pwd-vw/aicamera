@@ -12,15 +12,15 @@ Version: 1.3
 Date: August 7, 2025
 """
 
-from src.core.dependency_container import (
+from edge.src.core.dependency_container import (
     DependencyContainer,
     get_container,
     get_service,
     register_service,
     shutdown_container
 )
-from src.core.config import *
-from src.core.utils.import_helper import setup_import_paths, validate_imports
+from edge.src.core.config import *
+from edge.src.core.utils.import_helper import setup_import_paths, validate_imports
 
 __all__ = [
     'DependencyContainer',

@@ -136,19 +136,52 @@ class VideoStreamingService:
             # Primary source: Camera manager
             if self.camera_manager:
                 # Try to get frame from camera manager
-                frame = self.camera_manager.capture_lores_frame()
-                if frame is not None:
-                    # Validate frame
-                    if isinstance(frame, np.ndarray) and frame.size > 0 and len(frame.shape) == 3:
-                        self.error_count = 0
-                        self.fallback_mode = False
-                        self.last_successful_frame = frame.copy()
-                        self.frames_from_camera += 1
-                        return frame, "camera_lores"
+                try:
+                    frame = self.camera_manager.capture_lores_frame()
+                    if frame is not None:
+                        # Validate frame
+                        if isinstance(frame, np.ndarray) and frame.size > 0 and len(frame.shape) == 3:
+                            # Handle different channel formats
+                            if frame.shape[2] == 4:  # RGBA or BGRA
+                                # Convert 4-channel to 3-channel RGB
+                                try:
+                                    # Convert RGBA to RGB by removing alpha channel
+                                    frame_rgb = frame[:, :, :3]
+                                    self.logger.debug(f"Converted 4-channel frame to RGB: {frame_rgb.shape}")
+                                    
+                                    # Validate converted frame
+                                    if frame_rgb.shape[0] > 0 and frame_rgb.shape[1] > 0 and frame_rgb.shape[2] == 3:
+                                        self.error_count = 0
+                                        self.fallback_mode = False
+                                        self.last_successful_frame = frame_rgb.copy()
+                                        self.frames_from_camera += 1
+                                        self.logger.debug(f"Frame captured and converted successfully: {frame_rgb.shape}")
+                                        return frame_rgb, "camera_lores_converted"
+                                    else:
+                                        self.logger.warning(f"Invalid converted frame dimensions: {frame_rgb.shape}")
+                                except Exception as convert_error:
+                                    self.logger.error(f"Error converting 4-channel frame: {convert_error}")
+                                    raise convert_error
+                            elif frame.shape[2] == 3:  # RGB
+                                # Validate frame dimensions
+                                if frame.shape[0] > 0 and frame.shape[1] > 0:
+                                    self.error_count = 0
+                                    self.fallback_mode = False
+                                    self.last_successful_frame = frame.copy()
+                                    self.frames_from_camera += 1
+                                    self.logger.debug(f"Frame captured successfully: {frame.shape}")
+                                    return frame, "camera_lores"
+                                else:
+                                    self.logger.warning(f"Invalid frame dimensions: {frame.shape}")
+                            else:
+                                self.logger.warning(f"Unsupported frame format: {frame.shape} channels")
+                        else:
+                            self.logger.warning(f"Invalid frame type or size: {type(frame)}, size: {frame.size if hasattr(frame, 'size') else 'unknown'}")
                     else:
-                        self.logger.warning("Invalid frame from camera manager")
-                else:
-                    self.logger.debug("No frame from camera manager")
+                        self.logger.debug("No frame from camera manager")
+                except Exception as camera_error:
+                    self.logger.error(f"Camera capture error: {camera_error}")
+                    self.error_count += 1
             
             # Secondary source: Last successful frame (cached)
             if self.last_successful_frame is not None:
