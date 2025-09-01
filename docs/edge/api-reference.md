@@ -247,6 +247,78 @@ System information and specifications.
 
 ### Camera Control
 
+#### Camera Architecture Overview
+
+The camera system uses a **Singleton pattern** with **thread-safe access control**:
+
+- **CameraHandler**: Low-level camera operations using Picamera2 (Singleton)
+- **CameraManager**: High-level camera service management
+- **Frame Buffer System**: Single capture thread provides frames to all consumers
+- **Auto-Start System**: Configurable automatic camera initialization and streaming
+
+#### Camera Initialization Process
+
+1. **Hardware Detection**: Check for camera devices (`/dev/video0`, `/dev/media0`)
+2. **Software Check**: Verify libcamera and Picamera2 availability
+3. **Camera Configuration**: Create video configuration with main and lores streams
+4. **Camera Start**: Begin streaming and start frame capture thread
+5. **Auto-Start**: Optional automatic initialization based on configuration
+
+#### Camera Status States
+
+| State | initialized | streaming | Description |
+|-------|-------------|-----------|-------------|
+| **Offline** | `false` | `false` | Camera not initialized or hardware unavailable |
+| **Ready** | `true` | `false` | Camera configured but not streaming |
+| **Online** | `true` | `true` | Camera streaming and capturing frames |
+| **Fallback** | `true` | `false` | Camera handler ready but hardware not available |
+
+#### Frame Capture System
+
+The camera system uses a **thread-safe frame buffer system** with concurrent access:
+
+- **Single Capture Thread**: Continuously captures frames from both main and lores streams
+- **Frame Buffers**: Thread-safe buffers for main frame, lores frame, and metadata
+- **Concurrent Access**: Multiple consumers can access frames simultaneously
+- **Performance Tracking**: Frame count and FPS statistics
+
+#### Auto-Start System
+
+The camera system supports configurable auto-start functionality:
+
+**Configuration:**
+- `AUTO_START_CAMERA`: Enable/disable automatic camera initialization
+- `AUTO_START_STREAMING`: Enable/disable automatic streaming after initialization
+- `STARTUP_DELAY`: Delay before auto-start (seconds)
+
+**Auto-Start Process:**
+1. **Normal Mode**: Camera hardware available
+   - Initialize camera handler
+   - Start camera streaming
+   - Begin frame capture
+
+2. **Fallback Mode**: Camera hardware not available
+   - Initialize camera handler in fallback mode
+   - Monitor camera availability
+   - Auto-connect when hardware becomes available
+
+#### Error Handling and Recovery
+
+**Camera Availability Check:**
+- Hardware detection (`/dev/video0`, `/dev/media0`)
+- Software availability (libcamera, Picamera2)
+- Resource conflict resolution
+
+**Resource Management:**
+- Singleton pattern prevents multiple camera instances
+- Thread-safe access control
+- Automatic resource cleanup on errors
+
+**Recovery Mechanisms:**
+- Automatic retry on connection failures
+- Hardware reset on resource conflicts
+- Fallback mode when hardware unavailable
+
 #### GET /camera/status
 ตรวจสอบสถานะกล้อง
 
@@ -438,7 +510,13 @@ Content-Type: image/jpeg
 ```
 
 #### GET /camera/video_feed_lores
-สตรีมวิดีโอความละเอียดต่ำ (MJPEG)
+สตรีมวิดีโอความละเอียดต่ำ (MJPEG) จาก lores stream
+
+**Process:**
+1. Check camera streaming status
+2. Get frames from lores stream buffer
+3. Encode frames to JPEG format
+4. Stream via multipart/x-mixed-replace
 
 **Response:** `multipart/x-mixed-replace` stream
 ```
