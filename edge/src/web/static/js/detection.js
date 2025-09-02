@@ -495,6 +495,9 @@ const DetectionManager = {
         
         // Update button states
         this.updateButtonStates(serviceRunning, modelsLoaded);
+
+        // Update performance analytics panel using latest status
+        this.updatePerformanceAnalytics();
     },
 
     /**
@@ -673,8 +676,35 @@ const DetectionManager = {
                     });
                 }
             })
-            .catch(error => {
-                console.error('Failed to load statistics:', error);
+            .catch(() => {
+                // Fallback: derive metrics from /detection/status when /detection/statistics is unavailable
+                AICameraUtils.apiRequest('/detection/status')
+                    .then(data => {
+                        const status = (data && data.detection_status) ? data.detection_status : (data || {});
+                        const statistics = status.statistics || {};
+                        const totalVehicles = statistics.total_vehicles_detected || 0;
+                        const totalPlates = statistics.total_plates_detected || 0;
+                        const successfulOcr = statistics.successful_ocr || 0;
+                        const plateRate = totalVehicles > 0 ? ((totalPlates / totalVehicles) * 100).toFixed(1) : '0';
+                        const ocrRate = totalPlates > 0 ? ((successfulOcr / totalPlates) * 100).toFixed(1) : '0';
+                        const avgProcessing = (statistics.avg_processing_time_ms !== undefined)
+                            ? statistics.avg_processing_time_ms
+                            : ((statistics.processing_time_avg || 0) * 1000);
+
+                        this.updateElement('vehicles-detected', totalVehicles);
+                        this.updateElement('plates-detected-count', totalPlates);
+                        this.updateElement('successful-ocr-count', successfulOcr);
+                        this.updateElement('plate-detection-rate', plateRate + '%');
+                        this.updateElement('ocr-success-rate', ocrRate + '%');
+                        this.updateElement('processing-efficiency', (avgProcessing || 0) + 'ms');
+
+                        // Update performance analytics too
+                        this.lastStatusUpdate = status;
+                        this.updatePerformanceAnalytics();
+                    })
+                    .catch(() => {
+                        // Leave as-is if both endpoints fail
+                    });
             });
     },
 
@@ -1957,19 +1987,22 @@ updateRealTimeMetrics: function() {
  * Update performance analytics
  */
 updatePerformanceAnalytics: function() {
-    const stats = this.lastStatusUpdate || {};
+    const status = this.lastStatusUpdate || {};
+    const statistics = status.statistics || {};
     
-    // Detection throughput
-    const fps = stats.current_fps || 0;
-    const totalFrames = stats.total_frames_processed || 0;
-    const errors = stats.detection_errors || 0;
+    // Derive FPS from detection interval if current_fps not present
+    const interval = status.detection_interval || 0;
+    const derivedFps = interval > 0 ? (1 / interval) : 0;
+    const fps = (typeof status.current_fps === 'number' ? status.current_fps : 0) || derivedFps;
+    const totalFrames = statistics.total_frames_processed || 0;
+    const errors = statistics.failed_detections || 0;
     
-    // OCR method comparison
-    const hailoSuccess = stats.hailo_ocr_success_rate || 0;
-    const easyocrSuccess = stats.easyocr_success_rate || 0;
+    // OCR method comparison (optional fields)
+    const hailoSuccess = status.hailo_ocr_success_rate || 0;
+    const easyocrSuccess = status.easyocr_success_rate || 0;
     const bestMethod = hailoSuccess > easyocrSuccess ? 'Hailo' : 'EasyOCR';
     
-    this.updateElement('detection-throughput', fps + ' FPS');
+    this.updateElement('detection-throughput', fps.toFixed(1) + ' FPS');
     this.updateElement('total-frames-processed', totalFrames);
     this.updateElement('detection-errors-count', errors);
     this.updateElement('hailo-ocr-success', hailoSuccess + '%');
