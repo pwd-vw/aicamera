@@ -58,6 +58,9 @@ const CameraManager = {
             this.toggleMetadataSection(true);
         }, 3000);
         
+        // Initialize capture status
+        this.showCaptureStatus('Ready to capture', 'info');
+        
         console.log('Camera Manager initialized successfully (cached data mode)');
     },
 
@@ -300,6 +303,12 @@ const CameraManager = {
      * Send camera command
      */
     sendCommand: function(command) {
+        if (command === 'capture') {
+            // Handle capture command directly via HTTP API
+            this.captureImage();
+            return;
+        }
+        
         if (!this.socket || !this.socket.connected) {
             AICameraUtils.showToast('Not connected to camera service', 'warning');
             return;
@@ -307,6 +316,115 @@ const CameraManager = {
 
         this.socket.emit('camera_control', { command: command });
         AICameraUtils.addLogMessage('log-container', `Sending ${command} command...`, 'info');
+    },
+
+    /**
+     * Capture image using HTTP API
+     */
+    captureImage: function() {
+        AICameraUtils.addLogMessage('log-container', 'Capturing image...', 'info');
+        
+        // Show capture status
+        this.showCaptureStatus('Capturing image...', 'info');
+        
+        // Show capture button loading state
+        const captureBtn = document.getElementById('capture-btn');
+        if (captureBtn) {
+            const originalText = captureBtn.innerHTML;
+            captureBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Capturing...';
+            captureBtn.disabled = true;
+            
+            // Reset button after capture
+            setTimeout(() => {
+                captureBtn.innerHTML = originalText;
+                captureBtn.disabled = false;
+            }, 3000);
+        }
+        
+        // Make HTTP request to capture endpoint
+        fetch('/camera/capture', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('Capture response:', data);
+            
+            if (data.success) {
+                // Show success message
+                const message = 'Image captured successfully!';
+                AICameraUtils.addLogMessage('log-container', message, 'success');
+                AICameraUtils.showToast(message, 'success');
+                
+                // Show success status
+                this.showCaptureStatus('Image captured successfully!', 'success');
+                
+                // Log capture details
+                console.log('Capture successful:', data);
+                
+                // Show timestamp if available
+                if (data.timestamp) {
+                    console.log('Capture timestamp:', data.timestamp);
+                    AICameraUtils.addLogMessage('log-container', `Captured at: ${data.timestamp}`, 'info');
+                }
+                
+                // Note: Image is saved automatically by camera manager
+                // Check manual_capture directory for saved images
+                AICameraUtils.addLogMessage('log-container', 'Image saved to manual_capture directory', 'info');
+                
+                // Hide status after 5 seconds
+                setTimeout(() => {
+                    this.hideCaptureStatus();
+                }, 5000);
+                
+            } else {
+                const errorMsg = data.error || 'Failed to capture image';
+                AICameraUtils.addLogMessage('log-container', `Capture failed: ${errorMsg}`, 'error');
+                AICameraUtils.showToast('Capture failed', 'error');
+                
+                // Show error status
+                this.showCaptureStatus(`Capture failed: ${errorMsg}`, 'warning');
+            }
+        })
+        .catch(error => {
+            console.error('Capture error:', error);
+            AICameraUtils.addLogMessage('log-container', `Capture error: ${error.message}`, 'error');
+            AICameraUtils.showToast('Capture error', 'error');
+            
+            // Show error status
+            this.showCaptureStatus(`Capture error: ${error.message}`, 'warning');
+        });
+    },
+
+    /**
+     * Show capture status
+     */
+    showCaptureStatus: function(message, type = 'info') {
+        const captureStatus = document.getElementById('capture-status');
+        const captureStatusText = document.getElementById('capture-status-text');
+        
+        if (captureStatus && captureStatusText) {
+            // Update message and type
+            captureStatusText.textContent = message;
+            
+            // Update alert class
+            captureStatus.className = `mt-2 alert alert-${type} alert-sm mb-0 show`;
+            
+            // Show status
+            captureStatus.style.display = 'block';
+        }
+    },
+
+    /**
+     * Hide capture status
+     */
+    hideCaptureStatus: function() {
+        const captureStatus = document.getElementById('capture-status');
+        if (captureStatus) {
+            captureStatus.style.display = 'none';
+        }
     },
 
     /**

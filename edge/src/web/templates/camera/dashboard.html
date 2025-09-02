@@ -233,6 +233,39 @@
     }
 }
 
+/* Capture Status Styles */
+.alert-sm {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    border-radius: 0.375rem;
+}
+
+#capture-status {
+    transition: all 0.3s ease;
+}
+
+#capture-status.show {
+    display: block !important;
+}
+
+#capture-status .alert-info {
+    background-color: rgba(13, 202, 240, 0.1);
+    border-color: rgba(13, 202, 240, 0.2);
+    color: #0dcaf0;
+}
+
+#capture-status .alert-success {
+    background-color: rgba(25, 135, 84, 0.1);
+    border-color: rgba(25, 135, 84, 0.2);
+    color: #198754;
+}
+
+#capture-status .alert-warning {
+    background-color: rgba(255, 193, 7, 0.1);
+    border-color: rgba(255, 193, 7, 0.2);
+    color: #ffc107;
+}
+
 /* Legacy styles for backward compatibility */
 .metadata-grid {
     display: grid;
@@ -468,6 +501,7 @@
                         <button id="capture-btn" class="btn btn-info btn-sm control-btn-compact">
                             <i class="fas fa-camera"></i> Capture
                         </button>
+                        <small class="text-muted d-block mt-1">Images saved to: /edge/manual_capture/</small>
                        <button id="manual-refresh-video-btn" class="btn btn-info btn-sm control-btn-compact" onclick="CameraManager.manualRefreshVideo()">
                             <i class="fas fa-sync-alt"></i> Refresh Video
                         </button>
@@ -484,6 +518,14 @@
                                 <i class="fas fa-spinner fa-spin"></i>
                                 <span>Loading video feed...</span>
                             </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Capture Status Display -->
+                    <div id="capture-status" class="mt-2" style="display: none;">
+                        <div class="alert alert-info alert-sm mb-0">
+                            <i class="fas fa-info-circle me-1"></i>
+                            <span id="capture-status-text">Ready to capture</span>
                         </div>
                     </div>
                 </div>

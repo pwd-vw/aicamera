@@ -26,6 +26,8 @@ import time
 from typing import Dict, Any, Optional
 from datetime import datetime
 import numpy as np
+import os
+import cv2
 
 from edge.src.core.utils.logging_config import get_logger
 from edge.src.components.camera_handler import make_json_serializable
@@ -59,6 +61,11 @@ class CameraManager:
         # Metadata tracking (NEW) - Event-based only
         self.last_metadata = {}
         self.last_metadata_update = None
+        
+        # Manual capture directory (NEW)
+        self.manual_capture_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'manual_capture')
+        os.makedirs(self.manual_capture_dir, exist_ok=True)
+        self.logger.info(f"Manual capture directory: {self.manual_capture_dir}")
         
     def initialize(self):
         """
@@ -606,6 +613,86 @@ class CameraManager:
                 
         except Exception as e:
             self.logger.error(f"Error capturing lores frame: {e}")
+            return None
+
+    def capture_image(self) -> Optional[Dict[str, Any]]:
+        """
+        Capture and save a single image to manual_capture directory.
+        Uses current frame from camera for high-quality capture.
+        
+        Returns:
+            Dict[str, Any] or None: Capture result with file path and metadata, None if failed
+        """
+        try:
+            if not self.camera_handler or not self.camera_handler.initialized:
+                self.logger.warning("Cannot capture image - camera not initialized")
+                return None
+            
+            # Check if frame buffer is ready
+            if not self.camera_handler.is_frame_buffer_ready():
+                self.logger.warning("Frame buffer not ready yet")
+                return None
+            
+            # Capture main frame for high quality
+            frame_data = self.camera_handler.capture_frame()
+            
+            if frame_data is None:
+                self.logger.warning("No frame data available for capture")
+                return None
+            
+            # Extract frame from frame_data
+            frame = None
+            if isinstance(frame_data, dict) and 'frame' in frame_data:
+                frame = frame_data['frame']
+            elif isinstance(frame_data, np.ndarray):
+                frame = frame_data
+            else:
+                self.logger.warning(f"Invalid frame data format: {type(frame_data)}")
+                return None
+            
+            if frame is None or not isinstance(frame, np.ndarray):
+                self.logger.warning("Frame is None or not a numpy array")
+                return None
+            
+            if frame.size == 0 or len(frame.shape) != 3:
+                self.logger.warning(f"Invalid frame shape: {frame.shape}")
+                return None
+            
+            # Generate filename with timestamp
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]  # Include milliseconds
+            filename = f"manual_capture_{timestamp}.jpg"
+            filepath = os.path.join(self.manual_capture_dir, filename)
+            
+            # Ensure directory exists
+            os.makedirs(self.manual_capture_dir, exist_ok=True)
+            
+            # Save image with high quality
+            success = cv2.imwrite(filepath, frame, [cv2.IMWRITE_JPEG_QUALITY, 95])
+            
+            if not success:
+                self.logger.error(f"Failed to save image to {filepath}")
+                return None
+            
+            # Get file size
+            file_size = os.path.getsize(filepath)
+            
+            # Get frame dimensions
+            height, width = frame.shape[:2]
+            
+            self.logger.info(f"Image captured successfully: {filepath} ({width}x{height}, {file_size} bytes)")
+            
+            return {
+                'success': True,
+                'saved_path': filepath,
+                'filename': filename,
+                'size': file_size,
+                'dimensions': f"{width}x{height}",
+                'timestamp': timestamp,
+                'timestamp_iso': datetime.now().isoformat()
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error capturing image: {e}")
             return None
     
     def get_stream_generator(self):
