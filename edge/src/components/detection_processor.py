@@ -548,24 +548,50 @@ class DetectionProcessor:
         try:
             # Generate timestamp for filename
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
-            
-            # Create directories if they don't exist
+
+            # Ensure directory exists and is writable
             Path(IMAGE_SAVE_DIR).mkdir(parents=True, exist_ok=True)
-            
+            if not os.access(IMAGE_SAVE_DIR, os.W_OK):
+                self.logger.error(f"Image save directory not writable: {IMAGE_SAVE_DIR}")
+                return "", "", "", []
+
             # Step 1: Save only original image with datetime format filename
             original_filename = f"detection_{timestamp}.jpg"
             original_path = os.path.join(IMAGE_SAVE_DIR, original_filename)
-            cv2.imwrite(original_path, original_frame)
-            
+
+            # Ensure frame is uint8 for imwrite
+            frame_to_save = original_frame
+            if frame_to_save is None or not isinstance(frame_to_save, np.ndarray) or frame_to_save.size == 0:
+                self.logger.error("Invalid frame provided to save_detection_results")
+                return "", "", "", []
+            if frame_to_save.dtype != np.uint8:
+                try:
+                    frame_to_save = np.clip(frame_to_save, 0, 255).astype(np.uint8)
+                except Exception:
+                    self.logger.error("Failed to convert frame to uint8 for saving")
+                    return "", "", "", []
+
+            success = cv2.imwrite(original_path, frame_to_save)
+            if not success or (not os.path.exists(original_path)):
+                self.logger.error(f"cv2.imwrite failed or file missing after write: {original_path}")
+                return "", "", "", []
+            try:
+                if os.path.getsize(original_path) <= 0:
+                    self.logger.error(f"Saved image file is empty: {original_path}")
+                    return "", "", "", []
+            except OSError as e:
+                self.logger.error(f"Error verifying saved image file: {e}")
+                return "", "", "", []
+
             # Return empty strings for other image paths to maintain database schema compatibility
             # Detection bounding boxes will be drawn dynamically in showDetail for better performance
             vehicle_detected_path = ""
             plate_detected_path = ""
             cropped_paths = []
-            
+
             self.logger.info(f"Saved original image only: {original_path} (optimized for performance)")
             return original_path, vehicle_detected_path, plate_detected_path, cropped_paths
-            
+
         except Exception as e:
             self.logger.error(f"Error saving detection results: {e}")
             return "", "", "", []
