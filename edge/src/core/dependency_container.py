@@ -93,7 +93,7 @@ class DependencyContainer:
                                     dependencies={
                                         'camera_manager': 'camera_manager',
                                         'detection_processor': 'detection_processor',
-                                        'experiment_isolator': 'experiment_isolator'
+                                        'isolator': 'experiment_isolator'
                                     })
                 
                 self.logger.info("Experiment services registered successfully")

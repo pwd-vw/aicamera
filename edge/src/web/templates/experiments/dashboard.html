@@ -13,15 +13,14 @@
 {% block title %}{{ title }}{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
+<div class="container-fluid px-4 py-3">
     <div class="row">
-        <!-- Main content -->
-        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
-            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-                <h1 class="h2">Experiment Dashboard</h1>
+        <div class="col-12">
+            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-4 border-bottom">
+                <h1 class="h2"><i class="fas fa-flask text-primary me-2"></i>Experiment Dashboard</h1>
                 <div class="btn-toolbar mb-2 mb-md-0">
                     <div class="btn-group me-2">
-                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="refreshStatus()">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="refreshStatus()" title="Refresh dashboard status">
                             <i class="fas fa-sync-alt"></i> Refresh
                         </button>
                     </div>
@@ -29,45 +28,121 @@
             </div>
 
             <!-- Experiment Types -->
-            <div class="row mb-4">
-                <div class="col-md-4">
-                    <div class="card">
-                        <div class="card-body">
+            <div class="row mb-4 g-3">
+                <div class="col-xl-3 col-lg-4 col-md-6">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-body d-flex flex-column">
                             <h5 class="card-title">
-                                <i class="fas fa-camera text-primary"></i> Single Detection
+                                <i class="fas fa-camera text-primary me-2"></i> Single Shot Detection
                             </h5>
-                            <p class="card-text">ทดสอบ detection pipeline ด้วยภาพนิ่งหรือเฟรมเดียว</p>
-                            <button class="btn btn-primary" onclick="showSingleDetectionForm()">
-                                เริ่มการทดลอง
-                            </button>
+                            <p class="card-text flex-grow-1">ทดสอบ detection pipeline ด้วยภาพเฟรมเดียว</p>
+                            <a href="{{ url_for('experiments.singleshot_detection') }}" class="btn btn-primary mt-auto">
+                                <i class="fas fa-play me-2"></i>เริ่มการทดลอง
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-xl-3 col-lg-4 col-md-6">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-body d-flex flex-column">
+                            <h5 class="card-title">
+                                <i class="fas fa-image text-info me-2"></i> Sample Image Detection
+                            </h5>
+                            <p class="card-text flex-grow-1">ทดสอบ detection pipeline ด้วยภาพนิ่ง</p>
+                            <a href="{{ url_for('experiments.sampleimage_detection') }}" class="btn btn-info mt-auto">
+                                <i class="fas fa-play me-2"></i>เริ่มการทดลอง
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-xl-3 col-lg-4 col-md-6">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-body d-flex flex-column">
+                            <h5 class="card-title">
+                                <i class="fas fa-ruler text-success me-2"></i> Length Detection
+                            </h5>
+                            <p class="card-text flex-grow-1">ทดสอบการตรวจจับตามความยาวด้วย auto focus</p>
+                            <a href="{{ url_for('experiments.length_detection') }}" class="btn btn-success mt-auto">
+                                <i class="fas fa-play me-2"></i>เริ่มการทดลอง
+                            </a>
                         </div>
                     </div>
                 </div>
                 
-                <div class="col-md-4">
-                    <div class="card">
-                        <div class="card-body">
+                <div class="col-xl-3 col-lg-4 col-md-6">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-body d-flex flex-column">
                             <h5 class="card-title">
-                                <i class="fas fa-ruler text-success"></i> Length Detection
+                                <i class="fas fa-sliders-h text-warning me-2"></i> Flexible Config
                             </h5>
-                            <p class="card-text">ทดสอบการตรวจจับตามความยาวด้วย auto focus</p>
-                            <button class="btn btn-success" onclick="showLengthDetectionForm()">
-                                เริ่มการทดลอง
-                            </button>
+                            <p class="card-text flex-grow-1">กำหนดการตั้งค่ากล้องเองและทดสอบ</p>
+                            <a href="{{ url_for('experiments.flexible_detection') }}" class="btn btn-warning mt-auto">
+                                <i class="fas fa-play me-2"></i>เริ่มการทดลอง
+                            </a>
                         </div>
                     </div>
                 </div>
-                
-                <div class="col-md-4">
-                    <div class="card">
+            </div>
+
+            <!-- Statistics Overview -->
+            <div class="row mb-4 g-3">
+                <div class="col-xl-3 col-lg-6 col-md-6">
+                    <div class="card bg-primary text-white h-100">
                         <div class="card-body">
-                            <h5 class="card-title">
-                                <i class="fas fa-sliders-h text-warning"></i> Flexible Config
-                            </h5>
-                            <p class="card-text">กำหนดการตั้งค่ากล้องเองและทดสอบ</p>
-                            <button class="btn btn-warning" onclick="showFlexibleConfigForm()">
-                                เริ่มการทดลอง
-                            </button>
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h6 class="card-title">Total Experiments</h6>
+                                    <h3 class="mb-0" id="total-experiments">0</h3>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="fas fa-flask fa-2x opacity-75"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-xl-3 col-lg-6 col-md-6">
+                    <div class="card bg-success text-white h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h6 class="card-title">Successful</h6>
+                                    <h3 class="mb-0" id="successful-experiments">0</h3>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="fas fa-check-circle fa-2x opacity-75"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-xl-3 col-lg-6 col-md-6">
+                    <div class="card bg-warning text-white h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h6 class="card-title">In Progress</h6>
+                                    <h3 class="mb-0" id="in-progress-experiments">0</h3>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="fas fa-clock fa-2x opacity-75"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-xl-3 col-lg-6 col-md-6">
+                    <div class="card bg-info text-white h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h6 class="card-title">Today's Runs</h6>
+                                    <h3 class="mb-0" id="today-experiments">0</h3>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="fas fa-calendar-day fa-2x opacity-75"></i>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -76,9 +151,9 @@
             <!-- Active Experiments -->
             <div class="row mb-4">
                 <div class="col-12">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5><i class="fas fa-play-circle"></i> การทดลองที่กำลังดำเนินการ</h5>
+                    <div class="card shadow-sm">
+                        <div class="card-header bg-light">
+                            <h5 class="mb-0"><i class="fas fa-play-circle text-primary me-2"></i> การทดลองที่กำลังดำเนินการ</h5>
                         </div>
                         <div class="card-body">
                             <div id="active-experiments-list">
@@ -89,12 +164,38 @@
                 </div>
             </div>
 
-            <!-- Recent Results -->
-            <div class="row">
-                <div class="col-12">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5><i class="fas fa-chart-bar"></i> ผลการทดลองล่าสุด</h5>
+            <!-- Quick Actions and Recent Results -->
+            <div class="row mb-4 g-3">
+                <!-- Quick Actions Panel -->
+                <div class="col-xl-4 col-lg-5">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-header bg-light">
+                            <h5 class="mb-0"><i class="fas fa-bolt text-warning me-2"></i> Quick Actions</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-grid gap-2">
+                                <button class="btn btn-outline-primary" onclick="createNewExperiment()">
+                                    <i class="fas fa-plus me-2"></i>New Experiment
+                                </button>
+                                <button class="btn btn-outline-success" onclick="exportResults()">
+                                    <i class="fas fa-download me-2"></i>Export Results
+                                </button>
+                                <button class="btn btn-outline-info" onclick="viewAnalytics()">
+                                    <i class="fas fa-chart-line me-2"></i>View Analytics
+                                </button>
+                                <button class="btn btn-outline-warning" onclick="manageTemplates()">
+                                    <i class="fas fa-cogs me-2"></i>Manage Templates
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Recent Results -->
+                <div class="col-xl-8 col-lg-7">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-header bg-light">
+                            <h5 class="mb-0"><i class="fas fa-chart-bar text-success me-2"></i> ผลการทดลองล่าสุด</h5>
                         </div>
                         <div class="card-body">
                             <div id="recent-results">
@@ -104,15 +205,16 @@
                     </div>
                 </div>
             </div>
+
             <!-- History Results -->
-            <div class="row">
+            <div class="row mb-4">
                 <div class="col-12">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5><i class="fas fa-chart-bar"></i> ประวัติการทดลอง</h5>
+                    <div class="card shadow-sm">
+                        <div class="card-header bg-light">
+                            <h5 class="mb-0"><i class="fas fa-history text-info me-2"></i> ประวัติการทดลอง</h5>
                         </div>
                         <div class="card-body">
-                            <div id="recent-results">
+                            <div id="experiment-history">
                                 <!-- Dynamic content -->
                             </div>
                         </div>
@@ -124,65 +226,7 @@
 </div>
 
 <!-- Modals -->
-<!-- Single Detection Modal -->
-<div class="modal fade" id="singleDetectionModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Single Detection Experiment</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"
-                aria-label="Close" title="Close modal"></button>
-            </div>
-            <div class="modal-body">
-                <form id="singleDetectionForm">
-                    <div class="mb-3">
-                        <label class="form-label" for="image_source">แหล่งภาพ</label>
-                        <select class="form-select" id="image_source" name="image_source" required 
-                                title="เลือกแหล่งภาพสำหรับการทดลอง">
-                            <option value="camera">Live Camera Frame</option>
-                            <option value="still">Still Image</option>
-                        </select>
-                    </div>
-                    <div class="mb-3" id="stillImageSection" style="display: none;">
-                        <label class="form-label" for="still_image">เลือกภาพนิ่ง</label>
-                        <select class="form-select" id="still_image" name="still_image" 
-                                title="เลือกภาพนิ่งสำหรับการทดลอง">
-                            <option value="">เลือกภาพ...</option>
-                            <!-- Dynamic options -->
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label" for="camera_config">การตั้งค่ากล้อง</label>
-                        <select class="form-select" id="camera_config" name="camera_config" 
-                                title="เลือกการตั้งค่ากล้องสำหรับการทดลอง">
-                            <option value="current">ใช้การตั้งค่าปัจจุบัน</option>
-                            <option value="default">ใช้การตั้งค่าเริ่มต้น</option>
-                            <option value="custom">กำหนดเอง</option>
-                        </select>
-                    </div>
-                    
-                    <div class="mb-3" id="customConfigSection" style="display: none;">
-                        <label class="form-label">การตั้งค่าที่กำหนดเอง</label>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <input type="number" class="form-control" name="exposure_time" placeholder="Exposure Time (μs)">
-                            </div>
-                            <div class="col-md-6">
-                                <input type="number" class="form-control" name="analog_gain" placeholder="Analog Gain" step="0.1">
-                            </div>
-                        </div>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
-                <button type="button" class="btn btn-primary" onclick="startSingleDetectionExperiment()">
-                    เริ่มการทดลอง
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
+
 
 <!-- Length Detection Modal -->
 <div class="modal fade" id="lengthDetectionModal" tabindex="-1">
@@ -293,9 +337,191 @@
 </div>
 {% endblock %}
 
+{% block styles %}
+<style>
+    /* Full-width optimization for experiments dashboard */
+    .container-fluid {
+        max-width: 100%;
+        padding-left: 1.5rem;
+        padding-right: 1.5rem;
+    }
+    
+    /* Enhanced card styling */
+    .card {
+        border: none;
+        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    }
+    
+    .card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+    }
+    
+    .card-header {
+        border-bottom: 1px solid rgba(0,0,0,0.125);
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    }
+    
+    /* Statistics cards */
+    .bg-primary, .bg-success, .bg-warning, .bg-info {
+        background: linear-gradient(135deg, var(--bs-primary) 0%, var(--bs-primary-rgb) 100%) !important;
+    }
+    
+    .bg-success {
+        background: linear-gradient(135deg, var(--bs-success) 0%, var(--bs-success-rgb) 100%) !important;
+    }
+    
+    .bg-warning {
+        background: linear-gradient(135deg, var(--bs-warning) 0%, var(--bs-warning-rgb) 100%) !important;
+    }
+    
+    .bg-info {
+        background: linear-gradient(135deg, var(--bs-info) 0%, var(--bs-info-rgb) 100%) !important;
+    }
+    
+    /* Button enhancements */
+    .btn {
+        border-radius: 8px;
+        font-weight: 500;
+        transition: all 0.2s ease-in-out;
+    }
+    
+    .btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+    
+    /* Responsive grid optimization */
+    @media (min-width: 1400px) {
+        .col-xl-3 {
+            flex: 0 0 25%;
+            max-width: 25%;
+        }
+    }
+    
+    @media (min-width: 1200px) and (max-width: 1399px) {
+        .col-xl-3 {
+            flex: 0 0 33.333333%;
+            max-width: 33.333333%;
+        }
+    }
+    
+    /* Enhanced spacing for large screens */
+    @media (min-width: 1600px) {
+        .container-fluid {
+            padding-left: 2rem;
+            padding-right: 2rem;
+        }
+        
+        .row.g-3 {
+            --bs-gutter-x: 1.5rem;
+            --bs-gutter-y: 1.5rem;
+        }
+    }
+</style>
+{% endblock %}
+
 {% block scripts %}
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
 <script src="/static/js/experiment.js"></script>
+
+<script>
+// Quick action functions for the experiments dashboard
+function createNewExperiment() {
+    // Show modal or redirect to new experiment page
+    alert('Create New Experiment functionality coming soon!');
+}
+
+function exportResults() {
+    // Export experiment results
+    alert('Export Results functionality coming soon!');
+}
+
+function viewAnalytics() {
+    // Show analytics dashboard
+    alert('Analytics Dashboard coming soon!');
+}
+
+function manageTemplates() {
+    // Manage experiment templates
+    alert('Template Management coming soon!');
+}
+
+// Initialize dashboard with sample data
+document.addEventListener('DOMContentLoaded', function() {
+    // Update statistics with sample data
+    document.getElementById('total-experiments').textContent = '12';
+    document.getElementById('successful-experiments').textContent = '8';
+    document.getElementById('in-progress-experiments').textContent = '2';
+    document.getElementById('today-experiments').textContent = '3';
+    
+    // Add sample recent results
+    const recentResults = document.getElementById('recent-results');
+    if (recentResults) {
+        recentResults.innerHTML = `
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>
+                No recent results available. Start an experiment to see results here.
+            </div>
+        `;
+    }
+    
+    // Add sample experiment history
+    const experimentHistory = document.getElementById('experiment-history');
+    if (experimentHistory) {
+        experimentHistory.innerHTML = `
+            <div class="alert alert-warning">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                Experiment history will be displayed here once experiments are completed.
+            </div>
+        `;
+    }
+    
+    // Add sample active experiments
+    const activeExperiments = document.getElementById('active-experiments-list');
+    if (activeExperiments) {
+        activeExperiments.innerHTML = `
+            <div class="alert alert-success">
+                <i class="fas fa-check-circle me-2"></i>
+                No experiments currently running. All experiments are completed or stopped.
+            </div>
+        `;
+    }
+});
+
+// Refresh dashboard status
+function refreshStatus() {
+    // Simulate refresh
+    const refreshBtn = document.querySelector('button[onclick="refreshStatus()"]');
+    const originalText = refreshBtn.innerHTML;
+    
+    refreshBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Refreshing...';
+    refreshBtn.disabled = true;
+    
+    setTimeout(() => {
+        refreshBtn.innerHTML = originalText;
+        refreshBtn.disabled = false;
+        
+        // Show success message
+        const toast = document.createElement('div');
+        toast.className = 'alert alert-success alert-dismissible fade show position-fixed';
+        toast.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+        toast.innerHTML = `
+            <i class="fas fa-check-circle me-2"></i>
+            Dashboard refreshed successfully!
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        document.body.appendChild(toast);
+        
+        // Auto-remove after 3 seconds
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.parentNode.removeChild(toast);
+            }
+        }, 3000);
+    }, 1000);
+}
+</script>
 {% endblock %}

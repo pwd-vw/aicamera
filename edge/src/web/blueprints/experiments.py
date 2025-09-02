@@ -77,6 +77,70 @@ def dashboard():
                              title="Experiments Dashboard")
 
 
+@experiments_bp.route('/singleshot_detection')
+def singleshot_detection():
+    """
+    Single shot detection experiment page.
+    
+    Returns:
+        str: Rendered HTML template
+    """
+    try:
+        return render_template('experiments/singleshot_detection.html',
+                             title="Single Shot Detection Experiment")
+    except Exception as e:
+        logger.error(f"Error in singleshot detection: {e}")
+        return f"Error: {str(e)}", 500
+
+
+@experiments_bp.route('/sampleimage_detection')
+def sampleimage_detection():
+    """
+    Sample image detection experiment page.
+    
+    Returns:
+        str: Rendered HTML template
+    """
+    try:
+        return render_template('experiments/sampleimage_detection.html',
+                             title="Sample Image Detection Experiment")
+    except Exception as e:
+        logger.error(f"Error in sample image detection: {e}")
+        return f"Error: {str(e)}", 500
+
+
+@experiments_bp.route('/length_detection')
+def length_detection():
+    """
+    Length detection experiment page.
+    
+    Returns:
+        str: Rendered HTML template
+    """
+    try:
+        return render_template('experiments/length_detection.html',
+                             title="Length Detection Experiment")
+    except Exception as e:
+        logger.error(f"Error in length detection: {e}")
+        return f"Error: {str(e)}", 500
+
+
+@experiments_bp.route('/flexible_detection')
+def flexible_detection():
+    """
+    Flexible detection experiment page.
+    
+    Returns:
+        str: Rendered HTML template
+    """
+    try:
+        return render_template('experiments/flexible_detection.html',
+                             title="Flexible Detection Experiment")
+    except Exception as e:
+        logger.error(f"Error in flexible detection: {e}")
+        return f"Error: {str(e)}", 500
+
+
 @experiments_bp.route('/new', methods=['GET', 'POST'])
 def new_experiment():
     """

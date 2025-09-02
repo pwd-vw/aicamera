@@ -1,0 +1,893 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4 py-3">
+    <div class="row">
+        <div class="col-12">
+            <!-- Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1><i class="fas fa-camera text-primary me-2"></i> Single Shot Detection Experiment</h1>
+                <a href="{{ url_for('experiments.dashboard') }}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left me-2"></i> กลับไปหน้า Dashboard
+                </a>
+            </div>
+
+            <!-- First Section: Video Feed and Camera Metadata -->
+            <div class="row mb-4">
+                <div class="col-xl-8 col-lg-7">
+                    <div class="card shadow-sm">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0"><i class="fas fa-video me-2"></i> Live Video Feed</h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="videoContainer" class="text-center position-relative"
+                                style="min-height: 400px; background-color: #f8f9fa; border: 2px dashed #dee2e6;">
+                                <div id="videoLoadingState"
+                                    class="d-flex flex-column align-items-center justify-content-center h-100">
+                                    <i class="fas fa-spinner fa-spin fa-3x mb-3 text-primary"></i>
+                                    <p class="text-muted">Loading video feed...</p>
+                                </div>
+                                <div id="videoErrorState"
+                                    class="d-none d-flex flex-column align-items-center justify-content-center h-100">
+                                    <i class="fas fa-exclamation-triangle fa-3x mb-3 text-warning"></i>
+                                    <p class="text-muted">Video feed unavailable</p>
+                                    <small class="text-muted">Camera may not be streaming</small>
+                                </div>
+                                <!-- Live MJPEG Lores Stream from camera -->
+                                <img id="liveStream" class="img-fluid d-none" alt="Live stream"
+                                     src="{{ url_for('camera.video_feed_lores') }}">
+                                <!-- Optional captured frame preview -->
+                                <img id="capturedFrame" class="img-fluid d-none mt-2" alt="Captured frame">
+                            </div>
+                            <div class="mt-3 text-center">
+                                <button type="button" class="btn btn-primary btn-lg" id="startExperimentBtn"
+                                    onclick="startSingleShotExperiment()">
+                                    <i class="fas fa-play me-2"></i>Start Single Shot Experiment
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary btn-lg ms-2" id="captureFrameBtn"
+                                    onclick="captureFrame()" style="display: none;">
+                                    <i class="fas fa-camera me-2"></i>Capture Frame
+                                </button>
+                                <div class="mt-2">
+                                    <a href="{{ url_for('camera.video_feed_lores') }}" target="_blank" class="small text-muted">Open lores stream in new tab</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-xl-4 col-lg-5">
+                    <div class="card shadow-sm h-100">
+                        <div class="card-header bg-info text-white">
+                            <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i> Camera Metadata</h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="cameraMetadata">
+                                <div class="row g-2">
+                                    <div class="col-6">
+                                        <small class="text-muted">Exposure Time</small>
+                                        <div class="fw-bold" id="exposureTime">-</div>
+                                    </div>
+                                    <div class="col-6">
+                                        <small class="text-muted">Analog Gain</small>
+                                        <div class="fw-bold" id="analogGain">-</div>
+                                    </div>
+                                    <div class="col-6">
+                                        <small class="text-muted">Lens Position</small>
+                                        <div class="fw-bold" id="lensPosition">-</div>
+                                    </div>
+                                    <div class="col-6">
+                                        <small class="text-muted">Focus FoM</small>
+                                        <div class="fw-bold" id="focusFoM">-</div>
+                                    </div>
+                                    <div class="col-6">
+                                        <small class="text-muted">Temperature</small>
+                                        <div class="fw-bold" id="temperature">-</div>
+                                    </div>
+                                    <div class="col-6">
+                                        <small class="text-muted">Lux</small>
+                                        <div class="fw-bold" id="lux">-</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <hr>
+
+                            <div class="mt-3">
+                                <h6 class="text-muted">Experiment Status</h6>
+                                <div class="d-flex align-items-center mb-2">
+                                    <div class="badge bg-secondary me-2" id="experimentStatus">Ready</div>
+                                    <small class="text-muted" id="experimentTime">-</small>
+                                </div>
+                                <div class="progress mb-2" style="height: 8px;">
+                                    <div class="progress-bar" id="experimentProgress" role="progressbar"
+                                        style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Second Section: Detection Results -->
+<div class="row mb-4" id="resultsSection" style="display: none;">
+    <div class="col-12">
+        <div class="card shadow-sm">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="fas fa-search me-2"></i> Detection Results</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <!-- Annotated Image -->
+                    <div class="col-xl-6 col-lg-6">
+                        <h6 class="mb-3"><i class="fas fa-image me-2"></i> Annotated Frame</h6>
+                        <div class="text-center">
+                            <img id="annotatedFrame" class="img-fluid rounded border"
+                                alt="Annotated frame with detections">
+                        </div>
+                    </div>
+
+                    <!-- Detection Information -->
+                    <div class="col-xl-6 col-lg-6">
+                        <h6 class="mb-3"><i class="fas fa-list me-2"></i> Detection Details</h6>
+                        <div id="detectionDetails">
+                            <!-- Vehicle Detection -->
+                            <div class="mb-3">
+                                <h6 class="text-primary">Vehicle Detection</h6>
+                                <div class="table-responsive">
+                                    <table class="table table-sm">
+                                        <thead>
+                                            <tr>
+                                                <th>Vehicle #</th>
+                                                <th>Confidence</th>
+                                                <th>Bounding Box</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="vehicleTableBody">
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <!-- License Plate Detection -->
+                            <div class="mb-3">
+                                <h6 class="text-success">License Plate Detection</h6>
+                                <div class="table-responsive">
+                                    <table class="table table-sm">
+                                        <thead>
+                                            <tr>
+                                                <th>Plate #</th>
+                                                <th>Text</th>
+                                                <th>Confidence</th>
+                                                <th>Bounding Box</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="plateTableBody">
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <!-- OCR Results -->
+                            <div class="mb-3">
+                                <h6 class="text-info">OCR Results</h6>
+                                <div class="table-responsive">
+                                    <table class="table table-sm">
+                                        <thead>
+                                            <tr>
+                                                <th>Method</th>
+                                                <th>Text</th>
+                                                <th>Confidence</th>
+                                                <th>Processing Time</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="ocrTableBody">
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Third Section: Experiment Summary and Analytics -->
+<div class="row mb-4" id="summarySection" style="display: none;">
+    <div class="col-12">
+        <div class="card shadow-sm">
+            <div class="card-header bg-warning text-white">
+                <h5 class="mb-0"><i class="fas fa-chart-bar me-2"></i> Experiment Summary & Analytics</h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <!-- Performance Metrics -->
+                    <div class="col-xl-3 col-lg-6 col-md-6">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <h6 class="text-muted">Total Processing Time</h6>
+                                <h3 class="text-primary" id="totalProcessingTime">-</h3>
+                                <small class="text-muted">milliseconds</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xl-3 col-lg-6 col-md-6">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <h6 class="text-muted">Detection Accuracy</h6>
+                                <h3 class="text-success" id="detectionAccuracy">-</h3>
+                                <small class="text-muted">%</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xl-3 col-lg-6 col-md-6">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <h6 class="text-muted">OCR Success Rate</h6>
+                                <h3 class="text-info" id="ocrSuccessRate">-</h3>
+                                <small class="text-muted">%</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xl-3 col-lg-6 col-md-6">
+                        <div class="card bg-light">
+                            <div class="card-body text-center">
+                                <h6 class="text-muted">Frame Quality Score</h6>
+                                <h3 class="text-info" id="frameQualityScore">-</h3>
+                                <small class="text-muted">/100</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <hr>
+
+                <!-- Detailed Analytics -->
+                <div class="row">
+                    <div class="col-xl-6">
+                        <h6 class="mb-3">Pipeline Performance Breakdown</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <tbody>
+                                    <tr>
+                                        <td><strong>Frame Capture:</strong></td>
+                                        <td id="frameCaptureTime">-</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Vehicle Detection:</strong></td>
+                                        <td id="vehicleDetectionTime">-</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>License Plate Detection:</strong></td>
+                                        <td id="plateDetectionTime">-</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>OCR Processing:</strong></td>
+                                        <td id="ocrProcessingTime">-</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Database Storage:</strong></td>
+                                        <td id="databaseStorageTime">-</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="col-xl-6">
+                        <h6 class="mb-3">Quality Metrics</h6>
+                        <div class="mb-3">
+                            <label class="form-label">Image Sharpness</label>
+                            <div class="progress mb-2">
+                                <div class="progress-bar bg-success" id="sharpnessBar" role="progressbar"
+                                    style="width: 0%"></div>
+                            </div>
+                            <small class="text-muted" id="sharpnessValue">-</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Lighting Conditions</label>
+                            <div class="progress mb-2">
+                                <div class="progress-bar bg-info" id="lightingBar" role="progressbar" style="width: 0%">
+                                </div>
+                            </div>
+                            <small class="text-muted" id="lightingValue">-</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Noise Level</label>
+                            <div class="progress mb-2">
+                                <div class="progress-bar bg-warning" id="noiseBar" role="progressbar" style="width: 0%">
+                                </div>
+                            </div>
+                            <small class="text-muted" id="noiseValue">-</small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="text-center mt-4">
+                    <button type="button" class="btn btn-success me-2" onclick="saveToDatabase()">
+                        <i class="fas fa-save me-2"></i>Save to Database
+                    </button>
+                    <button type="button" class="btn btn-info me-2" onclick="exportResults()">
+                        <i class="fas fa-download me-2"></i>Export Results
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="runAnotherExperiment()">
+                        <i class="fas fa-redo me-2"></i>Run Another Experiment
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+</div>
+</div>
+
+<!-- Experiment Progress Modal -->
+<div class="modal fade" id="experimentProgressModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="fas fa-cog fa-spin me-2"></i>Running Single Shot Detection</h5>
+            </div>
+            <div class="modal-body">
+                <div class="text-center mb-4">
+                    <div class="spinner-border text-primary mb-3" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <h6 id="currentStep">Initializing experiment...</h6>
+                </div>
+
+                <div class="progress mb-3" style="height: 20px;">
+                    <div class="progress-bar progress-bar-striped progress-bar-animated" id="modalProgressBar"
+                        role="progressbar" style="width: 0%"></div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Current Status</h6>
+                        <p id="modalStatus">-</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Elapsed Time</h6>
+                        <p id="modalElapsedTime">00:00</p>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Processing Step</h6>
+                        <p id="modalProcessingStep">-</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Details</h6>
+                        <p id="modalDetails">-</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-danger" onclick="stopExperiment()">
+                    <i class="fas fa-stop me-2"></i>Stop Experiment
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block styles %}
+<style>
+    /* Full-width optimization for single shot detection */
+    .container-fluid {
+        max-width: 100%;
+        padding-left: 1.5rem;
+        padding-right: 1.5rem;
+    }
+
+    /* Enhanced card styling */
+    .card {
+        border: none;
+        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    }
+
+    .card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+    }
+
+    .card-header {
+        border-bottom: 1px solid rgba(0, 0, 0, 0.125);
+    }
+
+    /* Video container styling */
+    #videoContainer {
+        transition: all 0.3s ease-in-out;
+    }
+
+    #videoContainer:hover {
+        border-color: #007bff !important;
+    }
+
+    /* Progress bars */
+    .progress {
+        border-radius: 10px;
+        overflow: hidden;
+    }
+
+    .progress-bar {
+        transition: width 0.6s ease;
+    }
+
+    /* Table styling */
+    .table-sm th,
+    .table-sm td {
+        padding: 0.5rem;
+        font-size: 0.875rem;
+    }
+
+    /* Button enhancements */
+    .btn {
+        border-radius: 8px;
+        font-weight: 500;
+        transition: all 0.2s ease-in-out;
+    }
+
+    .btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    /* Responsive optimizations */
+    @media (min-width: 1600px) {
+        .container-fluid {
+            padding-left: 2rem;
+            padding-right: 2rem;
+        }
+    }
+
+    /* Animation for experiment progress */
+    @keyframes pulse {
+        0% {
+            opacity: 1;
+        }
+
+        50% {
+            opacity: 0.5;
+        }
+
+        100% {
+            opacity: 1;
+        }
+    }
+
+    .experiment-running {
+        animation: pulse 2s infinite;
+    }
+</style>
+{% endblock %}
+
+{% block additional_js %}
+<script>
+    // Global variables
+    let experimentRunning = false;
+    let experimentStartTime = null;
+    let experimentTimer = null;
+    let currentFrame = null;
+    let detectionResults = null;
+
+    // Initialize page
+    document.addEventListener('DOMContentLoaded', function () {
+        initializePage();
+        loadCameraMetadata();
+        setupWebSocket();
+    });
+
+    function initializePage() {
+        // Show video loading state
+        showVideoLoading();
+
+        // Attempt to display the live stream with cache-busting
+        const streamEl = document.getElementById('liveStream');
+        if (streamEl) {
+            // Attach load/error handlers now that functions exist in this scope
+            streamEl.addEventListener('load', handleStreamLoaded);
+            streamEl.addEventListener('error', handleStreamError);
+            streamEl.src = `{{ url_for('camera.video_feed_lores') }}?t=${Date.now()}`;
+            // Some browsers do not fire 'load' for MJPEG streams. Proactively detect first frame.
+            const checkTimer = setInterval(() => {
+                try {
+                    if (streamEl.naturalWidth && streamEl.naturalWidth > 0) {
+                        clearInterval(checkTimer);
+                        handleStreamLoaded();
+                    }
+                } catch (e) {
+                    // Ignore transient access errors
+                }
+            }, 300);
+            // Safety timeout to show error if it doesn't load in time
+            setTimeout(() => {
+                const notReady = !streamEl.naturalWidth || streamEl.naturalWidth === 0;
+                if (notReady && document.getElementById('videoLoadingState').classList.contains('d-flex')) {
+                    handleStreamError();
+                }
+            }, 8000);
+        }
+    }
+
+    function showVideoLoading() {
+        document.getElementById('videoLoadingState').classList.remove('d-none');
+        document.getElementById('videoErrorState').classList.add('d-none');
+        document.getElementById('capturedFrame').classList.add('d-none');
+        const liveStream = document.getElementById('liveStream');
+        if (liveStream) {
+            liveStream.classList.add('d-none');
+            liveStream.style.display = 'none';
+            liveStream.style.visibility = 'hidden';
+        }
+    }
+
+    function showVideoError() {
+        document.getElementById('videoLoadingState').classList.add('d-none');
+        document.getElementById('videoErrorState').classList.remove('d-none');
+    }
+
+    function handleStreamLoaded() {
+        console.log('[LiveStream] First frame detected, showing stream');
+        document.getElementById('videoLoadingState').classList.add('d-none');
+        document.getElementById('videoErrorState').classList.add('d-none');
+        const liveStream = document.getElementById('liveStream');
+        if (liveStream) {
+            liveStream.classList.remove('d-none');
+            liveStream.style.display = 'block';
+            liveStream.style.visibility = 'visible';
+        }
+    }
+
+    function handleStreamError() {
+        showVideoError();
+    }
+
+    async function loadCameraMetadata() {
+        try {
+            // Prefer summary endpoint for stable schema
+            const res = await fetch('/camera/api/metadata_summary', { cache: 'no-store' });
+            if (!res.ok) throw new Error('metadata_summary failed');
+            const data = await res.json();
+            const summary = (data.metadata_summary) || {};
+            const cameraSettings = summary.camera_settings || {};
+            const expIndicators = summary.experimental_indicators || {};
+            const imageQuality = summary.image_quality || {};
+
+            // Map fields to UI
+            setText('exposureTime', cameraSettings.exposure_time_ms ?? '-');
+            setText('analogGain', cameraSettings.total_gain ?? '-');
+            setText('lensPosition', cameraSettings.focus_distance ?? '-');
+            setText('focusFoM', expIndicators.focus_confidence ?? imageQuality.focus_quality ?? '-');
+
+            // Temperature and Lux are not present in metadata_summary; fetch raw metadata for these
+            try {
+                const resExtra = await fetch('/camera/api/metadata', { cache: 'no-store' });
+                if (resExtra.ok) {
+                    const m = await resExtra.json();
+                    const frameMeta = m.frame_metadata || {};
+                    setText('temperature', frameMeta.sensor_temperature || frameMeta.temperature || '-');
+                    setText('lux', frameMeta.lux || frameMeta.light_level || '-');
+                } else {
+                    setText('temperature', '-');
+                    setText('lux', '-');
+                }
+            } catch (extraErr) {
+                setText('temperature', '-');
+                setText('lux', '-');
+            }
+        } catch (e) {
+            try {
+                // Fallback to raw metadata
+                const res2 = await fetch('/camera/api/metadata', { cache: 'no-store' });
+                if (!res2.ok) throw new Error('metadata failed');
+                const m = await res2.json();
+                const frameMeta = m.frame_metadata || m || {};
+                const configMeta = (m.camera_settings || m.current_config || {}).exposure || {};
+                setText('exposureTime', frameMeta.exposure_time_ms || frameMeta.exposure_time || configMeta.exposure_time_ms || '-');
+                setText('analogGain', frameMeta.total_gain || frameMeta.analog_gain || frameMeta.analogue_gain || '-');
+                setText('lensPosition', frameMeta.focus_distance || frameMeta.lens_position || '-');
+                setText('focusFoM', frameMeta.focus_confidence || frameMeta.focus_fom || '-');
+                setText('temperature', frameMeta.sensor_temperature || frameMeta.temperature || '-');
+                setText('lux', frameMeta.lux || frameMeta.light_level || '-');
+            } catch (e2) {
+                // Retry later
+                setTimeout(loadCameraMetadata, 3000);
+            }
+        }
+    }
+
+    function formatDisplay(value) {
+        if (value === undefined || value === null || value === '') return '-';
+        // If already a number
+        if (typeof value === 'number' && isFinite(value)) {
+            return Number(value).toFixed(3);
+        }
+        // If string that can be parsed to number
+        if (typeof value === 'string') {
+            const num = Number(value);
+            if (isFinite(num)) return num.toFixed(e);
+        }
+        return String(value);
+    }
+
+    function setText(id, value) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = formatDisplay(value);
+    }
+
+    function setupWebSocket() {
+        // Initialize WebSocket connection for real-time updates
+        console.log('WebSocket setup completed');
+    }
+
+    function startSingleShotExperiment() {
+        if (experimentRunning) {
+            alert('Experiment already running!');
+            return;
+        }
+
+        experimentRunning = true;
+        experimentStartTime = Date.now();
+
+        // Update UI
+        document.getElementById('startExperimentBtn').disabled = true;
+        document.getElementById('captureFrameBtn').style.display = 'inline-block';
+        document.getElementById('experimentStatus').textContent = 'Running';
+        document.getElementById('experimentStatus').className = 'badge bg-warning me-2';
+
+        // Show progress modal
+        const modal = new bootstrap.Modal(document.getElementById('experimentProgressModal'));
+        modal.show();
+
+        // Start experiment pipeline
+        runDetectionPipeline();
+    }
+
+    function runDetectionPipeline() {
+        const steps = [
+            { name: 'Capturing frame...', progress: 10, details: 'Taking single frame from camera' },
+            { name: 'Processing frame...', progress: 25, details: 'Preparing frame for detection' },
+            { name: 'Vehicle detection...', progress: 40, details: 'Running AI model for vehicle detection' },
+            { name: 'License plate detection...', progress: 60, details: 'Detecting license plates in frame' },
+            { name: 'OCR processing...', progress: 80, details: 'Performing text recognition' },
+            { name: 'Finalizing results...', progress: 95, details: 'Preparing detection results' },
+            { name: 'Complete!', progress: 100, details: 'Experiment completed successfully' }
+        ];
+
+        let currentStep = 0;
+
+        const updateProgress = () => {
+            if (currentStep >= steps.length) {
+                completeExperiment();
+                return;
+            }
+
+            const step = steps[currentStep];
+
+            // Update modal
+            document.getElementById('currentStep').textContent = step.name;
+            document.getElementById('modalProgressBar').style.width = step.progress + '%';
+            document.getElementById('modalProgressBar').setAttribute('aria-valuenow', step.progress);
+            document.getElementById('modalStatus').textContent = step.name;
+            document.getElementById('modalDetails').textContent = step.details;
+
+            // Update sidebar
+            document.getElementById('experimentProgress').style.width = step.progress + '%';
+            document.getElementById('experimentProgress').setAttribute('aria-valuenow', step.progress);
+
+            currentStep++;
+
+            // Simulate processing time
+            setTimeout(updateProgress, 800 + Math.random() * 400);
+        };
+
+        updateProgress();
+    }
+
+    function completeExperiment() {
+        experimentRunning = false;
+
+        // Hide modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('experimentProgressModal'));
+        modal.hide();
+
+        // Update UI
+        document.getElementById('startExperimentBtn').disabled = false;
+        document.getElementById('experimentStatus').textContent = 'Completed';
+        document.getElementById('experimentStatus').className = 'badge bg-success me-2';
+
+        // Generate sample results
+        generateSampleResults();
+
+        // Show results sections
+        document.getElementById('resultsSection').style.display = 'block';
+        document.getElementById('summarySection').style.display = 'block';
+
+        // Update experiment time
+        const elapsed = Date.now() - experimentStartTime;
+        document.getElementById('experimentTime').textContent = formatTime(elapsed);
+    }
+
+    function generateSampleResults() {
+        // Generate sample detection results
+        detectionResults = {
+            vehicles: [
+                { id: 1, confidence: 0.95, bbox: [100, 150, 300, 400] },
+                { id: 2, confidence: 0.87, bbox: [450, 200, 550, 350] }
+            ],
+            plates: [
+                { id: 1, text: 'กก 1234', confidence: 0.92, bbox: [120, 300, 280, 380] },
+                { id: 2, text: 'ขข 5678', confidence: 0.78, bbox: [470, 250, 530, 320] }
+            ],
+            ocr: [
+                { method: 'Hailo AI', text: 'กก 1234', confidence: 0.92, time: '45ms' },
+                { method: 'EasyOCR', text: 'กก 1234', confidence: 0.89, time: '120ms' }
+            ],
+            metrics: {
+                totalTime: 245,
+                detectionAccuracy: 94,
+                ocrSuccessRate: 88,
+                frameQuality: 87,
+                frameCapture: 15,
+                vehicleDetection: 45,
+                plateDetection: 38,
+                ocrProcessing: 82,
+                databaseStorage: 65
+            }
+        };
+
+        displayResults();
+        updateAnalytics();
+    }
+
+    function displayResults() {
+        // Display annotated frame (in real implementation, this would be the actual annotated image)
+        document.getElementById('annotatedFrame').src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQwIiBoZWlnaHQ9IjQ4MCIgdmlld0JveD0iMCAwIDY0MCA0ODAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI2NDAiIGhlaWdodD0iNDgwIiBmaWxsPSIjZjhmOWZhIi8+Cjx0ZXh0IHg9IjMyMCIgeT0iMjQwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMjQiIGZpbGw9IiM2Yzc1N2QiIHRleHQtYW5jaG9yPSJtaWRkbGUiPkFubm90YXRlZCBGcmFtZSB3aXRoIERldGVjdGlvbnM8L3RleHQ+Cjwvc3ZnPgo=';
+
+        // Update vehicle detection table
+        const vehicleTable = document.getElementById('vehicleTableBody');
+        vehicleTable.innerHTML = detectionResults.vehicles.map(vehicle => `
+        <tr>
+            <td>${vehicle.id}</td>
+            <td>${(vehicle.confidence * 100).toFixed(1)}%</td>
+            <td>[${vehicle.bbox.join(', ')}]</td>
+        </tr>
+    `).join('');
+
+        // Update license plate table
+        const plateTable = document.getElementById('plateTableBody');
+        plateTable.innerHTML = detectionResults.plates.map(plate => `
+        <tr>
+            <td>${plate.id}</td>
+            <td>${plate.text}</td>
+            <td>${(plate.confidence * 100).toFixed(1)}%</td>
+            <td>[${plate.bbox.join(', ')}]</td>
+        </tr>
+    `).join('');
+
+        // Update OCR table
+        const ocrTable = document.getElementById('ocrTableBody');
+        ocrTable.innerHTML = detectionResults.ocr.map(ocr => `
+        <tr>
+            <td>${ocr.method}</td>
+            <td>${ocr.text}</td>
+            <td>${(ocr.confidence * 100).toFixed(1)}%</td>
+            <td>${ocr.time}</td>
+        </tr>
+    `).join('');
+    }
+
+    function updateAnalytics() {
+        const metrics = detectionResults.metrics;
+
+        // Update performance metrics
+        document.getElementById('totalProcessingTime').textContent = metrics.totalTime;
+        document.getElementById('detectionAccuracy').textContent = metrics.detectionAccuracy;
+        document.getElementById('ocrSuccessRate').textContent = metrics.ocrSuccessRate;
+        document.getElementById('frameQualityScore').textContent = metrics.frameQuality;
+
+        // Update pipeline breakdown
+        document.getElementById('frameCaptureTime').textContent = metrics.frameCapture + 'ms';
+        document.getElementById('vehicleDetectionTime').textContent = metrics.vehicleDetection + 'ms';
+        document.getElementById('plateDetectionTime').textContent = metrics.plateDetection + 'ms';
+        document.getElementById('ocrProcessingTime').textContent = metrics.ocrProcessing + 'ms';
+        document.getElementById('databaseStorageTime').textContent = metrics.databaseStorage + 'ms';
+
+        // Update quality bars
+        document.getElementById('sharpnessBar').style.width = metrics.frameQuality + '%';
+        document.getElementById('sharpnessValue').textContent = metrics.frameQuality + '/100';
+
+        document.getElementById('lightingBar').style.width = Math.min(100, metrics.frameQuality + 10) + '%';
+        document.getElementById('lightingValue').textContent = 'Good';
+
+        document.getElementById('noiseBar').style.width = Math.max(0, 100 - metrics.frameQuality) + '%';
+        document.getElementById('noiseValue').textContent = 'Low';
+    }
+
+    function captureFrame() {
+        // Simulate frame capture
+        alert('Frame captured! This would trigger the detection pipeline.');
+    }
+
+    function stopExperiment() {
+        if (experimentRunning) {
+            experimentRunning = false;
+
+            // Update UI
+            document.getElementById('startExperimentBtn').disabled = false;
+            document.getElementById('experimentStatus').textContent = 'Stopped';
+            document.getElementById('experimentStatus').className = 'badge bg-danger me-2';
+
+            // Hide modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('experimentProgressModal'));
+            modal.hide();
+
+            alert('Experiment stopped by user.');
+        }
+    }
+
+    function saveToDatabase() {
+        // Simulate saving to database
+        const saveBtn = event.target;
+        const originalText = saveBtn.innerHTML;
+
+        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Saving...';
+        saveBtn.disabled = true;
+
+        setTimeout(() => {
+            saveBtn.innerHTML = '<i class="fas fa-check me-2"></i>Saved!';
+            saveBtn.className = 'btn btn-success me-2';
+
+            setTimeout(() => {
+                saveBtn.innerHTML = originalText;
+                saveBtn.className = 'btn btn-success me-2';
+                saveBtn.disabled = false;
+            }, 2000);
+
+            alert('Experiment results saved to database successfully!');
+        }, 1500);
+    }
+
+    function exportResults() {
+        // Simulate exporting results
+        alert('Export functionality coming soon!');
+    }
+
+    function runAnotherExperiment() {
+        // Reset page for another experiment
+        location.reload();
+    }
+
+    function formatTime(milliseconds) {
+        const seconds = Math.floor(milliseconds / 1000);
+        const minutes = Math.floor(seconds / 60);
+        const remainingSeconds = seconds % 60;
+        return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+    }
+
+    // Update elapsed time during experiment
+    function updateElapsedTime() {
+        if (experimentRunning && experimentStartTime) {
+            const elapsed = Date.now() - experimentStartTime;
+            document.getElementById('modalElapsedTime').textContent = formatTime(elapsed);
+        }
+    }
+
+    // Start timer when experiment begins
+    setInterval(updateElapsedTime, 1000);
+</script>
+{% endblock %}

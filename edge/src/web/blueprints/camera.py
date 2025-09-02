@@ -1225,6 +1225,57 @@ def _generate_frames_from_service_improved(video_streaming):
                    b'\r\n' + error_frame + b'\r\n')
 
 
+@camera_bp.route('/video_feed_lores')
+def video_feed_lores():
+    """
+    Low-resolution video streaming endpoint to match detection stream.
+    Prefer the streaming service when available; otherwise fallback to direct capture.
+    """
+    try:
+        video_streaming = get_service('video_streaming')
+        if video_streaming and hasattr(video_streaming, 'get_frame'):
+            logger.info("Using video streaming service for lores video feed")
+            return Response(
+                _generate_lores_frames_from_service(video_streaming),
+                mimetype='multipart/x-mixed-replace; boundary=frame',
+                headers={
+                    'Cache-Control': 'no-cache',
+                    'Expires': '0',
+                    'Connection': 'keep-alive',
+                    'Transfer-Encoding': 'chunked',
+                    'X-Accel-Buffering': 'no',
+                    'X-Content-Type-Options': 'nosniff'
+                }
+            )
+        else:
+            logger.info("Video streaming service not available, using direct lores generator")
+            return Response(
+                generate_lores_frames(),
+                mimetype='multipart/x-mixed-replace; boundary=frame',
+                headers={
+                    'Cache-Control': 'no-cache',
+                    'Expires': '0',
+                    'Connection': 'keep-alive',
+                    'Transfer-Encoding': 'chunked',
+                    'X-Accel-Buffering': 'no',
+                    'X-Content-Type-Options': 'nosniff'
+                }
+            )
+    except Exception as e:
+        logger.error(f"Error in video_feed_lores endpoint: {e}")
+        return Response(
+            _generate_error_stream("Lores video feed error"),
+            mimetype='multipart/x-mixed-replace; boundary=frame',
+            headers={
+                'Cache-Control': 'no-cache',
+                'Expires': '0',
+                'Connection': 'keep-alive',
+                'Transfer-Encoding': 'chunked',
+                'X-Accel-Buffering': 'no',
+                'X-Content-Type-Options': 'nosniff'
+            }
+        )
+
 def _generate_lores_frames_from_service(video_streaming):
     """
     Generate lores frames using video streaming service with fallback.
