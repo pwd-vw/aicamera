@@ -498,6 +498,8 @@ const DetectionManager = {
 
         // Update performance analytics panel using latest status
         this.updatePerformanceAnalytics();
+        // Also update quality metrics so bars reflect current stats
+        this.updateQualityMetrics();
     },
 
     /**

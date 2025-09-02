@@ -683,19 +683,25 @@ Detection statistics.
 {
   "success": true,
   "statistics": {
-    "total_frames_processed": 1250,
-    "total_vehicles_detected": 45,
-    "total_plates_detected": 23,
+    "total_detections": 120,
+    "total_vehicles": 45,
+    "total_plates": 23,
     "successful_ocr": 18,
-    "detection_rate_percent": 85.2,
-    "avg_processing_time_ms": 45.3
+    "avg_processing_time_ms": 45.3,
+    "last_detection": "2025-09-02T10:25:00Z",
+    "plate_detection_rate_percent": 51.11,
+    "ocr_success_rate_percent": 78.26
   },
   "timestamp": "2025-09-02T10:30:00Z"
 }
 ```
 
+หมายเหตุ:
+- `plate_detection_rate_percent` = (total_plates / total_vehicles) × 100
+- `ocr_success_rate_percent` = (successful_ocr / total_plates) × 100
+
 #### GET /detection/results
-Get all detection results.
+Get all detection results (ข้อมูลล่าสุดจากฐานข้อมูล)
 
 **Response:**
 ```json
@@ -708,11 +714,9 @@ Get all detection results.
       "vehicles_count": 2,
       "plates_count": 1,
       "original_image_path": "captured_images/detection_20250902_101525_123.jpg",
-      "vehicle_detected_image_path": "captured_images/vehicle_detected_20250902_101525_123.jpg",
-      "plate_image_path": "captured_images/plate_detected_20250902_101525_123.jpg",
-      "cropped_plates_paths": [
-        "captured_images/plate_20250902_101525_123_0.jpg"
-      ],
+      "vehicle_detected_image_path": "",
+      "plate_image_path": "",
+      "cropped_plates_paths": [],
       "ocr_results": [
         {
           "text": "ABC123",
@@ -746,9 +750,9 @@ Get specific detection result by ID.
     "vehicles_count": 2,
     "plates_count": 1,
     "original_image_path": "captured_images/detection_20250902_101525_123.jpg",
-    "vehicle_detected_image_path": "captured_images/vehicle_detected_20250902_101525_123.jpg",
-    "plate_image_path": "captured_images/plate_detected_20250902_101525_123.jpg",
-    "cropped_plates_paths": [...],
+    "vehicle_detected_image_path": "",
+    "plate_image_path": "",
+    "cropped_plates_paths": [],
     "ocr_results": [...],
     "processing_time_ms": 45.2,
     "created_at": "2025-09-02T10:15:25Z"
@@ -1678,17 +1682,17 @@ text-align: match-parent;
 text-align: -webkit-match-parent;
 ```
 
-## Manual Capture System (Added 2025-09-02)
+## Manual Capture System (เพิ่มเมื่อ 2025-09-02)
 
-### Capture Functionality
-Manual image capture system integrated into camera dashboard:
+### ความสามารถในการ Capture แบบ Manual
+ระบบบันทึกภาพแบบ Manual ถูกเชื่อมต่อกับหน้า Camera Dashboard:
 
 #### Endpoint: POST /camera/capture
-**Features:**
-- Saves high-resolution images to `/edge/manual_capture/` directory
-- Filename format: `manual_capture_YYYYMMDD_HHMMSS.jpg`
-- Real-time UI feedback with loading states
-- Status messages for user feedback
+**คุณสมบัติ:**
+- บันทึกไฟล์ภาพลงในโฟลเดอร์ `/edge/manual_capture/`
+- ชื่อไฟล์รูปแบบ `manual_capture_YYYYMMDD_HHMMSS.jpg`
+- มีสถานะแจ้งเตือนและโหลดดิ้งใน UI แบบเรียลไทม์
+- แสดงข้อความผลลัพธ์สำเร็จ/ล้มเหลวให้ผู้ใช้ทราบ
 
 #### Response:
 ```json
@@ -1747,7 +1751,16 @@ function captureImage() {
   },
   "detection_interval": 0.1,
   "auto_start": true,
-  "statistics": {...},
+  "statistics": {
+    "total_frames_processed": 0,
+    "total_vehicles_detected": 0,
+    "total_plates_detected": 0,
+    "successful_ocr": 0,
+    "failed_detections": 0,
+    "processing_time_avg": 0.0,
+    "last_detection": null,
+    "started_at": "2025-09-02T18:08:03.714003"
+  },
   "queue_size": 0,
   "thread_alive": true,
   "last_update": "2025-09-02T18:20:35.601884"

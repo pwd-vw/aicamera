@@ -256,7 +256,7 @@
 </div>
 
 <!-- Detail View Modal -->
-<div class="modal fade" id="detail-modal" tabindex="-1" aria-labelledby="detail-modal-label" aria-hidden="true">
+<div class="modal fade" id="detail-modal" tabindex="-1" aria-labelledby="detail-modal-label">
     <div class="modal-dialog modal-xxl">
         <div class="modal-content">
             <div class="modal-header">
@@ -281,7 +281,7 @@
 </div>
 
 <!-- Export Modal -->
-<div class="modal fade" id="export-modal" tabindex="-1" aria-labelledby="export-modal-label" aria-hidden="true">
+<div class="modal fade" id="export-modal" tabindex="-1" aria-labelledby="export-modal-label">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
@@ -485,7 +485,7 @@
                                     </div>
                                     <div class="card-body">
                                         <div class="progress mb-2">
-                                            <div class="progress-bar bg-success" id="detection-accuracy-bar"
+                                            <div class="progress-bar bg-success" id="detection-accuracy-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"
                                                 style="width: 0%"></div>
                                         </div>
                                         <small class="text-muted">Based on confidence thresholds</small>
@@ -499,7 +499,7 @@
                                     </div>
                                     <div class="card-body">
                                         <div class="progress mb-2">
-                                            <div class="progress-bar bg-info" id="ocr-accuracy-bar" style="width: 0%">
+                                            <div class="progress-bar bg-info" id="ocr-accuracy-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" style="width: 0%">
                                             </div>
                                         </div>
                                         <small class="text-muted">Text recognition confidence</small>
@@ -513,7 +513,7 @@
                                     </div>
                                     <div class="card-body">
                                         <div class="progress mb-2">
-                                            <div class="progress-bar bg-warning" id="system-reliability-bar"
+                                            <div class="progress-bar bg-warning" id="system-reliability-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"
                                                 style="width: 0%"></div>
                                         </div>
                                         <small class="text-muted">Uptime and error rates</small>
@@ -687,5 +687,5 @@
 {% endblock %}
 
 {% block additional_js %}
-<script src="{{ url_for('static', filename='js/detection.js') }}"></script>
+<script src="{{ url_for('static', filename='js/detection.js', v=timestamp) }}"></script>
 {% endblock %}

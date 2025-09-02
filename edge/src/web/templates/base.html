@@ -14,15 +14,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}{{ title }}{% endblock %} - AI Camera v2.0</title>
-    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='favicon.ico', v=3) }}">
     
     <!-- Google Fonts - Modern Typography (Local) -->
-    <link href="{{ url_for('static', filename='libs/google-fonts/fonts-local.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='libs/google-fonts/fonts-local.css', v=3) }}" rel="stylesheet">
     
     <!-- Bootstrap CSS (Local) -->
-    <link href="{{ url_for('static', filename='libs/bootstrap/bootstrap.min.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='libs/bootstrap/bootstrap.min.css', v=3) }}" rel="stylesheet">
     <!-- Font Awesome (Local) -->
-    <link href="{{ url_for('static', filename='libs/font-awesome/all.min.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='libs/font-awesome/all.min.css', v=3) }}" rel="stylesheet">
     
     <!-- Custom CSS -->
     <link href="{{ url_for('static', filename='css/base.css', v=3) }}" rel="stylesheet">
@@ -30,7 +30,7 @@
     
     <!-- Socket.IO (Local) -->
     {% if use_socketio %}
-    <script src="{{ url_for('static', filename='libs/socket.io/socket.io.js') }}"></script>
+    <script src="{{ url_for('static', filename='libs/socket.io/socket.io.js', v=3) }}"></script>
     {% endif %}
     
     {% block additional_head %}{% endblock %}
@@ -128,7 +128,7 @@
     </footer>
 
     <!-- Bootstrap JS (Local) -->
-    <script src="{{ url_for('static', filename='libs/bootstrap/bootstrap.bundle.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='libs/bootstrap/bootstrap.bundle.min.js', v=3) }}"></script>
     
     <!-- Base JavaScript -->
     <script src="{{ url_for('static', filename='js/base.js', v=2) }}"></script>
