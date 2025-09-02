@@ -1,7 +1,7 @@
 # AI Camera v2.0 - Variable Management Standards
 
 **Version:** 2.0.0  
-**Last Updated:** 2025-08-24  
+**Last Updated:** 2025-09-02  
 **Author:** AI Camera Team  
 **Category:** Development Standards  
 **Status:** Active
@@ -420,6 +420,52 @@ if (!data.success) {
 }
 ```
 
+#### **Server Connection Status Variables (Updated 2025-09-02):**
+```javascript
+// Server connection status priority mapping
+const connectionStatusPriority = {
+    'connected': {
+        className: 'status-indicator status-online',
+        text: 'Connected',
+        priority: 1  // Highest priority
+    },
+    'offline_mode': {
+        className: 'status-indicator status-warning', 
+        text: 'Offline Mode',
+        priority: 2  // Medium priority
+    },
+    'disconnected': {
+        className: 'status-indicator status-warning',
+        text: 'Disconnected', 
+        priority: 3  // Medium priority
+    },
+    'not_running': {
+        className: 'status-indicator status-offline',
+        text: 'Not Running',
+        priority: 4  // Lowest priority
+    }
+};
+
+// Data sending status variables
+const dataSendingStatus = {
+    'active': {
+        condition: 'status.running && (status.total_detections_sent > 0 || status.total_health_sent > 0)',
+        className: 'status-indicator status-online',
+        text: 'Active'
+    },
+    'ready': {
+        condition: 'status.running',
+        className: 'status-indicator status-warning',
+        text: 'Ready'
+    },
+    'inactive': {
+        condition: 'default',
+        className: 'status-indicator status-offline', 
+        text: 'Inactive'
+    }
+};
+```
+
 #### **Backend Error Response:**
 ```python
 # Standard error response structure
@@ -441,6 +487,42 @@ videoRefreshCooldown: 15000,      // 15 seconds (was 5 seconds)
 dashboardUpdates: 60000,          // 60 seconds (was 10 seconds)
 ```
 
+#### **Cache-Control Headers (Updated 2025-09-02):**
+```python
+# Optimized cache-control headers for better performance
+optimized_headers = {
+    'Cache-Control': 'no-cache',  # Simplified from 'no-cache, no-store, must-revalidate, max-age=0'
+    # Removed deprecated 'Pragma': 'no-cache'
+    # Removed conflicting 'Expires': '0'
+}
+
+# Applied to endpoints:
+# - /camera/* - All camera endpoints
+# - /websocket-sender/* - WebSocket sender endpoints  
+# - /storage/* - Storage management endpoints
+# - /health/* - Health monitoring endpoints
+```
+
+#### **CSS Performance Variables (Updated 2025-09-02):**
+```css
+/* Optimized animations using transform instead of left */
+@keyframes shimmer {
+    0% { transform: translateX(-100%); }  /* was: left: -100%; */
+    100% { transform: translateX(100%); } /* was: left: 100%; */
+}
+
+@keyframes loading {
+    0% { transform: translateX(-100%); }  /* was: left: -100%; */
+    100% { transform: translateX(100%); } /* was: left: 100%; */
+}
+
+/* Button hover effects using transform */
+.btn::before {
+    transform: translateX(-100%);        /* was: left: -100%; */
+    transition: transform 0.3s ease;     /* was: transition: left 0.3s ease; */
+}
+```
+
 #### **Backend Service Intervals (Optimized):**
 ```python
 # Reduced frequency for non-essential services
@@ -448,6 +530,27 @@ HEALTH_CHECK_INTERVAL = 7200      # 2 hours (was 1 hour)
 SENDER_INTERVAL = 300.0           # 5 minutes (was 1 minute)
 HEALTH_SENDER_INTERVAL = 1800.0   # 30 minutes (was 5 minutes)
 STORAGE_MONITOR_INTERVAL = 1800   # 30 minutes (was 5 minutes)
+```
+
+#### **Manual Capture System Variables (Added 2025-09-02):**
+```python
+# Manual capture endpoint variables
+capture_response = {
+    'success': bool,
+    'message': str,
+    'timestamp': str  # ISO format
+}
+
+# Frontend capture handling
+capture_status_messages = {
+    'success': 'Image captured successfully',
+    'error': 'Failed to capture image',
+    'loading': 'Capturing image...'
+}
+
+# File naming convention
+manual_capture_filename = f"manual_capture_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"
+manual_capture_directory = "/edge/manual_capture/"
 ```
 
 ### **Variable Mapping Validation**
@@ -550,6 +653,27 @@ temperature: float
 error_count: int
 last_error: str
 error_history: list
+```
+
+#### Health Monitor Status Display (Updated 2025-09-02):
+```javascript
+// Main dashboard health status variables
+main_health_status: string           // 'status-online', 'status-warning', 'status-offline'
+main_health_status_text: string      // 'Online', 'Warning', 'Offline'
+main_health_status_text_detail: string // Status detail message
+
+// Health status detail messages based on component status
+const healthStatusMessages = {
+    'healthy': 'ตรวจสอบทุก 60 วินาที',
+    'camera_not_initialized': 'Camera not initialized',
+    'camera_not_streaming': 'Camera not streaming', 
+    'ai_models_not_loaded': 'AI models not loaded',
+    'detection_not_active': 'Detection not active',
+    'database_disconnected': 'Database disconnected',
+    'system_resources_critical': 'System resources critical',
+    'service_unavailable': 'Service unavailable',
+    'not_running': 'Not Running'
+};
 ```
 
 ## Data Flow Standards
@@ -995,6 +1119,54 @@ results.forEach(result => {
 });
 ```
 
+### **UI Dashboard Toggle Variables (Added 2025-09-02)**
+
+#### **Toggle Control Variables:**
+```javascript
+// Toggle state management
+let systemInfoVisible = true;
+let developmentRefVisible = true;
+
+// Toggle control elements
+const toggleElements = {
+    'system-info': {
+        button: 'toggle-system-info',
+        section: 'system-info-section', 
+        content: 'system-info-content',
+        toggleBtn: 'toggle-system-info-content'
+    },
+    'development-ref': {
+        button: 'toggle-development-ref',
+        section: 'development-ref-section',
+        content: 'development-ref-content', 
+        toggleBtn: 'toggle-development-ref-content'
+    }
+};
+
+// Global toggle controls
+const globalControls = {
+    'show-all': 'toggle-all',
+    'hide-all': 'hide-all'
+};
+```
+
+#### **Accessibility Variables:**
+```javascript
+// Accessibility attributes for toggle buttons
+const accessibilityAttributes = {
+    'title': 'Toggle [Section Name] content visibility',
+    'aria-label': 'Toggle [Section Name] content visibility',
+    'aria-expanded': 'true|false',  // Dynamic based on visibility state
+    'aria-controls': '[content-element-id]'
+};
+
+// Chevron icon states
+const chevronStates = {
+    'expanded': '<i class="fas fa-chevron-up"></i>',
+    'collapsed': '<i class="fas fa-chevron-down"></i>'
+};
+```
+
 ### **Detection Control APIs**
 
 #### **Start Detection (`POST /detection/start`):**
@@ -1138,6 +1310,9 @@ return jsonify({
 - [ ] Write comprehensive tests
 - [ ] Document code properly
 - [ ] Follow detection API variable mapping standards
+- [ ] Implement accessibility attributes (title, aria-label) for UI elements
+- [ ] Use optimized CSS animations with transform properties
+- [ ] Apply proper cache-control headers without deprecated directives
 
 ### Code Review Compliance:
 - [ ] No direct camera access violations
@@ -1147,3 +1322,8 @@ return jsonify({
 - [ ] Test coverage adequate
 - [ ] Documentation complete
 - [ ] Detection API responses follow standard format
+- [ ] Health monitor status variables properly mapped
+- [ ] Server connection status priority implemented correctly
+- [ ] Manual capture system variables documented
+- [ ] CSS performance optimizations applied
+- [ ] Accessibility compliance verified
