@@ -46,3 +46,32 @@
 - เพิ่มตัวบ่งชี้หน่วย (เช่น ms, °C) ใต้ค่าที่แสดงในเมทาดาทา
 - เพิ่มตัวเลือกสลับระหว่าง main stream และ lores ตามความต้องการใช้งาน
 
+---
+
+### รายการ Commit วันนี้ (YYYY-MM-DD)
+หมายเหตุ: เวลาเป็นเขตเวลาเซิร์ฟเวอร์ (local)
+
+- 43a4287 | 2025-09-02 19:09:46 | docs: add ExclusiveSummary_20250902 (Thai) summarizing today’s changes
+- cb742e6 | 2025-09-02 19:07:22 | experiments: switch to lores stream, improve live stream visibility, map camera metadata, and format values to 3 decimals
+- 085b0cb | 2025-09-02 17:32:33 | Fix ARIA accessibility issues and implement cache busting for detection dashboard
+- 15bac4c | 2025-09-02 17:01:17 | Footer attribution update and recent detection UI fallbacks/fixes.
+- 0565c5f | 2025-09-02 16:59:49 | chore(web): update footer attribution; detection UI fixes and fallbacks
+- 97f349e | 2025-09-02 16:45:32 | chore(web): add favicon.ico and link in base template to fix 404
+- 446ede1 | 2025-09-02 16:06:42 | feat(detection): DB-backed stats on dashboard; show model names; periodic refresh; fix missing CSS reference and extra endblock; update API docs for status payload
+- 70943f9 | 2025-09-02 14:26:49 | detection: harden image saving and DB consistency
+- 02e7c81 | 2025-09-02 14:18:04 | docs: Merge variable conflict prevention guide into VARIABLE_MANAGEMENT.md
+- 6e07d27 | 2025-09-02 14:13:19 | docs: Merge API documentation into single comprehensive reference
+- bd80278 | 2025-09-02 14:04:25 | remove duplicate document
+- 656b602 | 2025-09-02 14:03:39 | docs: Update VARIABLE_MANAGEMENT.md with today's dashboard improvements
+- 8ee426c | 2025-09-02 13:58:16 | docs: Update API reference and create UI Dashboard documentation
+- 93d40a5 | 2025-09-02 13:52:04 | feat: Enhance main dashboard with toggle functionality and health monitoring improvements
+- b17386b | 2025-09-02 11:36:56 | fix: Complete CSS performance optimization and cache-control headers
+- da63307 | 2025-09-02 11:29:11 | fix: Optimize CSS performance and cache-control headers
+- f93e055 | 2025-09-02 11:22:18 | fix: Remove deprecated Pragma headers for security compliance
+- c005281 | 2025-09-02 11:14:53 | fix: Resolve 'str' object has no attribute 'headers' error
+- e545fba | 2025-09-02 10:05:23 | fix: Resolve CSS compatibility and cache-control issues
+- df8194d | 2025-09-02 09:51:25 | fix: Add accessibility attributes to all buttons
+- 51d62f2 | 2025-09-02 09:31:34 | refactor: Reorganize systemd services and cleanup files
+- 21477ab | 2025-09-02 09:30:03 | feat: Implement Manual Capture System for Camera Dashboard
+- 4bed349 | 2025-09-02 00:10:58 | Complete AI Camera v2.0 fixes: video feed, WebSocket stability, navigation browser connection, and smart kiosk browser handler
+
