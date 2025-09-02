@@ -85,6 +85,28 @@ All WebSocket events follow the same response format:
 
 ## REST API Endpoints
 
+### Main Dashboard
+
+#### GET /
+Main dashboard with comprehensive system status monitoring and control.
+
+**Features:**
+- Real-time status indicators for all system components
+- Toggle show/hide functionality for System Information and Development Reference sections
+- Health monitor status with detailed explanations
+- Server connection status with priority-based display
+- Accessibility-compliant UI with proper ARIA labels
+
+**Status Indicators:**
+- **Health Monitor Status:**
+  - Online (Green): "ตรวจสอบทุก 60 วินาที"
+  - Warning/Offline: Specific reasons (Camera not initialized, AI models not loaded, Database disconnected, System resources critical)
+- **Server Connection Status Priority:**
+  - Connected (Green) - Highest priority
+  - Offline Mode (Yellow) - Medium priority
+  - Disconnected (Yellow) - Medium priority  
+  - Not Running (Red) - Lowest priority
+
 ### Health Check
 
 #### GET /health/
