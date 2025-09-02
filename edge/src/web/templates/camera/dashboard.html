@@ -482,13 +482,19 @@
                         <span id="camera-status-text-main" class="ms-1">Offline</span>
                     </div>
                     <div class="d-flex gap-1">
-                        <button id="refresh-video-btn" class="btn btn-sm btn-outline-secondary">
+                        <button id="refresh-video-btn" class="btn btn-sm btn-outline-secondary" 
+                                title="Refresh video feed" 
+                                aria-label="Refresh video feed">
                             <i class="fas fa-sync-alt"></i>
                         </button>
-                        <button id="test-video-btn" class="btn btn-sm btn-outline-warning">
+                        <button id="test-video-btn" class="btn btn-sm btn-outline-warning" 
+                                title="Test video functionality" 
+                                aria-label="Test video functionality">
                             <i class="fas fa-video"></i>
                         </button>
-                        <button id="toggle-metadata-btn" class="btn btn-sm btn-outline-info">
+                        <button id="toggle-metadata-btn" class="btn btn-sm btn-outline-info" 
+                                title="Toggle metadata display" 
+                                aria-label="Toggle metadata display">
                             <i class="fas fa-chart-bar"></i>
                         </button>
                     </div>
@@ -498,11 +504,16 @@
                 <!-- Compact Camera Controls -->
                 <div class="camera-controls-compact mb-2">
                     <div class="d-flex justify-content-center gap-1">
-                        <button id="capture-btn" class="btn btn-info btn-sm control-btn-compact">
+                        <button id="capture-btn" class="btn btn-info btn-sm control-btn-compact"
+                                title="Capture current frame" 
+                                aria-label="Capture current frame">
                             <i class="fas fa-camera"></i> Capture
                         </button>
                         <small class="text-muted d-block mt-1">Images saved to: /edge/manual_capture/</small>
-                       <button id="manual-refresh-video-btn" class="btn btn-info btn-sm control-btn-compact" onclick="CameraManager.manualRefreshVideo()">
+                        <button id="manual-refresh-video-btn" class="btn btn-info btn-sm control-btn-compact" 
+                                onclick="CameraManager.manualRefreshVideo()"
+                                title="Manually refresh video feed" 
+                                aria-label="Manually refresh video feed">
                             <i class="fas fa-sync-alt"></i> Refresh Video
                         </button>
                     </div>
@@ -540,10 +551,16 @@
                                     <span class="fw-bold">Camera Metadata (Cached)</span>
                                 </div>
                                 <div class="d-flex gap-1">
-                                    <button id="refresh-metadata-btn" class="btn btn-sm btn-outline-secondary" onclick="event.stopPropagation(); refreshMetadata()">
+                                    <button id="refresh-metadata-btn" class="btn btn-sm btn-outline-secondary" 
+                                            onclick="event.stopPropagation(); refreshMetadata()"
+                                            title="Refresh metadata" 
+                                            aria-label="Refresh metadata">
                                         <i class="fas fa-sync-alt"></i>
                                     </button>
-                                    <button id="export-metadata-btn" class="btn btn-sm btn-outline-success" onclick="event.stopPropagation(); exportMetadata()">
+                                    <button id="export-metadata-btn" class="btn btn-sm btn-outline-success" 
+                                            onclick="event.stopPropagation(); exportMetadata()"
+                                            title="Export metadata" 
+                                            aria-label="Export metadata">
                                         <i class="fas fa-download"></i>
                                     </button>
                                     <i class="fas fa-chevron-down" id="metadata-toggle-icon"></i>

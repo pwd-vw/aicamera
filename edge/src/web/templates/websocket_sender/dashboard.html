@@ -27,7 +27,9 @@
             <div class="d-flex justify-content-between align-items-center">
                 <h2><i class="fas fa-network-wired"></i> WebSocket Sender Dashboard</h2>
                 <div>
-                    <button id="refresh-btn" class="btn btn-outline-primary btn-sm">
+                    <button id="refresh-btn" class="btn btn-outline-primary btn-sm"
+                            title="Refresh dashboard data" 
+                            aria-label="Refresh dashboard data">
                         <i class="fas fa-sync-alt"></i> Refresh
                     </button>
                     <a href="{{ url_for('main.index') }}" class="btn btn-outline-secondary btn-sm">
@@ -120,16 +122,24 @@
                     
                     <div class="row mt-3">
                         <div class="col-md-12">
-                            <button id="start-btn" class="btn btn-success">
+                            <button id="start-btn" class="btn btn-success"
+                                    title="Start WebSocket sender service" 
+                                    aria-label="Start WebSocket sender service">
                                 <i class="fas fa-play"></i> Start Service
                             </button>
-                            <button id="stop-btn" class="btn btn-danger">
+                            <button id="stop-btn" class="btn btn-danger"
+                                    title="Stop WebSocket sender service" 
+                                    aria-label="Stop WebSocket sender service">
                                 <i class="fas fa-stop"></i> Stop Service
                             </button>
-                            <button id="test-connection-btn" class="btn btn-info">
+                            <button id="test-connection-btn" class="btn btn-info"
+                                    title="Test server connection" 
+                                    aria-label="Test server connection">
                                 <i class="fas fa-wifi"></i> Test Connection
                             </button>
-                            <button id="clear-logs-btn" class="btn btn-warning">
+                            <button id="clear-logs-btn" class="btn btn-warning"
+                                    title="Clear log entries" 
+                                    aria-label="Clear log entries">
                                 <i class="fas fa-trash"></i> Clear Logs
                             </button>
                         </div>
@@ -186,11 +196,15 @@
                             <span id="logs-info">Showing 0 of 0 logs</span>
                         </div>
                         <div>
-                            <button id="prev-page-btn" class="btn btn-outline-primary btn-sm">
+                            <button id="prev-page-btn" class="btn btn-outline-primary btn-sm"
+                                    title="Go to previous page" 
+                                    aria-label="Go to previous page">
                                 <i class="fas fa-chevron-left"></i> Previous
                             </button>
                             <span id="page-info" class="mx-2">Page 1</span>
-                            <button id="next-page-btn" class="btn btn-outline-primary btn-sm">
+                            <button id="next-page-btn" class="btn btn-outline-primary btn-sm"
+                                    title="Go to next page" 
+                                    aria-label="Go to next page">
                                 Next <i class="fas fa-chevron-right"></i>
                             </button>
                         </div>

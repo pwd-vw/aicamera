@@ -68,7 +68,9 @@
                         <span class="status-dot status-offline"></span>
                         <span id="monitoring-text">Stopped</span>
                     </div>
-                    <button id="toggle-monitoring-btn" class="btn btn-sm btn-outline-primary mt-2">
+                    <button id="toggle-monitoring-btn" class="btn btn-sm btn-outline-primary mt-2"
+                            title="Toggle storage monitoring" 
+                            aria-label="Toggle storage monitoring">
                         Start Monitoring
                     </button>
                 </div>
@@ -176,7 +178,9 @@
                     <h5 class="mb-0">
                         <i class="fas fa-exclamation-triangle"></i> Storage Alerts
                     </h5>
-                    <button id="clear-alerts-btn" class="btn btn-sm btn-outline-danger float-right">
+                    <button id="clear-alerts-btn" class="btn btn-sm btn-outline-danger float-right"
+                            title="Clear all storage alerts" 
+                            aria-label="Clear all storage alerts">
                         <i class="fas fa-trash"></i> Clear All
                     </button>
                 </div>
@@ -197,13 +201,19 @@
                     </h5>
                 </div>
                 <div class="card-body">
-                    <button id="manual-cleanup-btn" class="btn btn-warning btn-block mb-2">
+                    <button id="manual-cleanup-btn" class="btn btn-warning btn-block mb-2"
+                            title="Perform manual storage cleanup" 
+                            aria-label="Perform manual storage cleanup">
                         <i class="fas fa-broom"></i> Manual Cleanup
                     </button>
-                    <button id="refresh-status-btn" class="btn btn-info btn-block mb-2">
+                    <button id="refresh-status-btn" class="btn btn-info btn-block mb-2"
+                            title="Refresh storage status" 
+                            aria-label="Refresh storage status">
                         <i class="fas fa-sync"></i> Refresh Status
                     </button>
-                    <button id="get-analytics-btn" class="btn btn-secondary btn-block">
+                    <button id="get-analytics-btn" class="btn btn-secondary btn-block"
+                            title="Get storage analytics" 
+                            aria-label="Get storage analytics">
                         <i class="fas fa-chart-bar"></i> Get Analytics
                     </button>
                 </div>

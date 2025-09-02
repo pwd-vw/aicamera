@@ -179,22 +179,34 @@
 <div class="control-panel">
     <h3><i class="fas fa-cog"></i> Control Panel</h3>
     <div class="button-group">
-        <button class="btn btn-success" onclick="startCamera()">
+        <button class="btn btn-success" onclick="startCamera()"
+                title="Start camera streaming" 
+                aria-label="Start camera streaming">
             <i class="fas fa-play"></i> Start Camera
         </button>
-        <button class="btn btn-warning" onclick="stopCamera()">
+        <button class="btn btn-warning" onclick="stopCamera()"
+                title="Stop camera streaming" 
+                aria-label="Stop camera streaming">
             <i class="fas fa-stop"></i> Stop Camera
         </button>
-        <button class="btn btn-primary" onclick="startDetection()">
+        <button class="btn btn-primary" onclick="startDetection()"
+                title="Start AI detection system" 
+                aria-label="Start AI detection system">
             <i class="fas fa-brain"></i> Start Detection
         </button>
-        <button class="btn btn-danger" onclick="stopDetection()">
+        <button class="btn btn-danger" onclick="stopDetection()"
+                title="Stop AI detection system" 
+                aria-label="Stop AI detection system">
             <i class="fas fa-pause"></i> Stop Detection
         </button>
-        <button class="btn btn-info" onclick="refreshStatus()">
+        <button class="btn btn-info" onclick="refreshStatus()"
+                title="Refresh system status" 
+                aria-label="Refresh system status">
             <i class="fas fa-sync"></i> Refresh Status
         </button>
-        <button class="btn btn-secondary" onclick="restartSystem()">
+        <button class="btn btn-secondary" onclick="restartSystem()"
+                title="Restart the entire system" 
+                aria-label="Restart the entire system">
             <i class="fas fa-redo"></i> Restart System
         </button>
     </div>
