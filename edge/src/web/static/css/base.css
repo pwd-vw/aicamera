@@ -69,8 +69,8 @@
 body {
     font-family: var(--font-family-en), var(--font-family-th);
     font-size: var(--font-size-base);
-    -webkit-text-size-adjust: 100%;
-    text-size-adjust: 100%; /* Support Chrome 54+, Edge 79+ */
+    text-size-adjust: 100%; /* Support Chrome 54+, Edge 79+, Firefox, Safari */
+    -webkit-text-size-adjust: 100%; /* fallback สำหรับเบราว์เซอร์เก่า */
     line-height: 1.6;
     color: var(--text-color-dark);
     background-color: var(--background-light);
@@ -80,8 +80,21 @@ body {
 }
 
 th {
-    text-align: -webkit-match-parent;
     text-align: match-parent; /* Support Safari 15.4+ */
+    text-align: -webkit-match-parent; /* fallback สำหรับเบราว์เซอร์เก่า */
+}
+
+/* ===== FORM CHECK INPUT COMPATIBILITY ===== */
+.form-check-input {
+    /* Modern browsers support */
+    color-adjust: exact;
+    print-color-adjust: exact;
+    
+    /* WebKit fallback for older browsers */
+    -webkit-print-color-adjust: exact;
+    
+    /* Ensure proper color rendering in print and high contrast modes */
+    forced-color-adjust: none;
 }
 /* ===== NAVIGATION STYLES ===== */
 .navbar {

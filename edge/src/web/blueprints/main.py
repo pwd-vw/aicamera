@@ -26,9 +26,6 @@ def index():
                              camera_status=camera_status,
                              title="AI Camera Dashboard",
                              timestamp=int(time.time()))
-        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
-        response.headers['Pragma'] = 'no-cache'
-        response.headers['Expires'] = '0'
         return response
     except KeyError as e:
         logger.error(f"Service not Registered: {e}")
@@ -36,9 +33,6 @@ def index():
                              camera_status={'error': f'Camera service not available: {e}'},
                              title="AI Camera Dashboard",
                              timestamp=int(time.time()))
-        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
-        response.headers['Pragma'] = 'no-cache'
-        response.headers['Expires'] = '0'
         return response
     except Exception as e:
         logger.error(f"Error in main index: {e}")
@@ -46,9 +40,6 @@ def index():
                              camera_status={'error': str(e)},
                              title="AI Camera Dashboard",
                              timestamp=int(time.time()))
-        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
-        response.headers['Pragma'] = 'no-cache'
-        response.headers['Expires'] = '0'
         return response
 
 
