@@ -685,6 +685,23 @@ class DatabaseManager:
             
             cursor.execute("SELECT AVG(processing_time_ms) as avg_processing_time FROM detection_results")
             avg_processing_time = cursor.fetchone()['avg_processing_time'] or 0
+
+            # Calculate successful OCR count from stored JSON (fallback in Python for portability)
+            successful_ocr_total = 0
+            try:
+                cursor.execute("SELECT ocr_results FROM detection_results")
+                for (ocr_json,) in cursor.fetchall():
+                    if not ocr_json:
+                        continue
+                    try:
+                        ocr_list = json.loads(ocr_json)
+                        if isinstance(ocr_list, list):
+                            successful_ocr_total += len(ocr_list)
+                    except Exception:
+                        # Ignore malformed entries
+                        continue
+            except Exception as e:
+                self.logger.debug(f"Unable to compute successful OCR total: {e}")
             
             # Get recent activity
             cursor.execute("""
@@ -698,6 +715,7 @@ class DatabaseManager:
                 'total_detections': total_detections,
                 'total_vehicles': total_vehicles,
                 'total_plates': total_plates,
+                'successful_ocr': successful_ocr_total,
                 'avg_processing_time_ms': round(avg_processing_time, 2),
                 'last_detection': last_detection
             }

@@ -572,6 +572,7 @@ Get detection service status.
       "lp_ocr_model_available": true,
       "easyocr_available": true,
       "confidence_threshold": 0.7,
+      "plate_confidence_threshold": 0.5,
       "detection_resolution": [640, 640]
     },
     "detection_interval": 0.1,
@@ -579,11 +580,11 @@ Get detection service status.
     "statistics": {
       "total_frames_processed": 6023,
       "total_vehicles_detected": 512,
-      "total_plates_detected": 0,
-      "successful_ocr": 0,
+      "total_plates_detected": 260,
+      "successful_ocr": 180,
       "failed_detections": 512,
-      "processing_time_avg": 0,
-      "last_detection": null,
+      "processing_time_avg": 0.045,
+      "last_detection": "2025-09-02T18:20:30.123456",
       "started_at": "2025-09-02T18:08:03.714003"
     },
     "queue_size": 0,
@@ -593,6 +594,10 @@ Get detection service status.
   "timestamp": "2025-09-02T18:20:35.601904"
 }
 ```
+
+Notes:
+- `statistics.processing_time_avg` is seconds; frontend derives `avg_processing_time_ms = processing_time_avg * 1000` when `avg_processing_time_ms` is not provided.
+- WebSocket `detection_status_update` emits the status object directly (not wrapped in `{ detection_status: ... }`).
 
 #### POST /detection/start
 Start detection service.
@@ -1436,7 +1441,7 @@ socket.emit('detection_status_request', {});
 
 #### Server to Client
 ```javascript
-// Detection status updates
+// Detection status updates (status object is emitted directly)
 socket.on('detection_status_update', function(status) {
     console.log('Detection status:', status);
 });

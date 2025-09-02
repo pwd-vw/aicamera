@@ -18,7 +18,6 @@
 
 {% block additional_css %}
 <link href="{{ url_for('static', filename='css/detection.css', v=timestamp) }}" rel="stylesheet">
-<link href="{{ url_for('static', filename='css/detection_results.css', v=timestamp) }}" rel="stylesheet">
 <link href="{{ url_for('static', filename='libs/font-awesome/all.min.css') }}" rel="stylesheet">
 {% endblock %}
 
@@ -211,9 +210,6 @@
                                         Plates <i class="fas fa-sort sort-icon"></i>
                                     </th>
                                     <th>OCR Results</th>
-                                    <th class="sortable" data-sort="processing_time_ms">
-                                        Processing Time <i class="fas fa-sort sort-icon"></i>
-                                    </th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
@@ -334,146 +330,7 @@
                 </div>
             </div>
             <div class="card-body" id="comprehensive-output-content">
-                <!-- Statistics -->
-                <div class="row mb-2">
-                    <div class="col-12">
-                        <div class="card">
-                            <div class="card-header py-2">
-                                <h6 class="mb-0"><i class="fas fa-chart-bar"></i> Detection Statistics <small
-                                        class="text-muted">Real-time detection performance metrics</small></h6>
-                            </div>
-                            <div class="card-body py-0">
-                                <div class="row g-0">
-                                    <div class="col-md-2">
-                                        <div class="card stats-card" style="margin: 0; border: none;">
-                                            <div class="card-body py-0" style="padding: 0.25rem;">
-                                                <div class="d-flex align-items-center" style="margin: 0; padding: 0;">
-                                                    <div class="stats-icon bg-primary"
-                                                        style="width: 24px; height: 24px; font-size: 0.75rem; margin: 0;">
-                                                        <i class="fas fa-search"></i>
-                                                    </div>
-                                                    <div style="margin-left: 0.25rem; margin: 0;">
-                                                        <div class="stats-number" id="frames-processed"
-                                                            style="font-size: 0.875rem; margin: 0; line-height: 1;">{{
-                                                            stats.total_frames_processed or 0 }}</div>
-                                                        <div class="stats-label"
-                                                            style="font-size: 0.5rem; margin: 0; line-height: 1;">Frames
-                                                            Processed</div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div class="col-md-2">
-                                        <div class="card stats-card" style="margin: 0; border: none;">
-                                            <div class="card-body py-0" style="padding: 0.25rem;">
-                                                <div class="d-flex align-items-center" style="margin: 0; padding: 0;">
-                                                    <div class="stats-icon bg-success"
-                                                        style="width: 24px; height: 24px; font-size: 0.75rem; margin: 0;">
-                                                        <i class="fas fa-car"></i>
-                                                    </div>
-                                                    <div style="margin-left: 0.25rem; margin: 0;">
-                                                        <div class="stats-number" id="vehicles-detected"
-                                                            style="font-size: 0.875rem; margin: 0; line-height: 1;">{{
-                                                            stats.total_vehicles_detected or 0 }}</div>
-                                                        <div class="stats-label"
-                                                            style="font-size: 0.5rem; margin: 0; line-height: 1;">
-                                                            Vehicles Detected</div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div class="col-md-2">
-                                        <div class="card stats-card" style="margin: 0; border: none;">
-                                            <div class="card-body py-0" style="padding: 0.25rem;">
-                                                <div class="d-flex align-items-center" style="margin: 0; padding: 0;">
-                                                    <div class="stats-icon bg-info"
-                                                        style="width: 24px; height: 24px; font-size: 0.75rem; margin: 0;">
-                                                        <i class="fas fa-id-card"></i>
-                                                    </div>
-                                                    <div style="margin-left: 0.25rem; margin: 0;">
-                                                        <div class="stats-number" id="plates-detected"
-                                                            style="font-size: 0.875rem; margin: 0; line-height: 1;">{{
-                                                            stats.total_plates_detected or 0 }}</div>
-                                                        <div class="stats-label"
-                                                            style="font-size: 0.5rem; margin: 0; line-height: 1;">Plates
-                                                            Detected</div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div class="col-md-2">
-                                        <div class="card stats-card" style="margin: 0; border: none;">
-                                            <div class="card-body py-0" style="padding: 0.25rem;">
-                                                <div class="d-flex align-items-center" style="margin: 0; padding: 0;">
-                                                    <div class="stats-icon bg-warning"
-                                                        style="width: 24px; height: 24px; font-size: 0.75rem; margin: 0;">
-                                                        <i class="fas fa-stopwatch"></i>
-                                                    </div>
-                                                    <div style="margin-left: 0.25rem; margin: 0;">
-                                                        <div class="stats-number" id="avg-processing-time"
-                                                            style="font-size: 0.875rem; margin: 0; line-height: 1;">{{
-                                                            "%.1f"|format(stats.avg_processing_time_ms or 0) }}ms</div>
-                                                        <div class="stats-label"
-                                                            style="font-size: 0.5rem; margin: 0; line-height: 1;">
-                                                            Processing</div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div class="col-md-2">
-                                        <div class="card stats-card" style="margin: 0; border: none;">
-                                            <div class="card-body py-0" style="padding: 0.25rem;">
-                                                <div class="d-flex align-items-center" style="margin: 0; padding: 0;">
-                                                    <div class="stats-icon bg-secondary"
-                                                        style="width: 24px; height: 24px; font-size: 0.75rem; margin: 0;">
-                                                        <i class="fas fa-tachometer-alt"></i>
-                                                    </div>
-                                                    <div style="margin-left: 0.25rem; margin: 0;">
-                                                        <div class="stats-number" id="detection-rate"
-                                                            style="font-size: 0.875rem; margin: 0; line-height: 1;">0.0%
-                                                        </div>
-                                                        <div class="stats-label"
-                                                            style="font-size: 0.5rem; margin: 0; line-height: 1;">
-                                                            Detection Rate</div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div class="col-md-2">
-                                        <div class="card stats-card" style="margin: 0; border: none;">
-                                            <div class="card-body py-0" style="padding: 0.25rem;">
-                                                <div class="d-flex align-items-center" style="margin: 0; padding: 0;">
-                                                    <div class="stats-icon bg-danger"
-                                                        style="width: 24px; height: 24px; font-size: 0.75rem; margin: 0;">
-                                                        <i class="fas fa-exclamation-triangle"></i>
-                                                    </div>
-                                                    <div style="margin-left: 0.25rem; margin: 0;">
-                                                        <div class="stats-number" id="successful-ocr"
-                                                            style="font-size: 0.875rem; margin: 0; line-height: 1;">0
-                                                        </div>
-                                                        <div class="stats-label"
-                                                            style="font-size: 0.5rem; margin: 0; line-height: 1;">
-                                                            Successful OCR</div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                
                 <!-- Real-time Detection Metrics -->
                 <div class="row mb-4">
                     <div class="col-12">
@@ -481,35 +338,39 @@
                             <i class="fas fa-tachometer-alt me-2"></i>Real-time Detection Metrics
                         </h6>
                         <div class="row">
-                            <div class="col-md-3 mb-3">
-                                <div class="card bg-primary text-white">
-                                    <div class="card-body text-center">
-                                        <h4 id="vehicle-detection-rate">0%</h4>
-                                        <small>Vehicle Detection Rate</small>
+                            <div class="col-md-3 mb-3 d-flex">
+                                <div class="card bg-primary text-white h-100 w-100">
+                                    <div class="card-body text-center d-flex flex-column justify-content-center">
+                                        <div class="mb-2"><i class="fas fa-car fa-lg"></i></div>
+                                        <h4 class="mb-1"><span id="vehicles-detected">0</span></h4>
+                                        <small class="text-white-50">Vehicle Detection</small>
                                     </div>
                                 </div>
                             </div>
-                            <div class="col-md-3 mb-3">
-                                <div class="card bg-success text-white">
-                                    <div class="card-body text-center">
-                                        <h4 id="plate-detection-rate">0%</h4>
-                                        <small>Plate Detection Rate</small>
+                            <div class="col-md-3 mb-3 d-flex">
+                                <div class="card bg-success text-white h-100 w-100">
+                                    <div class="card-body text-center d-flex flex-column justify-content-center">
+                                        <div class="mb-2"><i class="fas fa-id-card fa-lg"></i></div>
+                                        <h4 class="mb-1"><span id="plates-detected-count">0</span> (<span id="plate-detection-rate">0%</span>)</h4>
+                                        <small class="text-white-50">Plate Detection Rate (out of vehicles)</small>
                                     </div>
                                 </div>
                             </div>
-                            <div class="col-md-3 mb-3">
-                                <div class="card bg-info text-white">
-                                    <div class="card-body text-center">
-                                        <h4 id="ocr-success-rate">0%</h4>
-                                        <small>OCR Success Rate</small>
+                            <div class="col-md-3 mb-3 d-flex">
+                                <div class="card bg-info text-white h-100 w-100">
+                                    <div class="card-body text-center d-flex flex-column justify-content-center">
+                                        <div class="mb-2"><i class="fas fa-language fa-lg"></i></div>
+                                        <h4 class="mb-1"><span id="successful-ocr-count">0</span> (<span id="ocr-success-rate">0%</span>)</h4>
+                                        <small class="text-white-50">OCR Success Rate (out of plate detection)</small>
                                     </div>
                                 </div>
                             </div>
-                            <div class="col-md-3 mb-3">
-                                <div class="card bg-warning text-white">
-                                    <div class="card-body text-center">
-                                        <h4 id="processing-efficiency">0ms</h4>
-                                        <small>Avg Processing Time</small>
+                            <div class="col-md-3 mb-3 d-flex">
+                                <div class="card bg-warning text-white h-100 w-100">
+                                    <div class="card-body text-center d-flex flex-column justify-content-center">
+                                        <div class="mb-2"><i class="fas fa-stopwatch fa-lg"></i></div>
+                                        <h4 id="processing-efficiency" class="mb-1">0ms</h4>
+                                        <small class="text-white-50">Avg Processing Time</small>
                                     </div>
                                 </div>
                             </div>
@@ -541,11 +402,6 @@
                                     <span>EasyOCR Fallback</span>
                                 </div>
                                 <hr>
-                                <small class="text-muted">
-                                    <div>Detection Resolution: <span id="detection-resolution">640x640</span></div>
-                                    <div>Vehicle Confidence: <span id="vehicle-confidence">0.5</span></div>
-                                    <div>Plate Confidence: <span id="plate-confidence">0.3</span></div>
-                                </small>
                             </div>
                         </div>
                     </div>

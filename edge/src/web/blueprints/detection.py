@@ -299,27 +299,23 @@ def get_detection_statistics():
         dict: JSON response with detection statistics
     """
     try:
-        detection_manager = get_service('detection_manager')
-        if not detection_manager:
-            return jsonify({'error': 'Detection manager not available'}), 500
-        
-        status = detection_manager.get_status()
-        statistics = status.get('statistics', {})
-        
-        # Calculate additional metrics
-        total_frames = statistics.get('total_frames_processed', 0)
-        successful_detections = statistics.get('total_vehicles_detected', 0)
-        
-        detection_rate = 0.0
-        if total_frames > 0:
-            detection_rate = (successful_detections / total_frames) * 100
-        
+        # Prefer database-backed statistics to reflect persisted records
+        database_manager = get_service('database_manager')
+        db_stats = database_manager.get_detection_statistics() if database_manager else {}
+
+        total_vehicles = db_stats.get('total_vehicles', 0)
+        total_plates = db_stats.get('total_plates', 0)
+        successful_ocr = db_stats.get('successful_ocr', 0)
+
+        plate_rate = (total_plates / total_vehicles * 100) if total_vehicles > 0 else 0.0
+        ocr_rate = (successful_ocr / total_plates * 100) if total_plates > 0 else 0.0
+
         enhanced_stats = {
-            **statistics,
-            'detection_rate_percent': round(detection_rate, 2),
-            'avg_processing_time_ms': round(statistics.get('processing_time_avg', 0) * 1000, 2)
+            **db_stats,
+            'plate_detection_rate_percent': round(plate_rate, 2),
+            'ocr_success_rate_percent': round(ocr_rate, 2)
         }
-        
+
         return jsonify({
             'success': True,
             'statistics': enhanced_stats,

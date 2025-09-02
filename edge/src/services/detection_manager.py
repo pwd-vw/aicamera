@@ -505,6 +505,19 @@ class DetectionManager:
         if self.detection_processor:
             processor_status = self.detection_processor.get_status()
         
+        # Augment processor status with model names for UI mapping
+        if self.detection_processor:
+            try:
+                ocr_status = self.detection_processor.get_ocr_status()
+                processor_status.update({
+                    'vehicle_model_name': ocr_status.get('vehicle_model_name'),
+                    'lp_detection_model_name': ocr_status.get('lp_detection_model_name'),
+                    'lp_ocr_model_name': ocr_status.get('lp_ocr_model_name'),
+                    'easyocr_available': ocr_status.get('easyocr_available', False)
+                })
+            except Exception:
+                pass
+
         return {
             'service_running': self.is_running,
             'detection_processor_status': processor_status,

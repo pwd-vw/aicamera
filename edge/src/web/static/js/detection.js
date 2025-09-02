@@ -70,6 +70,8 @@ const DetectionManager = {
             this.addLogMessage('Connected to server', 'info');
             this.socket.emit('join_detection_room');
             this.requestStatusUpdate();
+            // Also fetch DB-backed statistics on connect
+            this.loadStatistics();
         });
 
         this.socket.on('disconnect', () => {
@@ -82,6 +84,12 @@ const DetectionManager = {
                 this.updateDetectionStatus(data.detection_status);
             } else if (data && data.success && data.detection_status) {
                 this.updateDetectionStatus(data.detection_status);
+            } else if (data && typeof data === 'object' && (('service_running' in data) || ('detection_processor_status' in data))) {
+                // Some emitters send the status object directly without wrapping
+                this.updateDetectionStatus(data);
+            } else if (data && data.status && typeof data.status === 'object') {
+                // Fallback for alternative key naming
+                this.updateDetectionStatus(data.status);
             } else {
                 console.error('Invalid detection status update:', data);
             }
@@ -273,6 +281,7 @@ const DetectionManager = {
         // Setup periodic updates every 30 seconds (increased from 5 seconds for reduced resource usage)
         this.statusUpdateInterval = setInterval(() => {
             this.requestStatusUpdate();
+            this.loadStatistics();
         }, 30000);
         
         // Load recent results after 2 seconds (increased from 1 second)
@@ -467,11 +476,11 @@ const DetectionManager = {
             console.log('Updated interval input:', intervalInput.value);
         }
         
-        // Update model status indicators
-        this.updateModelStatus('vehicle-model-status', processorStatus.vehicle_model_available);
-        this.updateModelStatus('lp-detection-model-status', processorStatus.lp_detection_model_available);
-        this.updateModelStatus('lp-ocr-model-status', processorStatus.lp_ocr_model_available);
-        this.updateModelStatus('easyocr-status', processorStatus.easyocr_available);
+        // Update model status indicators and names
+        this.updateModelStatus('vehicle-model-status', processorStatus.vehicle_model_available, processorStatus.vehicle_model_name);
+        this.updateModelStatus('lp-detection-model-status', processorStatus.lp_detection_model_available, processorStatus.lp_detection_model_name);
+        this.updateModelStatus('lp-ocr-model-status', processorStatus.lp_ocr_model_available, processorStatus.lp_ocr_model_name);
+        this.updateModelStatus('easyocr-status', processorStatus.easyocr_available, processorStatus.easyocr_available ? 'EasyOCR' : '');
         
         // Update detection configuration display with fallbacks
         const resolution = processorStatus.detection_resolution || [640, 640];
@@ -491,10 +500,20 @@ const DetectionManager = {
     /**
      * Update model status indicator
      */
-    updateModelStatus: function(elementId, isLoaded) {
+    updateModelStatus: function(elementId, isLoaded, modelName) {
         const element = document.getElementById(elementId);
         if (element) {
             element.className = `model-status ${isLoaded ? 'loaded' : 'not-loaded'}`;
+            if (modelName && typeof modelName === 'string') {
+                element.title = modelName;
+                element.setAttribute('data-model-name', modelName);
+                // Also render text next to the indicator if the DOM structure allows
+                const label = element.nextElementSibling;
+                if (label && label.tagName === 'SPAN' && !label.dataset.modelInjected) {
+                    label.innerHTML = `${label.textContent} <small class="text-muted">(${modelName})</small>`;
+                    label.dataset.modelInjected = 'true';
+                }
+            }
         }
     },
 
@@ -633,7 +652,25 @@ const DetectionManager = {
         AICameraUtils.apiRequest('/detection/statistics')
             .then(data => {
                 if (data.success) {
-                    this.updateStatisticsDisplay(data.statistics);
+                    // Update cards with DB-backed stats
+                    const s = data.statistics || {};
+                    this.updateElement('vehicles-detected', s.total_vehicles || 0);
+                    this.updateElement('plates-detected-count', s.total_plates || 0);
+                    this.updateElement('successful-ocr-count', s.successful_ocr || 0);
+                    this.updateElement('plate-detection-rate', (s.plate_detection_rate_percent || 0) + '%');
+                    this.updateElement('ocr-success-rate', (s.ocr_success_rate_percent || 0) + '%');
+                    this.updateElement('processing-efficiency', (s.avg_processing_time_ms || 0) + 'ms');
+
+                    // Also update detailed statistics panel if present
+                    this.updateStatisticsDisplay({
+                        total_detections: s.total_detections || 0,
+                        total_vehicles: s.total_vehicles || 0,
+                        total_plates: s.total_plates || 0,
+                        avg_processing_time_ms: s.avg_processing_time_ms || 0,
+                        detection_errors: 0,
+                        last_detection: s.last_detection || null,
+                        current_fps: 0
+                    });
                 }
             })
             .catch(error => {
@@ -671,14 +708,15 @@ const DetectionManager = {
         tbody.innerHTML = '';
         
         results.forEach(result => {
+            const vehiclesDisplay = this.formatVehiclesForTable(result.vehicle_detections);
+            const platesDisplay = this.formatPlatesForTable(result.plate_detections);
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td>${result.id || 'N/A'}</td>
                 <td>${AICameraUtils.formatTimestamp(result.timestamp || result.created_at)}</td>
-                <td>${result.vehicles_detected || result.vehicles_count || 0}</td>
-                <td>${result.plates_detected || result.plates_count || 0}</td>
-                <td>${this.formatOcrResults(result.ocr_results)}</td>
-                <td>${result.processing_time_ms || 0}ms</td>
+                <td>${vehiclesDisplay}</td>
+                <td>${platesDisplay}</td>
+                <td>${this.formatOcrResults(result.ocr_results, true)}</td>
                 <td>
                     <button class="btn btn-sm btn-outline-primary" onclick="DetectionManager.showDetail(${result.id || 0})">
                         <i class="fas fa-eye"></i> View
@@ -691,15 +729,62 @@ const DetectionManager = {
 
     /**
      * Format OCR results for display
+     * when showConfidence=true, renders: "OCR- <text> (<xx>%)"
      */
-    formatOcrResults: function(ocrResults) {
+    formatOcrResults: function(ocrResults, showConfidence = false) {
         if (!ocrResults || ocrResults.length === 0) {
             return '<span class="text-muted">No OCR results</span>';
         }
-        
-        return ocrResults.map(ocr => 
-            `<span class="badge bg-success me-1">${ocr.text}</span>`
-        ).join('');
+
+        return ocrResults.map((ocr, index) => {
+            const text = ocr.text || `#${index + 1}`;
+            if (!showConfidence) {
+                return `<span class="badge bg-success me-1">${text}</span>`;
+            }
+            const conf = this.normalizeConfidence(ocr.confidence || ocr.score || ocr.ocr_confidence);
+            const confText = conf !== null ? `${conf}%` : '-';
+            return `<span class="badge bg-success me-1">OCR- ${text} (${confText})</span>`;
+        }).join('');
+    },
+
+    /**
+     * Format vehicles list for table: "Vehicle i (<xx>%)"
+     */
+    formatVehiclesForTable: function(vehicleDetections) {
+        if (Array.isArray(vehicleDetections) && vehicleDetections.length > 0) {
+            return vehicleDetections.map((det, idx) => {
+                const conf = this.normalizeConfidence(det.confidence || det.score || det.conf);
+                const confText = conf !== null ? `${conf}%` : '-';
+                return `<span class=\"badge bg-primary me-1\">Vehicle ${idx + 1} (${confText})</span>`;
+            }).join('');
+        }
+        return '<span class="text-muted">0</span>';
+    },
+
+    /**
+     * Format plates list for table: "Plate i (<xx>%)"
+     */
+    formatPlatesForTable: function(plateDetections) {
+        if (Array.isArray(plateDetections) && plateDetections.length > 0) {
+            return plateDetections.map((det, idx) => {
+                const conf = this.normalizeConfidence(det.confidence || det.score || det.ocr_confidence);
+                const confText = conf !== null ? `${conf}%` : '-';
+                return `<span class=\"badge bg-warning text-dark me-1\">Plate ${idx + 1} (${confText})</span>`;
+            }).join('');
+        }
+        return '<span class="text-muted">0</span>';
+    },
+
+    /**
+     * Normalize confidence to integer percent [0-100]; returns null if unknown
+     */
+    normalizeConfidence: function(value) {
+        if (value === undefined || value === null || isNaN(value)) return null;
+        let v = Number(value);
+        // If value seems to be 0-1, scale to percent
+        if (v <= 1) v = v * 100;
+        v = Math.max(0, Math.min(100, v));
+        return Math.round(v);
     },
 
 
@@ -1843,21 +1928,26 @@ refreshComprehensiveData: function() {
  * Update real-time detection metrics
  */
 updateRealTimeMetrics: function() {
-    const stats = this.lastStatusUpdate || {};
+    const status = this.lastStatusUpdate || {};
+    const statistics = status.statistics || status; // support both nested and flat
     
-    // Calculate rates
-    const totalFrames = stats.total_frames_processed || 0;
-    const totalVehicles = stats.total_vehicles_detected || 0;
-    const totalPlates = stats.total_plates_detected || 0;
-    const successfulOcr = stats.successful_ocr || 0;
+    // Calculate rates from statistics
+    const totalFrames = statistics.total_frames_processed || 0;
+    const totalVehicles = statistics.total_vehicles_detected || 0;
+    const totalPlates = statistics.total_plates_detected || 0;
+    const successfulOcr = statistics.successful_ocr || 0;
     
     const vehicleRate = totalFrames > 0 ? ((totalVehicles / totalFrames) * 100).toFixed(1) : '0';
     const plateRate = totalVehicles > 0 ? ((totalPlates / totalVehicles) * 100).toFixed(1) : '0';
     const ocrRate = totalPlates > 0 ? ((successfulOcr / totalPlates) * 100).toFixed(1) : '0';
-    const avgProcessing = stats.avg_processing_time_ms || 0;
+    const avgProcessing = (statistics.avg_processing_time_ms !== undefined)
+        ? statistics.avg_processing_time_ms
+        : ((statistics.processing_time_avg || 0) * 1000);
     
-    // Update display
-    this.updateElement('vehicle-detection-rate', vehicleRate + '%');
+    // Update display: counts and rates
+    this.updateElement('vehicles-detected', totalVehicles);
+    this.updateElement('plates-detected-count', totalPlates);
+    this.updateElement('successful-ocr-count', successfulOcr);
     this.updateElement('plate-detection-rate', plateRate + '%');
     this.updateElement('ocr-success-rate', ocrRate + '%');
     this.updateElement('processing-efficiency', avgProcessing + 'ms');
