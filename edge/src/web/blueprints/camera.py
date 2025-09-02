@@ -479,16 +479,13 @@ def generate_frames():
                             yield _generate_error_placeholder("Camera lost initialization")
                             time.sleep(RETRY_DELAY)
                             continue
-                        
                         if not manager_status.get('streaming', False):
                             logger.warning("Camera stopped streaming during operation")
                             yield _generate_error_placeholder("Camera stopped streaming")
                             time.sleep(RETRY_DELAY)
                             continue
-                        
                         last_health_check = current_time
                         consecutive_errors = 0  # Reset error counter on successful health check
-                        
                     except Exception as health_error:
                         logger.error(f"Health check failed: {health_error}")
                         consecutive_errors += 1
@@ -679,16 +676,13 @@ def generate_lores_frames():
                             yield _generate_error_placeholder("Camera lost initialization")
                             time.sleep(RETRY_DELAY)
                             continue
-                        
                         if not camera_status.get('streaming', False):
                             logger.warning("Camera stopped streaming during lores operation")
                             yield _generate_error_placeholder("Camera stopped streaming")
                             time.sleep(RETRY_DELAY)
                             continue
-                        
                         last_health_check = current_time
                         consecutive_errors = 0  # Reset error counter on successful health check
-                        
                     except Exception as health_error:
                         logger.error(f"Lores health check failed: {health_error}")
                         consecutive_errors += 1
@@ -1041,7 +1035,7 @@ def video_feed():
                 _generate_frames_from_service_improved(video_streaming),
                 mimetype='multipart/x-mixed-replace; boundary=frame',
                 headers={
-                    'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
+                    'Cache-Control': 'no-cache, max-age=0',
                     'Expires': '0',
                     'Connection': 'keep-alive',
                     'Transfer-Encoding': 'chunked',
@@ -1057,8 +1051,7 @@ def video_feed():
                     generate_frames(),
                     mimetype='multipart/x-mixed-replace; boundary=frame',
                     headers={
-                        'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
-                        
+                        'Cache-Control': 'no-cache, max-age=0',
                         'Expires': '0',
                         'Connection': 'keep-alive',
                         'Transfer-Encoding': 'chunked',
@@ -1073,8 +1066,7 @@ def video_feed():
                     _generate_error_stream("Camera service unavailable"),
                     mimetype='multipart/x-mixed-replace; boundary=frame',
                     headers={
-                        'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
-                        
+                        'Cache-Control': 'no-cache, max-age=0',
                         'Expires': '0',
                         'Connection': 'keep-alive',
                         'Transfer-Encoding': 'chunked',
@@ -1089,7 +1081,7 @@ def video_feed():
             _generate_error_stream("Video feed error"),
             mimetype='multipart/x-mixed-replace; boundary=frame',
             headers={
-                'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
+                'Cache-Control': 'no-cache, max-age=0',
                 
                 'Expires': '0',
                 'Connection': 'keep-alive',
@@ -1137,13 +1129,11 @@ def _generate_frames_from_service_improved(video_streaming):
                     import base64
                     try:
                         frame_bytes = base64.b64decode(frame_data['frame'])
-                        
                         # Log frame information for debugging
                         source = frame_data.get('source', 'unknown')
                         width = frame_data.get('width', 'unknown')
                         height = frame_data.get('height', 'unknown')
                         quality = frame_data.get('quality', 'unknown')
-                        
                         # Validate frame data
                         if len(frame_bytes) > 100:  # Ensure frame has reasonable size
                             # Reset error counter on success
@@ -1203,7 +1193,6 @@ def _generate_frames_from_service_improved(video_streaming):
                         time.sleep(error_delay)
                     else:
                         time.sleep(0.1)
-                        
             except Exception as e:
                 consecutive_errors += 1
                 logger.error(f"Error getting frame from streaming service: {e}")
@@ -1278,7 +1267,6 @@ def _generate_lores_frames_from_service(video_streaming):
                         time.sleep(error_delay)
                     else:
                         time.sleep(0.1)
-                        
             except Exception as e:
                 consecutive_errors += 1
                 logger.error(f"Error getting lores frame from streaming service: {e}")
