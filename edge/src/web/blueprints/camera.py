@@ -86,7 +86,7 @@ def get_camera_status():
         if not camera_manager:
             response = jsonify({'error': 'Camera manager not available'}), 500
             response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
-            response[0].headers['Pragma'] = 'no-cache'
+            
             response[0].headers['Expires'] = '0'
             return response
         
@@ -101,7 +101,7 @@ def get_camera_status():
             'timestamp': datetime.now().isoformat()
         })
         response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
-        response.headers['Pragma'] = 'no-cache'
+        
         response.headers['Expires'] = '0'
         return response
     except Exception as e:
@@ -112,7 +112,7 @@ def get_camera_status():
             'timestamp': datetime.now().isoformat()
         }), 500
         response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
-        response[0].headers['Pragma'] = 'no-cache'
+        
         response[0].headers['Expires'] = '0'
         return response
 
@@ -130,7 +130,7 @@ def start_camera():
         if not camera_manager:
             response = jsonify({'error': 'Camera manager not available'}), 500
             response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
-            response[0].headers['Pragma'] = 'no-cache'
+            
             response[0].headers['Expires'] = '0'
             return response
         
@@ -142,7 +142,7 @@ def start_camera():
                 'timestamp': datetime.now().isoformat()
             })
             response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
-            response.headers['Pragma'] = 'no-cache'
+            
             response.headers['Expires'] = '0'
             return response
         else:
@@ -152,7 +152,7 @@ def start_camera():
                 'timestamp': datetime.now().isoformat()
             }), 500
             response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
-            response[0].headers['Pragma'] = 'no-cache'
+            
             response[0].headers['Expires'] = '0'
             return response
     except Exception as e:
@@ -163,7 +163,7 @@ def start_camera():
             'timestamp': datetime.now().isoformat()
         }), 500
         response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
-        response[0].headers['Pragma'] = 'no-cache'
+        
         response[0].headers['Expires'] = '0'
         return response
 
@@ -181,7 +181,7 @@ def stop_camera():
         if not camera_manager:
             response = jsonify({'error': 'Camera manager not available'}), 500
             response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
-            response[0].headers['Pragma'] = 'no-cache'
+            
             response[0].headers['Expires'] = '0'
             return response
         
@@ -193,7 +193,7 @@ def stop_camera():
                 'timestamp': datetime.now().isoformat()
             })
             response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
-            response.headers['Pragma'] = 'no-cache'
+            
             response.headers['Expires'] = '0'
             return response
         else:
@@ -203,7 +203,7 @@ def stop_camera():
                 'timestamp': datetime.now().isoformat()
             }), 500
             response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
-            response[0].headers['Pragma'] = 'no-cache'
+            
             response[0].headers['Expires'] = '0'
             return response
     except Exception as e:
@@ -214,7 +214,7 @@ def stop_camera():
             'timestamp': datetime.now().isoformat()
         }), 500
         response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
-        response[0].headers['Pragma'] = 'no-cache'
+        
         response[0].headers['Expires'] = '0'
         return response
 
@@ -240,7 +240,7 @@ def restart_camera():
                 'timestamp': datetime.now().isoformat()
             })
             response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
-            response.headers['Pragma'] = 'no-cache'
+            
             response.headers['Expires'] = '0'
             return response
         else:
@@ -250,7 +250,7 @@ def restart_camera():
                 'timestamp': datetime.now().isoformat()
             }), 500
             response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
-            response[0].headers['Pragma'] = 'no-cache'
+            
             response[0].headers['Expires'] = '0'
             return response
     except Exception as e:
@@ -261,7 +261,7 @@ def restart_camera():
             'timestamp': datetime.now().isoformat()
         }), 500
         response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
-        response[0].headers['Pragma'] = 'no-cache'
+        
         response[0].headers['Expires'] = '0'
         return response
 
@@ -279,7 +279,7 @@ def camera_config():
         if not camera_manager:
             response = jsonify({'error': 'Camera manager not available'}), 500
             response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
-            response[0].headers['Pragma'] = 'no-cache'
+            
             response[0].headers['Expires'] = '0'
             return response
         
@@ -293,7 +293,7 @@ def camera_config():
                 'timestamp': datetime.now().isoformat()
             })
             response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
-            response.headers['Pragma'] = 'no-cache'
+            
             response.headers['Expires'] = '0'
             return response
         else:
@@ -302,7 +302,7 @@ def camera_config():
             if not data:
                 response = jsonify({'error': 'No configuration data provided'}), 400
                 response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
-                response[0].headers['Pragma'] = 'no-cache'
+                
                 response[0].headers['Expires'] = '0'
                 return response
             
@@ -315,7 +315,7 @@ def camera_config():
                 'timestamp': datetime.now().isoformat()
             })
             response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
-            response.headers['Pragma'] = 'no-cache'
+            
             response.headers['Expires'] = '0'
             return response
     except Exception as e:
@@ -326,7 +326,7 @@ def camera_config():
             'timestamp': datetime.now().isoformat()
         }), 500
         response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
-        response[0].headers['Pragma'] = 'no-cache'
+        
         response[0].headers['Expires'] = '0'
         return response
 
@@ -358,7 +358,7 @@ def capture_image():
                 'timestamp': datetime.now().isoformat()
             })
             response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
-            response.headers['Pragma'] = 'no-cache'
+            
             response.headers['Expires'] = '0'
             return response
         else:
@@ -368,7 +368,7 @@ def capture_image():
                 'timestamp': datetime.now().isoformat()
             }), 500
             response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
-            response[0].headers['Pragma'] = 'no-cache'
+            
             response[0].headers['Expires'] = '0'
             return response
     except Exception as e:
@@ -379,7 +379,7 @@ def capture_image():
             'timestamp': datetime.now().isoformat()
         }), 500
         response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
-        response[0].headers['Pragma'] = 'no-cache'
+        
         response[0].headers['Expires'] = '0'
         return response
 
@@ -397,7 +397,7 @@ def camera_health():
         if not camera_manager:
             response = jsonify({'error': 'Camera manager not available'}), 500
             response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
-            response[0].headers['Pragma'] = 'no-cache'
+            
             response[0].headers['Expires'] = '0'
             return response
         
@@ -409,7 +409,7 @@ def camera_health():
             'timestamp': datetime.now().isoformat()
         })
         response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
-        response.headers['Pragma'] = 'no-cache'
+        
         response.headers['Expires'] = '0'
         return response
     except Exception as e:
@@ -420,7 +420,7 @@ def camera_health():
             'timestamp': datetime.now().isoformat()
         }), 500
         response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
-        response[0].headers['Pragma'] = 'no-cache'
+        
         response[0].headers['Expires'] = '0'
         return response
 
@@ -1042,7 +1042,6 @@ def video_feed():
                 mimetype='multipart/x-mixed-replace; boundary=frame',
                 headers={
                     'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
-                    'Pragma': 'no-cache',
                     'Expires': '0',
                     'Connection': 'keep-alive',
                     'Transfer-Encoding': 'chunked',
@@ -1059,7 +1058,7 @@ def video_feed():
                     mimetype='multipart/x-mixed-replace; boundary=frame',
                     headers={
                         'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
-                        'Pragma': 'no-cache',
+                        
                         'Expires': '0',
                         'Connection': 'keep-alive',
                         'Transfer-Encoding': 'chunked',
@@ -1075,7 +1074,7 @@ def video_feed():
                     mimetype='multipart/x-mixed-replace; boundary=frame',
                     headers={
                         'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
-                        'Pragma': 'no-cache',
+                        
                         'Expires': '0',
                         'Connection': 'keep-alive',
                         'Transfer-Encoding': 'chunked',
@@ -1091,7 +1090,7 @@ def video_feed():
             mimetype='multipart/x-mixed-replace; boundary=frame',
             headers={
                 'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
-                'Pragma': 'no-cache',
+                
                 'Expires': '0',
                 'Connection': 'keep-alive',
                 'Transfer-Encoding': 'chunked',

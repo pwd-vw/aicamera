@@ -40,14 +40,14 @@ def get_storage_status():
                 'timestamp': datetime.now().isoformat()
             }), 500
             response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
-            response[0].headers['Pragma'] = 'no-cache'
+            
             response[0].headers['Expires'] = '0'
             return response
         
         status_data = storage_service.get_storage_status()
         response = jsonify(status_data)
         response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
-        response.headers['Pragma'] = 'no-cache'
+        
         response.headers['Expires'] = '0'
         return response
         
@@ -59,7 +59,7 @@ def get_storage_status():
             'timestamp': datetime.now().isoformat()
         }), 500
         response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
-        response[0].headers['Pragma'] = 'no-cache'
+        
         response[0].headers['Expires'] = '0'
         return response
 
@@ -75,7 +75,7 @@ def get_storage_analytics():
                 'timestamp': datetime.now().isoformat()
             }), 500
             response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
-            response[0].headers['Pragma'] = 'no-cache'
+            
             response[0].headers['Expires'] = '0'
             return response
         
@@ -83,7 +83,7 @@ def get_storage_analytics():
         analytics_data = storage_service.get_storage_analytics(days)
         response = jsonify(analytics_data)
         response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
-        response.headers['Pragma'] = 'no-cache'
+        
         response.headers['Expires'] = '0'
         return response
         
@@ -95,7 +95,7 @@ def get_storage_analytics():
             'timestamp': datetime.now().isoformat()
         }), 500
         response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
-        response[0].headers['Pragma'] = 'no-cache'
+        
         response.headers['Expires'] = '0'
         return response
 
@@ -111,14 +111,14 @@ def get_storage_alerts():
                 'timestamp': datetime.now().isoformat()
             }), 500
             response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
-            response[0].headers['Pragma'] = 'no-cache'
+            
             response[0].headers['Expires'] = '0'
             return response
         
         alerts_data = storage_service.get_storage_alerts()
         response = jsonify(alerts_data)
         response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
-        response.headers['Pragma'] = 'no-cache'
+        
         response.headers['Expires'] = '0'
         return response
         
@@ -130,7 +130,7 @@ def get_storage_alerts():
             'timestamp': datetime.now().isoformat()
         }), 500
         response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
-        response[0].headers['Pragma'] = 'no-cache'
+        
         response.headers['Expires'] = '0'
         return response
 

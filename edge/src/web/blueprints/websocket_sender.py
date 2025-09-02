@@ -50,7 +50,7 @@ def get_websocket_sender_status():
                 'timestamp': datetime.now().isoformat()
             }), 500
             response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
-            response[0].headers['Pragma'] = 'no-cache'
+            
             response[0].headers['Expires'] = '0'
             return response
         
@@ -63,7 +63,7 @@ def get_websocket_sender_status():
             'timestamp': datetime.now().isoformat()
         })
         response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
-        response.headers['Pragma'] = 'no-cache'
+        
         response.headers['Expires'] = '0'
         return response
         
@@ -75,7 +75,7 @@ def get_websocket_sender_status():
             'timestamp': datetime.now().isoformat()
         }), 500
         response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
-        response[0].headers['Pragma'] = 'no-cache'
+        
         response[0].headers['Expires'] = '0'
         return response
 
