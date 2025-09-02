@@ -954,3 +954,27 @@
         border: 1px solid #ddd;
     }
 }
+
+/* ===== HEALTH OFFLINE REASON ===== */
+.health-offline-reason {
+    font-size: 0.75rem;
+    color: #6c757d;
+    margin-top: 5px;
+    font-style: italic;
+    text-align: center;
+    opacity: 0.8;
+    transition: opacity 0.3s ease;
+}
+
+.health-offline-reason:hover {
+    opacity: 1;
+}
+
+/* Status card with reason */
+#health-status-card .status-indicator.status-offline + .health-offline-reason {
+    margin-top: 8px;
+    padding: 2px 8px;
+    background-color: rgba(108, 117, 125, 0.1);
+    border-radius: 4px;
+    font-size: 0.7rem;
+}

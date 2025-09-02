@@ -601,10 +601,10 @@ const DashboardManager = {
                         connectionText.textContent = 'Offline Mode';
                     } else if (status.running) {
                         connectionElement.className = 'status-indicator status-warning';
-                        connectionText.textContent = 'Running';
+                        connectionText.textContent = 'Disconnected';
                     } else {
                         connectionElement.className = 'status-indicator status-offline';
-                        connectionText.textContent = 'Disconnected';
+                        connectionText.textContent = 'Not Running';
                     }
                 } else {
                     console.warn('Server connection status elements not found');
@@ -617,7 +617,7 @@ const DashboardManager = {
                 const dataSendingText = document.getElementById('main-data-sending-text');
                 
                 if (dataSendingElement && dataSendingText) {
-                    if (status.active || status.streaming) {
+                    if (status.running && (status.total_detections_sent > 0 || status.total_health_sent > 0)) {
                         dataSendingElement.className = 'status-indicator status-online';
                         dataSendingText.textContent = 'Active';
                     } else if (status.running) {
@@ -649,9 +649,17 @@ const DashboardManager = {
         
         // Add log message for connection status changes
         if (component === 'sender') {
-            const logMessage = status.connected ? 
-                'WebSocket sender connected to server' : 
-                (status.offline_mode ? 'WebSocket sender in offline mode' : 'WebSocket sender disconnected from server');
+            let logMessage = '';
+            if (status.connected) {
+                logMessage = 'WebSocket sender connected to server';
+            } else if (status.offline_mode) {
+                logMessage = 'WebSocket sender in offline mode';
+            } else if (status.running) {
+                logMessage = 'WebSocket sender running but disconnected from server';
+            } else {
+                logMessage = 'WebSocket sender not running';
+            }
+            
             AICameraUtils.addLogMessage('main-server-logs', logMessage, status.connected ? 'success' : 'warning');
         }
     },
@@ -892,6 +900,9 @@ const DashboardManager = {
             }
         }
         
+        // Update health monitor status in hero section
+        this.updateHealthMonitorStatus(healthData);
+        
         // Update component statuses
         if (healthData.components) {
             // Camera status - Only update if we don't have more specific camera data
@@ -950,6 +961,87 @@ const DashboardManager = {
         AICameraUtils.addLogMessage('main-system-log', 
             `Health check completed: ${healthData.overall_status}`, 
             healthData.overall_status === 'healthy' ? 'success' : 'warning');
+    },
+
+    /**
+     * Update health monitor status in hero section
+     */
+    updateHealthMonitorStatus: function(healthData) {
+        const healthStatusElement = document.getElementById('main-health-status');
+        const healthStatusText = document.getElementById('main-health-status-text');
+        const healthStatusDetail = document.getElementById('main-health-status-text-detail');
+        
+        if (healthStatusElement && healthStatusText && healthStatusDetail) {
+            const overallStatus = healthData.overall_status?.toLowerCase() || 'unknown';
+            
+            // Update status indicator
+            if (overallStatus === 'healthy') {
+                healthStatusElement.className = 'status-indicator status-online';
+                healthStatusText.textContent = 'Online';
+                healthStatusDetail.textContent = 'ตรวจสอบทุก 60 วินาที';
+            } else if (overallStatus === 'unhealthy') {
+                healthStatusElement.className = 'status-indicator status-warning';
+                healthStatusText.textContent = 'Warning';
+                this.updateHealthStatusDetail(healthData, healthStatusDetail);
+            } else {
+                healthStatusElement.className = 'status-indicator status-offline';
+                healthStatusText.textContent = 'Offline';
+                this.updateHealthStatusDetail(healthData, healthStatusDetail);
+            }
+        }
+    },
+
+    /**
+     * Update health status detail text based on status and components
+     */
+    updateHealthStatusDetail: function(healthData, healthStatusDetail) {
+        let detailText = 'Not Running';
+        
+        if (healthData.components) {
+            const components = healthData.components;
+            
+            // Check camera issues (highest priority)
+            if (components.camera && components.camera.status !== 'healthy') {
+                if (!components.camera.initialized) {
+                    detailText = 'Camera not initialized';
+                } else if (!components.camera.streaming) {
+                    detailText = 'Camera not streaming';
+                }
+            }
+            // Check detection issues
+            else if (components.detection && components.detection.status !== 'healthy') {
+                if (!components.detection.models_loaded) {
+                    detailText = 'AI models not loaded';
+                } else if (!components.detection.detection_active) {
+                    detailText = 'Detection not active';
+                }
+            }
+            // Check database issues
+            else if (components.database && components.database.status !== 'healthy') {
+                if (!components.database.connected) {
+                    detailText = 'Database disconnected';
+                }
+            }
+            // Check system issues
+            else if (components.system && components.system.status !== 'healthy') {
+                detailText = 'System resources critical';
+            }
+            // If all components seem healthy but overall status is not
+            else if (healthData.overall_status && healthData.overall_status.toLowerCase() !== 'healthy') {
+                detailText = 'Service unavailable';
+            }
+        }
+        
+        healthStatusDetail.textContent = detailText;
+    },
+
+    /**
+     * Add reason for health monitor offline status (DEPRECATED - replaced by updateHealthStatusDetail)
+     */
+    addHealthOfflineReason: function(healthData) {
+        // This function is deprecated in favor of updateHealthStatusDetail
+        // Keeping for backward compatibility but no longer used
+        console.log('addHealthOfflineReason is deprecated - using updateHealthStatusDetail instead');
     },
 
     /**
@@ -1141,7 +1233,7 @@ const DashboardManager = {
      */
     updateServerConnectionDisplay: function(status) {
         let connected = false;
-        let connectionText = 'Disconnected';
+        let connectionText = 'Not Running';
         let dataActive = false;
         let dataText = 'Inactive';
         let lastSync = 'Never';
@@ -1154,16 +1246,28 @@ const DashboardManager = {
                 dataActive = status.running && (status.detection_thread_alive || status.health_thread_alive);
                 dataText = dataActive ? 'Active (Local)' : 'Inactive';
             } else {
-                // Server connection status
+                // Server connection status - ลำดับความสำคัญใหม่
                 if (status.connected) {
                     connected = true;
                     connectionText = 'Connected';
+                } else if (status.running) {
+                    connected = false;
+                    connectionText = 'Disconnected';
+                } else {
+                    connected = false;
+                    connectionText = 'Not Running';
                 }
 
                 // Data sending status
-                if (status.running && (status.detection_thread_alive || status.health_thread_alive)) {
+                if (status.running && (status.total_detections_sent > 0 || status.total_health_sent > 0)) {
                     dataActive = true;
                     dataText = 'Active';
+                } else if (status.running) {
+                    dataActive = false;
+                    dataText = 'Ready';
+                } else {
+                    dataActive = false;
+                    dataText = 'Inactive';
                 }
             }
 

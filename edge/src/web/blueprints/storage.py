@@ -39,14 +39,14 @@ def get_storage_status():
                 'error': 'Storage service not available',
                 'timestamp': datetime.now().isoformat()
             }), 500
-            response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+            response[0].headers['Cache-Control'] = 'no-cache'
             
             response[0].headers['Expires'] = '0'
             return response
         
         status_data = storage_service.get_storage_status()
         response = jsonify(status_data)
-        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+        response.headers['Cache-Control'] = 'no-cache'
         
         response.headers['Expires'] = '0'
         return response
@@ -58,7 +58,7 @@ def get_storage_status():
             'error': str(e),
             'timestamp': datetime.now().isoformat()
         }), 500
-        response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+        response[0].headers['Cache-Control'] = 'no-cache'
         
         response[0].headers['Expires'] = '0'
         return response
@@ -74,7 +74,7 @@ def get_storage_analytics():
                 'error': 'Storage service not available',
                 'timestamp': datetime.now().isoformat()
             }), 500
-            response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+            response[0].headers['Cache-Control'] = 'no-cache'
             
             response[0].headers['Expires'] = '0'
             return response
@@ -82,7 +82,7 @@ def get_storage_analytics():
         days = request.args.get('days', 7, type=int)
         analytics_data = storage_service.get_storage_analytics(days)
         response = jsonify(analytics_data)
-        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+        response.headers['Cache-Control'] = 'no-cache'
         
         response.headers['Expires'] = '0'
         return response
@@ -94,7 +94,7 @@ def get_storage_analytics():
             'error': str(e),
             'timestamp': datetime.now().isoformat()
         }), 500
-        response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+        response[0].headers['Cache-Control'] = 'no-cache'
         
         response.headers['Expires'] = '0'
         return response
@@ -110,14 +110,14 @@ def get_storage_alerts():
                 'error': 'Storage service not available',
                 'timestamp': datetime.now().isoformat()
             }), 500
-            response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+            response[0].headers['Cache-Control'] = 'no-cache'
             
             response[0].headers['Expires'] = '0'
             return response
         
         alerts_data = storage_service.get_storage_alerts()
         response = jsonify(alerts_data)
-        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+        response.headers['Cache-Control'] = 'no-cache'
         
         response.headers['Expires'] = '0'
         return response
@@ -129,7 +129,7 @@ def get_storage_alerts():
             'error': str(e),
             'timestamp': datetime.now().isoformat()
         }), 500
-        response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+        response[0].headers['Cache-Control'] = 'no-cache'
         
         response.headers['Expires'] = '0'
         return response

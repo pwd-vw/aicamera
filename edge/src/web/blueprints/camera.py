@@ -85,7 +85,7 @@ def get_camera_status():
         camera_manager = get_service('camera_manager')
         if not camera_manager:
             response = jsonify({'error': 'Camera manager not available'}), 500
-            response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+            response[0].headers['Cache-Control'] = 'no-cache'
             
             response[0].headers['Expires'] = '0'
             return response
@@ -100,7 +100,7 @@ def get_camera_status():
             'status': serializable_status,
             'timestamp': datetime.now().isoformat()
         })
-        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+        response.headers['Cache-Control'] = 'no-cache'
         
         response.headers['Expires'] = '0'
         return response
@@ -111,7 +111,7 @@ def get_camera_status():
             'error': str(e),
             'timestamp': datetime.now().isoformat()
         }), 500
-        response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+        response[0].headers['Cache-Control'] = 'no-cache'
         
         response[0].headers['Expires'] = '0'
         return response
@@ -129,7 +129,7 @@ def start_camera():
         camera_manager = get_service('camera_manager')
         if not camera_manager:
             response = jsonify({'error': 'Camera manager not available'}), 500
-            response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+            response[0].headers['Cache-Control'] = 'no-cache'
             
             response[0].headers['Expires'] = '0'
             return response
@@ -141,7 +141,7 @@ def start_camera():
                 'message': 'Camera started successfully',
                 'timestamp': datetime.now().isoformat()
             })
-            response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+            response.headers['Cache-Control'] = 'no-cache'
             
             response.headers['Expires'] = '0'
             return response
@@ -151,7 +151,7 @@ def start_camera():
                 'error': 'Failed to start camera',
                 'timestamp': datetime.now().isoformat()
             }), 500
-            response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+            response[0].headers['Cache-Control'] = 'no-cache'
             
             response[0].headers['Expires'] = '0'
             return response
@@ -162,7 +162,7 @@ def start_camera():
             'error': str(e),
             'timestamp': datetime.now().isoformat()
         }), 500
-        response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+        response[0].headers['Cache-Control'] = 'no-cache'
         
         response[0].headers['Expires'] = '0'
         return response
@@ -180,7 +180,7 @@ def stop_camera():
         camera_manager = get_service('camera_manager')
         if not camera_manager:
             response = jsonify({'error': 'Camera manager not available'}), 500
-            response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+            response[0].headers['Cache-Control'] = 'no-cache'
             
             response[0].headers['Expires'] = '0'
             return response
@@ -192,7 +192,7 @@ def stop_camera():
                 'message': 'Camera stopped successfully',
                 'timestamp': datetime.now().isoformat()
             })
-            response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+            response.headers['Cache-Control'] = 'no-cache'
             
             response.headers['Expires'] = '0'
             return response
@@ -202,7 +202,7 @@ def stop_camera():
                 'error': 'Failed to stop camera',
                 'timestamp': datetime.now().isoformat()
             }), 500
-            response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+            response[0].headers['Cache-Control'] = 'no-cache'
             
             response[0].headers['Expires'] = '0'
             return response
@@ -213,7 +213,7 @@ def stop_camera():
             'error': str(e),
             'timestamp': datetime.now().isoformat()
         }), 500
-        response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+        response[0].headers['Cache-Control'] = 'no-cache'
         
         response[0].headers['Expires'] = '0'
         return response
@@ -239,7 +239,7 @@ def restart_camera():
                 'message': 'Camera restarted successfully',
                 'timestamp': datetime.now().isoformat()
             })
-            response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+            response.headers['Cache-Control'] = 'no-cache'
             
             response.headers['Expires'] = '0'
             return response
@@ -249,7 +249,7 @@ def restart_camera():
                 'error': 'Failed to restart camera',
                 'timestamp': datetime.now().isoformat()
             }), 500
-            response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+            response[0].headers['Cache-Control'] = 'no-cache'
             
             response[0].headers['Expires'] = '0'
             return response
@@ -260,7 +260,7 @@ def restart_camera():
             'error': str(e),
             'timestamp': datetime.now().isoformat()
         }), 500
-        response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+        response[0].headers['Cache-Control'] = 'no-cache'
         
         response[0].headers['Expires'] = '0'
         return response
@@ -278,7 +278,7 @@ def camera_config():
         camera_manager = get_service('camera_manager')
         if not camera_manager:
             response = jsonify({'error': 'Camera manager not available'}), 500
-            response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+            response[0].headers['Cache-Control'] = 'no-cache'
             
             response[0].headers['Expires'] = '0'
             return response
@@ -292,7 +292,7 @@ def camera_config():
                 'config': config,
                 'timestamp': datetime.now().isoformat()
             })
-            response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+            response.headers['Cache-Control'] = 'no-cache'
             
             response.headers['Expires'] = '0'
             return response
@@ -301,7 +301,7 @@ def camera_config():
             data = request.get_json()
             if not data:
                 response = jsonify({'error': 'No configuration data provided'}), 400
-                response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+                response[0].headers['Cache-Control'] = 'no-cache'
                 
                 response[0].headers['Expires'] = '0'
                 return response
@@ -314,7 +314,7 @@ def camera_config():
                 'error': result.get('error', ''),
                 'timestamp': datetime.now().isoformat()
             })
-            response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+            response.headers['Cache-Control'] = 'no-cache'
             
             response.headers['Expires'] = '0'
             return response
@@ -325,7 +325,7 @@ def camera_config():
             'error': str(e),
             'timestamp': datetime.now().isoformat()
         }), 500
-        response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+        response[0].headers['Cache-Control'] = 'no-cache'
         
         response[0].headers['Expires'] = '0'
         return response
@@ -357,7 +357,7 @@ def capture_image():
                 'message': 'Image captured successfully',
                 'timestamp': datetime.now().isoformat()
             })
-            response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+            response.headers['Cache-Control'] = 'no-cache'
             
             response.headers['Expires'] = '0'
             return response
@@ -367,7 +367,7 @@ def capture_image():
                 'error': 'Failed to capture image',
                 'timestamp': datetime.now().isoformat()
             }), 500
-            response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+            response[0].headers['Cache-Control'] = 'no-cache'
             
             response[0].headers['Expires'] = '0'
             return response
@@ -378,7 +378,7 @@ def capture_image():
             'error': str(e),
             'timestamp': datetime.now().isoformat()
         }), 500
-        response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+        response[0].headers['Cache-Control'] = 'no-cache'
         
         response[0].headers['Expires'] = '0'
         return response
@@ -396,7 +396,7 @@ def camera_health():
         camera_manager = get_service('camera_manager')
         if not camera_manager:
             response = jsonify({'error': 'Camera manager not available'}), 500
-            response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+            response[0].headers['Cache-Control'] = 'no-cache'
             
             response[0].headers['Expires'] = '0'
             return response
@@ -408,7 +408,7 @@ def camera_health():
             'health': health,
             'timestamp': datetime.now().isoformat()
         })
-        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+        response.headers['Cache-Control'] = 'no-cache'
         
         response.headers['Expires'] = '0'
         return response
@@ -419,7 +419,7 @@ def camera_health():
             'error': str(e),
             'timestamp': datetime.now().isoformat()
         }), 500
-        response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+        response[0].headers['Cache-Control'] = 'no-cache'
         
         response[0].headers['Expires'] = '0'
         return response

@@ -35,6 +35,22 @@
     transform: scale(1.1);
     transition: transform 0.2s ease-in-out;
 }
+
+/* Health Status Detail */
+.health-status-detail {
+    font-size: 0.75rem;
+    color: #6c757d;
+    margin-top: 5px;
+    font-style: italic;
+    opacity: 0.8;
+    transition: opacity 0.3s ease;
+    display: block;
+    line-height: 1.2;
+}
+
+.health-status-detail:hover {
+    opacity: 1;
+}
 </style>
 {% endblock %}
 
@@ -94,6 +110,9 @@
                         <h5>Health Monitor</h5>
                         <span id="main-health-status" class="status-indicator status-offline"></span>
                         <span id="main-health-status-text">Offline</span>
+                        <div id="main-health-status-text-detail" class="health-status-detail">
+                            Not Running
+                        </div>
                     </a>
                 </div>
             </div>
@@ -103,8 +122,8 @@
                     <a href="/experiments" class="text-decoration-none">
                         <i class="fas fa-flask feature-icon text-warning"></i>
                         <h5>Experiments</h5>
-                        <span id="main-experiment-status" class="status-indicator status-ready"></span>
-                        <span id="main-experiment-status-text">Ready</span>
+                        <span id="main-experiment-status" class="status-indicator status-warning"></span>
+                        <span id="main-experiment-status-text">Under Maintenance</span>
                     </a>
                 </div>
             </div>
@@ -127,21 +146,220 @@
                 </div>
             </div>
         </div>
+
+        <!-- System Status - Row 3: Server Connection -->
+        <div class="row">
+            <div class="col-md-3">
+                <div class="status-card text-center" id="main-server-connection-status-card">
+                    <a href="/websocket_sender" class="text-decoration-none">
+                        <i class="fas fa-globe feature-icon text-info"></i>
+                        <h5>Server Connection</h5>
+                        <span id="main-server-connection-status" class="status-indicator status-offline"></span>
+                        <span id="main-server-connection-text">Disconnected</span>
+                    </a>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="status-card text-center" id="main-data-sending-status-card">
+                    <a href="/websocket_sender" class="text-decoration-none">
+                    <i class="fas fa-upload feature-icon text-success"></i>
+                    <h5>Data Sending</h5>
+                    <span id="main-data-sending-status" class="status-indicator status-offline"></span>
+                    <span id="main-data-sending-text">Inactive</span>
+                    </a>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="status-card text-center" id="main-last-sync-time-card">
+                    <i class="fas fa-clock feature-icon text-secondary"></i>
+                    <h5>Last Sync</h5>
+                    <span id="main-last-sync-time">Never</span>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="status-card text-center" id="lp-blacklist-status-card">
+                    <i class="fas fa-ban feature-icon text-secondary"></i>
+                    <h5>Blackist</h5>
+                    <span id="lp-blacklist-status" class="status-indicator status-warning"></span>
+                    <span id="lp-blacklist-status-text">Comming Soon</span>
+                </div>
+            </div>
+        </div>
     </div>
 </section>
 {% endblock %}
 
 {% block container_class %}
+<!-- Features -->
+<div class="row">
+    <div class="col-12">
+        <h2 class="mb-4">
+            <i class="fas fa-star"></i> System Features
+        </h2>
+    </div>
+</div>
+<div class="row">
+    <div class="col-md-4 mb-4">
+        <div class="card feature-card h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-video feature-icon text-primary"></i>
+                <h5 class="card-title">Real-time Video Streaming</h5>
+                <p class="card-text">
+                    ระบบกล้อง Raspberry Pi 5 ที่รองรับการปรับแต่งความละเอียด 
+                    อัตราเฟรม และการตั้งค่ากล้องแบบเรียลไทม์ พร้อมระบบสตรีมภาพคุณภาพสูง
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4 mb-4">
+        <div class="card feature-card h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-brain feature-icon text-success"></i>
+                <h5 class="card-title">AI Detection Pipeline</h5>
+                <p class="card-text">
+                    ระบบตรวจจับยานพาหนะและอ่านป้ายทะเบียนด้วย AI Hailo 
+                    รองรับการประมวลผลแบบเรียลไทม์และเก็บข้อมูลผลการตรวจจับ
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4 mb-4">
+        <div class="card feature-card h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-cogs feature-icon text-info"></i>
+                <h5 class="card-title">Advanced Configuration</h5>
+                <p class="card-text">
+                    ระบบควบคุมการตั้งค่ากล้องแบบละเอียด รวมถึงการปรับแสง 
+                    สมดุลสีขาว และพารามิเตอร์การประมวลผลภาพ
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="row">
+    <div class="col-md-4 mb-4">
+        <div class="card feature-card h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-chart-line feature-icon text-warning"></i>
+                <h5 class="card-title">System Monitoring</h5>
+                <p class="card-text">
+                    ระบบตรวจสอบสถานภาพระบบแบบอัตโนมัติ ติดตามประสิทธิภาพ 
+                    และแจ้งเตือนเมื่อเกิดปัญหา พร้อมการตรวจสอบต่อเนื่อง
+                </p>
+                <a href="{{ url_for('health.health_root') }}" class="btn btn-warning btn-sm mt-2">
+                    <i class="fas fa-heartbeat"></i> View Health Dashboard
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4 mb-4">
+        <div class="card feature-card h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-database feature-icon text-danger"></i>
+                <h5 class="card-title">Data Management</h5>
+                <p class="card-text">
+                    ระบบจัดเก็บและจัดการข้อมูลภาพที่ถ่ายได้ ผลการตรวจจับ 
+                    และบันทึกการทำงานของระบบในฐานข้อมูล SQLite
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4 mb-4">
+        <div class="card feature-card h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-network-wired feature-icon text-secondary"></i>
+                <h5 class="card-title">Unified Communication</h5>
+                <p class="card-text">
+                    ระบบสื่อสารแบบสองทางผ่าน WebSocket, REST API, MQTT สำหรับการอัปเดตสถานะ 
+                    การควบคุมระยะไกล และการติดตามการทำงานแบบสด
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- System and Server Communication Logs -->
+<div class="row mb-5">
+    <div class="col-12">
+        <div class="card-body">
+            <div class="row">
+                <!-- Core: System Log -->
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5><i class="fas fa-terminal"></i> System Log</h5>
+                            <p><strong>System Uptime:</strong> <span id="main-system-uptime">Loading...</span></p>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="log-container" id="main-system-log" style="height: 300px;">
+                                <div class="text-muted p-3">System log will appear here...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Optional: Server Communication Log -->
+                <div class="col-md-6" id="server-logs-section">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5><i class="fas fa-terminal"></i> Server Communication Log
+                            </h5>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="log-container" id="main-server-logs" style="height: 300px;">
+                                <div class="text-muted p-3">Server communication logs will appear here...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<!-- Toggle Controls -->
+<div class="row mb-3">
+    <div class="col-12">
+        <div class="btn-group" role="group" aria-label="Content Toggle Controls">
+            <button type="button" class="btn btn-outline-primary" id="toggle-system-info">
+                <i class="fas fa-info-circle"></i> System Info
+            </button>
+            <button type="button" class="btn btn-outline-success" id="toggle-development-ref">
+                <i class="fas fa-code"></i> Development Reference
+            </button>
+            <button type="button" class="btn btn-outline-info" id="toggle-all">
+                <i class="fas fa-eye"></i> Show All
+            </button>
+            <button type="button" class="btn btn-outline-secondary" id="hide-all">
+                <i class="fas fa-eye-slash"></i> Hide All
+            </button>
+        </div>
+    </div>
+</div>
+
 <!-- System Information -->
-<div class="row mt-5">
+<div class="row mt-3" id="system-info-section">
     <div class="col-12">
         <div class="card">
-            <div class="card-header">
+            <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="card-title mb-0">
                     <i class="fas fa-info-circle"></i> System Information
                 </h5>
+                <button class="btn btn-sm btn-outline-secondary" id="toggle-system-info-content"
+                        title="Toggle System Information content visibility"
+                        aria-label="Toggle System Information content visibility">
+                    <i class="fas fa-chevron-up"></i>
+                </button>
             </div>
-            <div class="card-body">
+            <div class="card-body" id="system-info-content">
                 <!-- Row 1: Single centered column with left-aligned text -->
                 <div class="row justify-content-center mb-4">
                     <div class="col-md-8">
@@ -200,181 +418,20 @@
         </div>
     </div>
 </div>
-{% endblock %}
-
-{% block content %}
-<!-- Server Communication (WebSocket Sender) -->
-<div class="row mb-5" id="server-communication-section">
-    <div class="col-12">
-        <h2 class="mb-4">
-            <i class="fas fa-share-alt"></i> Server Communication
-        </h2>
-    </div>
-
-    <div class="col-md-4">
-        <div class="status-card text-center">
-            <i class="fas fa-globe feature-icon text-info"></i>
-            <h5>Server Connection</h5>
-            <span id="main-server-connection-status" class="status-indicator status-offline"></span>
-            <span id="main-server-connection-text">Disconnected</span>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="status-card text-center">
-            <i class="fas fa-upload feature-icon text-success"></i>
-            <h5>Data Sending</h5>
-            <span id="main-data-sending-status" class="status-indicator status-offline"></span>
-            <span id="main-data-sending-text">Inactive</span>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="status-card text-center">
-            <i class="fas fa-clock feature-icon text-secondary"></i>
-            <h5>Last Sync</h5>
-            <span id="main-last-sync-time">Never</span>
-        </div>
-    </div>
-</div>
-
-<!-- System and Server Communication Logs -->
-<div class="row mb-5">
-    <div class="col-12">
-        <div class="card-body">
-            <div class="row">
-                <!-- Core: System Log -->
-                <div class="col-md-6">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5><i class="fas fa-terminal"></i> System Log</h5>
-                            <p><strong>System Uptime:</strong> <span id="main-system-uptime">Loading...</span></p>
-                        </div>
-                        <div class="card-body p-0">
-                            <div class="log-container" id="main-system-log" style="height: 300px;">
-                                <div class="text-muted p-3">System log will appear here...</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Optional: Server Communication Log -->
-                <div class="col-md-6" id="server-logs-section">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5><i class="fas fa-terminal"></i> Server Communication Log
-                            </h5>
-                        </div>
-                        <div class="card-body p-0">
-                            <div class="log-container" id="main-server-logs" style="height: 300px;">
-                                <div class="text-muted p-3">Server communication logs will appear here...</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Features -->
-<div class="row">
-    <div class="col-12">
-        <h2 class="mb-4">
-            <i class="fas fa-star"></i> System Features
-        </h2>
-    </div>
-
-    <div class="col-md-4 mb-4">
-        <div class="card feature-card h-100">
-            <div class="card-body text-center">
-                <i class="fas fa-video feature-icon text-primary"></i>
-                <h5 class="card-title">Real-time Video Streaming</h5>
-                <p class="card-text">
-                    High-quality video streaming with configurable resolution,
-                    frame rate, and camera settings. Support for both main and
-                    low-resolution streams.
-                </p>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-md-4 mb-4">
-        <div class="card feature-card h-100">
-            <div class="card-body text-center">
-                <i class="fas fa-brain feature-icon text-success"></i>
-                <h5 class="card-title">AI Detection Pipeline</h5>
-                <p class="card-text">
-                    Advanced AI detection capabilities using Hailo AI models.
-                    Support for vehicle detection, license plate recognition,
-                    and custom object detection.
-                </p>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-md-4 mb-4">
-        <div class="card feature-card h-100">
-            <div class="card-body text-center">
-                <i class="fas fa-cogs feature-icon text-info"></i>
-                <h5 class="card-title">Advanced Configuration</h5>
-                <p class="card-text">
-                    Comprehensive camera configuration including exposure,
-                    white balance, focus controls, and image processing parameters.
-                </p>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-md-4 mb-4">
-        <div class="card feature-card h-100">
-            <div class="card-body text-center">
-                <i class="fas fa-chart-line feature-icon text-warning"></i>
-                <h5 class="card-title">System Monitoring</h5>
-                <p class="card-text">
-                    Real-time system health monitoring with performance metrics,
-                    error tracking, and automated health checks.
-                </p>
-                <a href="{{ url_for('health.health_root') }}" class="btn btn-warning btn-sm mt-2">
-                    <i class="fas fa-heartbeat"></i> View Health Dashboard
-                </a>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-md-4 mb-4">
-        <div class="card feature-card h-100">
-            <div class="card-body text-center">
-                <i class="fas fa-database feature-icon text-danger"></i>
-                <h5 class="card-title">Data Management</h5>
-                <p class="card-text">
-                    Efficient data storage and management for captured images,
-                    detection results, and system logs.
-                </p>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-md-4 mb-4">
-        <div class="card feature-card h-100">
-            <div class="card-body text-center">
-                <i class="fas fa-network-wired feature-icon text-secondary"></i>
-                <h5 class="card-title">WebSocket Communication</h5>
-                <p class="card-text">
-                    Real-time bidirectional communication for instant updates,
-                    remote control, and live status monitoring.
-                </p>
-            </div>
-        </div>
-    </div>
-</div>
 
 <!-- Development Reference Section -->
-<div class="row mt-5">
+<div class="row mt-3" id="development-ref-section">
     <div class="col-12">
         <div class="card">
-            <div class="card-header">
+            <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="mb-0"><i class="fas fa-code"></i> Development Reference - APIs & Data Structures</h5>
+                <button class="btn btn-sm btn-outline-secondary" id="toggle-development-ref-content"
+                        title="Toggle Development Reference content visibility"
+                        aria-label="Toggle Development Reference content visibility">
+                    <i class="fas fa-chevron-up"></i>
+                </button>
             </div>
-            <div class="card-body">
+            <div class="card-body" id="development-ref-content">
                 <!-- Main Dashboard APIs -->
                 <div class="row mb-4">
                     <div class="col-12">
@@ -909,4 +966,118 @@
 
 {% block additional_js %}
 <script src="{{ url_for('static', filename='js/dashboard.js', v=2) }}"></script>
+<script>
+// Content Toggle Functionality
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize toggle states
+    let systemInfoVisible = true;
+    let developmentRefVisible = true;
+    
+    // Toggle System Info Section
+    document.getElementById('toggle-system-info').addEventListener('click', function() {
+        const section = document.getElementById('system-info-section');
+        const content = document.getElementById('system-info-content');
+        const toggleBtn = document.getElementById('toggle-system-info-content');
+        
+        if (systemInfoVisible) {
+            content.style.display = 'none';
+            toggleBtn.innerHTML = '<i class="fas fa-chevron-down"></i>';
+            systemInfoVisible = false;
+        } else {
+            content.style.display = 'block';
+            toggleBtn.innerHTML = '<i class="fas fa-chevron-up"></i>';
+            systemInfoVisible = true;
+        }
+    });
+    
+    // Toggle System Info Content
+    document.getElementById('toggle-system-info-content').addEventListener('click', function() {
+        const content = document.getElementById('system-info-content');
+        const toggleBtn = this;
+        
+        if (systemInfoVisible) {
+            content.style.display = 'none';
+            toggleBtn.innerHTML = '<i class="fas fa-chevron-down"></i>';
+            systemInfoVisible = false;
+        } else {
+            content.style.display = 'block';
+            toggleBtn.innerHTML = '<i class="fas fa-chevron-up"></i>';
+            systemInfoVisible = true;
+        }
+    });
+    
+    // Toggle Development Reference Section
+    document.getElementById('toggle-development-ref').addEventListener('click', function() {
+        const section = document.getElementById('development-ref-section');
+        const content = document.getElementById('development-ref-content');
+        const toggleBtn = document.getElementById('toggle-development-ref-content');
+        
+        if (developmentRefVisible) {
+            content.style.display = 'none';
+            toggleBtn.innerHTML = '<i class="fas fa-chevron-down"></i>';
+            developmentRefVisible = false;
+        } else {
+            content.style.display = 'block';
+            toggleBtn.innerHTML = '<i class="fas fa-chevron-up"></i>';
+            developmentRefVisible = true;
+        }
+    });
+    
+    // Toggle Development Reference Content
+    document.getElementById('toggle-development-ref-content').addEventListener('click', function() {
+        const content = document.getElementById('development-ref-content');
+        const toggleBtn = this;
+        
+        if (developmentRefVisible) {
+            content.style.display = 'none';
+            toggleBtn.innerHTML = '<i class="fas fa-chevron-down"></i>';
+            developmentRefVisible = false;
+        } else {
+            content.style.display = 'block';
+            toggleBtn.innerHTML = '<i class="fas fa-chevron-up"></i>';
+            developmentRefVisible = true;
+        }
+    });
+    
+    // Show All Sections
+    document.getElementById('toggle-all').addEventListener('click', function() {
+        const systemContent = document.getElementById('system-info-content');
+        const devContent = document.getElementById('development-ref-content');
+        const systemToggleBtn = document.getElementById('toggle-system-info-content');
+        const devToggleBtn = document.getElementById('toggle-development-ref-content');
+        
+        systemContent.style.display = 'block';
+        devContent.style.display = 'block';
+        systemToggleBtn.innerHTML = '<i class="fas fa-chevron-up"></i>';
+        devToggleBtn.innerHTML = '<i class="fas fa-chevron-up"></i>';
+        
+        systemInfoVisible = true;
+        developmentRefVisible = true;
+    });
+    
+    // Hide All Sections
+    document.getElementById('hide-all').addEventListener('click', function() {
+        const systemContent = document.getElementById('system-info-content');
+        const devContent = document.getElementById('development-ref-content');
+        const systemToggleBtn = document.getElementById('toggle-system-info-content');
+        const devToggleBtn = document.getElementById('toggle-development-ref-content');
+        
+        systemContent.style.display = 'none';
+        devContent.style.display = 'none';
+        systemToggleBtn.innerHTML = '<i class="fas fa-chevron-down"></i>';
+        devToggleBtn.innerHTML = '<i class="fas fa-chevron-down"></i>';
+        
+        systemInfoVisible = false;
+        developmentRefVisible = false;
+    });
+    
+    // Add smooth animation
+    const contents = document.querySelectorAll('.card-body');
+    contents.forEach(content => {
+        content.style.transition = 'all 0.3s ease-in-out';
+    });
+    
+    console.log('Content toggle functionality initialized');
+});
+</script>
 {% endblock %}
