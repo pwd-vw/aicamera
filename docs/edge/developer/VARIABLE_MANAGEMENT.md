@@ -1298,6 +1298,575 @@ return jsonify({
 }), 500
 ```
 
+## Variable Conflict Prevention Guide
+
+### Layer-Specific Naming Standards
+
+#### 1. Backend (Python) - `snake_case`
+
+```python
+# ✅ Correct
+camera_status = {
+    'initialized': True,
+    'streaming': True,
+    'frame_count': 1234,
+    'average_fps': 29.5,
+    'auto_start_enabled': True
+}
+
+detection_processor_status = {
+    'models_loaded': True,
+    'vehicle_model_available': True,
+    'lp_detection_model_available': True
+}
+
+# ❌ Incorrect
+cameraStatus = {...}  # camelCase in Python
+CameraStatus = {...}  # PascalCase for variables
+camera-status = {...}  # kebab-case in Python
+```
+
+#### 2. Frontend (JavaScript) - `camelCase`
+
+```javascript
+// ✅ Correct
+const cameraStatus = {
+    initialized: true,
+    streaming: true,
+    frameCount: 1234,
+    averageFps: 29.5,
+    autoStartEnabled: true
+};
+
+const detectionProcessorStatus = {
+    modelsLoaded: true,
+    vehicleModelAvailable: true,
+    lpDetectionModelAvailable: true
+};
+
+// ❌ Incorrect
+const camera_status = {...};  // snake_case in JavaScript
+const CameraStatus = {...};   // PascalCase for variables
+const camera-status = {...};  // kebab-case in JavaScript
+```
+
+#### 3. HTML Elements - `kebab-case`
+
+```html
+<!-- ✅ Correct -->
+<span id="main-camera-model">Loading...</span>
+<span id="feature-camera-resolution">Loading...</span>
+<div class="status-online">Online</div>
+<button id="camera-start-btn">Start</button>
+
+<!-- ❌ Incorrect -->
+<span id="mainCameraModel">Loading...</span>  <!-- camelCase -->
+<span id="main_camera_model">Loading...</span>  <!-- snake_case -->
+<div class="statusOnline">Online</div>  <!-- camelCase -->
+```
+
+#### 4. API Endpoints - `snake_case`
+
+```
+✅ Correct:
+GET /camera/status
+POST /detection/start
+GET /health/system
+GET /health/logs
+GET /health/status
+GET /health/system-info
+
+❌ Incorrect:
+GET /camera/getStatus
+POST /detection/startDetection
+GET /health/getSystemHealth
+```
+
+#### 5. WebSocket Events - `snake_case`
+
+```javascript
+// ✅ Correct
+socket.emit('camera_status_request', {});
+socket.on('camera_status_update', callback);
+socket.emit('detection_control', {command: 'start'});
+socket.emit('health_status_request', {});
+
+// ❌ Incorrect
+socket.emit('cameraStatusRequest', {});  // camelCase
+socket.on('camera-status-update', callback);  // kebab-case
+```
+
+### Common Conflict Scenarios
+
+#### 1. Duplicate HTML Element IDs
+
+**Problem:**
+```html
+<!-- System Information section -->
+<span id="main-camera-model">Loading...</span>
+
+<!-- Features section -->  
+<span id="main-camera-model">Loading...</span>  <!-- ❌ Duplicate ID -->
+```
+
+**Solution:**
+```html
+<!-- System Information section -->
+<span id="main-camera-model">Loading...</span>
+
+<!-- Features section -->
+<span id="feature-camera-model">Loading...</span>  <!-- ✅ Unique ID -->
+```
+
+#### 2. Inconsistent Variable Naming Across Layers
+
+**Problem:**
+```python
+# Backend
+camera_status = {'frame_count': 1234}
+
+# Frontend expects camelCase but receives snake_case
+const frameCount = status.frameCount;  // ❌ undefined
+```
+
+**Solution:**
+```python
+# Backend - Keep snake_case
+camera_status = {'frame_count': 1234}
+
+# Frontend - Access with original structure
+const frameCount = status.frame_count;  // ✅ Works
+// OR convert if needed
+const frameCount = status.frameCount || status.frame_count;
+```
+
+#### 3. WebSocket Event Name Mismatches
+
+**Problem:**
+```javascript
+// Client sends camelCase
+socket.emit('cameraStatusRequest', {});
+
+// Server expects snake_case
+@socketio.on('camera_status_request')  // ❌ Mismatch
+```
+
+**Solution:**
+```javascript
+// Client uses snake_case
+socket.emit('camera_status_request', {});  // ✅ Matches server
+
+// Server handles snake_case
+@socketio.on('camera_status_request')  // ✅ Matches client
+```
+
+#### 4. CSS Class Naming Conflicts
+
+**Problem:**
+```css
+/* Bootstrap uses kebab-case */
+.btn-primary { ... }
+
+/* Custom classes use camelCase */
+.statusOnline { ... }  /* ❌ Inconsistent */
+```
+
+**Solution:**
+```css
+/* All classes use kebab-case */
+.btn-primary { ... }
+.status-online { ... }  /* ✅ Consistent */
+```
+
+### Prevention Strategies
+
+#### 1. Code Review Checklist
+
+**Backend (Python):**
+- [ ] All variables use `snake_case`
+- [ ] API responses follow `variable_management.md` format
+- [ ] WebSocket events use `snake_case` naming
+- [ ] Database columns use `snake_case`
+- [ ] No camelCase or kebab-case in Python code
+
+**Frontend (JavaScript):**
+- [ ] All variables use `camelCase`
+- [ ] API data accessed with original structure
+- [ ] WebSocket events use `snake_case` (server compatibility)
+- [ ] No snake_case variables in JavaScript
+- [ ] Consistent property access patterns
+
+**HTML Templates:**
+- [ ] All element IDs use `kebab-case`
+- [ ] No duplicate IDs in same page
+- [ ] CSS classes use `kebab-case`
+- [ ] Semantic and descriptive naming
+- [ ] Section prefixes for organization
+
+#### 2. HTML Element ID Mapping
+
+```javascript
+// ✅ Correct - Unique IDs for different sections
+const ELEMENT_IDS = {
+    // Main System Information section
+    MAIN_CAMERA_MODEL: 'main-camera-model',
+    MAIN_CAMERA_RESOLUTION: 'main-camera-resolution',
+    MAIN_CAMERA_FPS: 'main-camera-fps',
+    
+    // Features section (different data, different IDs)
+    FEATURE_CAMERA_MODEL: 'feature-camera-model',
+    FEATURE_CAMERA_RESOLUTION: 'feature-camera-resolution',
+    FEATURE_CAMERA_FPS: 'feature-camera-fps',
+    
+    // Status indicators
+    MAIN_CAMERA_STATUS: 'main-camera-status',
+    MAIN_CAMERA_DETAIL_STATUS: 'main-camera-detail-status',
+    MAIN_CAMERA_FEATURE_STATUS: 'main-camera-feature-status'
+};
+
+// ❌ Wrong - Duplicate IDs cause conflicts
+// Both sections using same IDs:
+// 'main-camera-model' appears twice → only first gets updated
+```
+
+#### 3. Backend → Frontend Data Flow
+
+```python
+# Backend (Python) - snake_case
+api_response = {
+    "success": True,
+    "status": {
+        "camera_handler": {
+            "current_config": {
+                "main": {
+                    "size": [1280, 720]
+                },
+                "controls": {
+                    "FrameDurationLimits": [33333, 33333]
+                }
+            },
+            "camera_properties": {
+                "Model": "imx708"
+            }
+        }
+    }
+}
+```
+
+```javascript
+// Frontend (JavaScript) - Access with camelCase conversion
+function updateCameraStatus(status) {
+    // Direct access (structure preserved)
+    const resolution = status.camera_handler.current_config.main.size;
+    const model = status.camera_handler.camera_properties.Model;
+    const frameDuration = status.camera_handler.current_config.controls.FrameDurationLimits[0];
+    
+    // Convert to display format
+    const resolutionText = `${resolution[0]}x${resolution[1]}`;
+    const fpsText = `${Math.round(1000000 / frameDuration)} FPS`;
+    
+    // Update DOM elements
+    document.getElementById('main-camera-resolution').textContent = resolutionText;
+    document.getElementById('main-camera-fps').textContent = fpsText;
+    document.getElementById('main-camera-model').textContent = model;
+}
+```
+
+### Testing & Validation
+
+#### 1. Validation Scripts
+
+**Backend Validation:**
+```python
+#!/usr/bin/env python3
+# validate_backend_naming.py
+
+import re
+import json
+
+def validate_api_responses():
+    """Validate all API responses use snake_case"""
+    errors = []
+    
+    # Test camera status endpoint
+    with camera_bp.test_client() as client:
+        response = client.get('/camera/status')
+        data = json.loads(response.data)
+        
+        if 'frameCount' in str(data):
+            errors.append("Found camelCase in camera status API")
+        
+        if 'frame_count' not in str(data):
+            errors.append("Missing snake_case variables in camera status API")
+    
+    return errors
+
+if __name__ == "__main__":
+    errors = validate_api_responses()
+    if errors:
+        print("❌ Validation failed:")
+        for error in errors:
+            print(f"  - {error}")
+        exit(1)
+    else:
+        print("✅ Backend naming validation passed")
+```
+
+**Frontend Validation:**
+```javascript
+// validate_frontend_naming.js
+
+function validateJavaScriptNaming() {
+    const errors = [];
+    
+    // Check for snake_case in JavaScript (should be camelCase)
+    const jsFiles = ['dashboard.js', 'camera.js', 'detection.js'];
+    
+    jsFiles.forEach(file => {
+        const content = fs.readFileSync(`/path/to/${file}`, 'utf8');
+        
+        // Look for snake_case variable declarations
+        const snakeCasePattern = /(?:const|let|var)\s+[a-z]+_[a-z]/g;
+        const matches = content.match(snakeCasePattern);
+        
+        if (matches) {
+            errors.push(`Found snake_case variables in ${file}: ${matches.join(', ')}`);
+        }
+    });
+    
+    return errors;
+}
+
+function validateElementIds() {
+    const errors = [];
+    const htmlFiles = glob.sync('edge/src/web/templates/**/*.html');
+    const allIds = [];
+    
+    htmlFiles.forEach(file => {
+        const content = fs.readFileSync(file, 'utf8');
+        const idMatches = content.match(/id="([^"]+)"/g);
+        
+        if (idMatches) {
+            idMatches.forEach(match => {
+                const id = match.match(/id="([^"]+)"/)[1];
+                
+                // Check for camelCase (should be kebab-case)
+                if (/[a-z][A-Z]/.test(id)) {
+                    errors.push(`CamelCase ID found in ${file}: ${id}`);
+                }
+                
+                // Check for duplicates
+                if (allIds.includes(id)) {
+                    errors.push(`Duplicate ID found: ${id}`);
+                } else {
+                    allIds.push(id);
+                }
+            });
+        }
+    });
+    
+    return errors;
+}
+
+// Run validations
+const jsErrors = validateJavaScriptNaming();
+const htmlErrors = validateElementIds();
+
+if (jsErrors.length > 0 || htmlErrors.length > 0) {
+    console.log("❌ Frontend validation failed:");
+    [...jsErrors, ...htmlErrors].forEach(error => console.log(`  - ${error}`));
+    process.exit(1);
+} else {
+    console.log("✅ Frontend naming validation passed");
+}
+```
+
+#### 2. Pre-deployment Checklist
+
+**API Endpoints:**
+- [ ] All endpoints return consistent response format
+- [ ] Variable names follow snake_case convention
+- [ ] No camelCase in API responses
+- [ ] Timestamp format is ISO 8601
+- [ ] Error responses include error_code
+
+**Frontend Integration:**
+- [ ] JavaScript variables use camelCase
+- [ ] API data accessed correctly
+- [ ] WebSocket events work bidirectionally
+- [ ] No undefined variable errors
+- [ ] DOM elements update correctly
+
+**HTML Templates:**
+- [ ] No duplicate element IDs
+- [ ] CSS classes use kebab-case
+- [ ] Element IDs are descriptive
+- [ ] Bootstrap compatibility maintained
+- [ ] Cross-browser compatibility tested
+
+### Variable Naming Quick Reference
+
+| Context | Convention | Example | ✅ / ❌ |
+|---------|------------|---------|---------|
+| Python Variables | snake_case | `camera_status` | ✅ |
+| Python Variables | camelCase | `cameraStatus` | ❌ |
+| JavaScript Variables | camelCase | `cameraStatus` | ✅ |
+| JavaScript Variables | snake_case | `camera_status` | ❌ |
+| HTML Element IDs | kebab-case | `main-camera-status` | ✅ |
+| HTML Element IDs | camelCase | `mainCameraStatus` | ❌ |
+| CSS Classes | kebab-case | `status-online` | ✅ |
+| CSS Classes | camelCase | `statusOnline` | ❌ |
+| API Endpoints | snake_case | `/camera/status` | ✅ |
+| API Endpoints | camelCase | `/camera/getStatus` | ❌ |
+| WebSocket Events | snake_case | `camera_status_update` | ✅ |
+| WebSocket Events | camelCase | `cameraStatusUpdate` | ❌ |
+
+### Common Data Paths
+
+| Data Type | Backend Path | Frontend Access | Display Element |
+|-----------|--------------|-----------------|-----------------|
+| **Camera Model** | `status.camera_handler.camera_properties.Model` | `status.camera_handler.camera_properties.Model` | `main-camera-model` |
+| **Resolution** | `status.camera_handler.current_config.main.size` | `status.camera_handler.current_config.main.size` | `main-camera-resolution` |
+| **FPS** | `status.camera_handler.current_config.controls.FrameDurationLimits[0]` | `Math.round(1000000 / status.camera_handler.current_config.controls.FrameDurationLimits[0])` | `main-camera-fps` |
+| **Camera Status** | `status.streaming` | `status.streaming` | `main-camera-status` |
+| **Frame Count** | `status.frame_count` | `status.frame_count` | N/A |
+| **Uptime** | `status.uptime` | `AICameraUtils.formatDuration(status.uptime)` | `main-system-uptime` |
+
+### WebSocket Event Reference
+
+| Event Type | Client → Server | Server → Client | Data Structure |
+|------------|-----------------|-----------------|----------------|
+| **Camera Status** | `camera_status_request` | `camera_status_update` | Same as API response |
+| **Camera Control** | `camera_control` | `camera_control_response` | `{command, success, message}` |
+| **Detection Status** | `detection_status_request` | `detection_status_update` | Same as API response |
+| **Detection Control** | `detection_control` | `detection_control_response` | `{command, success, message}` |
+| **Health Status** | `health_status_request` | `health_status_update` | Same as API response |
+| **Health Logs** | `health_logs_request` | `health_logs_update` | Same as API response |
+| **Health Monitor Control** | `health_monitor_start/stop` | `health_monitor_response` | `{success, message}` |
+| **Health Check** | `health_check_run` | `health_check_response` | Same as API response |
+| **Health Room** | `join_health_room/leave_health_room` | `health_room_joined/left` | `{success, message}` |
+
+### Health System Variable Mapping (Updated v2.0.0)
+
+#### Health API Response Structure
+
+**Backend (Python) - Health Service Response:**
+```python
+health_response = {
+    "success": True,
+    "data": {
+        "overall_status": "healthy",  # snake_case
+        "components": {
+            "camera": {
+                "status": "healthy",
+                "message": "Camera initialized and streaming",
+                "last_check": "2025-09-02T22:41:08.439079",
+                "execution_time_ms": 6.42
+            },
+            "detection": {
+                "status": "unhealthy", 
+                "message": "Insufficient models loaded: 0/2 required"
+            }
+        },
+        "system": {
+            "cpu": {
+                "usage_percent": 68.9,
+                "count": 4,
+                "temperature_c": 55.1
+            },
+            "memory": {
+                "usage_percent": 42.9,
+                "total_gb": 8.0,
+                "available_gb": 4.6
+            }
+        }
+    },
+    "timestamp": "2025-09-02T22:41:18.385453"
+}
+```
+
+**Frontend (JavaScript) - Variable Mapping:**
+```javascript
+// ✅ Correct - Consistent mapping
+const healthData = response.data;
+const overallStatus = healthData.overall_status;  // snake_case from backend
+const cameraComponent = healthData.components.camera;
+const cpuUsage = healthData.system.cpu.usage_percent;
+
+// Dashboard display variables (camelCase for DOM)
+const statusElements = {
+    overallStatusIndicator: document.getElementById('overall-status'),
+    cameraStatusText: document.getElementById('camera-status-text'),
+    cpuUsageDisplay: document.getElementById('cpu-usage-display')
+};
+```
+
+#### Component Name Mapping
+
+Health components use standardized names across the system:
+
+| Component | Backend Key | Frontend Display | API Endpoint |
+|-----------|-------------|------------------|--------------|
+| Camera System | `camera` | Camera Status | `/camera/status` |
+| Detection Models | `detection` | AI Models | `/detection/status` |
+| Database | `database` | Database | Internal check |
+| System Resources | `system` | System Info | `/health/system-info` |
+| Storage | `storage` | Storage | Internal check |
+| Network | `network` | Network | Internal check |
+
+### Automated Validation
+
+#### ESLint Rules (JavaScript):
+```javascript
+// .eslintrc.js
+module.exports = {
+    rules: {
+        'camelcase': ['error', { properties: 'always' }],
+        'id-match': ['error', '^[a-z][a-zA-Z0-9]*$', { 
+            properties: true,
+            onlyDeclarations: false
+        }]
+    }
+};
+```
+
+#### Python Linting (pylint/flake8):
+```python
+# .pylintrc
+[MESSAGES CONTROL]
+enable = invalid-name
+
+[BASIC]
+variable-rgx = ^[a-z_][a-z0-9_]{2,30}$
+```
+
+#### HTML Validation Script:
+```bash
+#!/bin/bash
+# check_duplicate_ids.sh
+echo "Checking for duplicate HTML IDs..."
+grep -r 'id="' edge/src/web/templates/ | \
+  sed 's/.*id="\([^"]*\)".*/\1/' | \
+  sort | uniq -d
+```
+
+### Error Prevention Checklist
+
+**Before Code Commit:**
+- [ ] Run naming validation scripts
+- [ ] Check for duplicate HTML IDs
+- [ ] Verify API response structure
+- [ ] Test WebSocket events
+- [ ] Validate CSS class names
+- [ ] Check cross-browser compatibility
+
+**Before Deployment:**
+- [ ] Integration tests pass
+- [ ] Frontend can access all API data
+- [ ] WebSocket communication works
+- [ ] No console errors
+- [ ] All UI elements update correctly
+
 ## Compliance Checklist
 
 ### Development Compliance:
@@ -1313,6 +1882,9 @@ return jsonify({
 - [ ] Implement accessibility attributes (title, aria-label) for UI elements
 - [ ] Use optimized CSS animations with transform properties
 - [ ] Apply proper cache-control headers without deprecated directives
+- [ ] Follow layer-specific naming conventions
+- [ ] Prevent duplicate HTML element IDs
+- [ ] Ensure WebSocket event name consistency
 
 ### Code Review Compliance:
 - [ ] No direct camera access violations
@@ -1327,3 +1899,6 @@ return jsonify({
 - [ ] Manual capture system variables documented
 - [ ] CSS performance optimizations applied
 - [ ] Accessibility compliance verified
+- [ ] No variable naming conflicts across layers
+- [ ] Unique HTML element IDs throughout application
+- [ ] Consistent WebSocket event naming
