@@ -22,10 +22,14 @@ logger = get_logger(__name__)
 @storage_bp.route('/')
 def storage_dashboard():
     """Render storage management dashboard."""
-    return render_template('storage/dashboard.html', 
+    response = render_template('storage/dashboard.html', 
                          active_page='storage',
                          title='Storage Management',
                          timestamp=int(time.time()))
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
 
 @storage_bp.route('/status')
 def get_storage_status():
@@ -33,22 +37,34 @@ def get_storage_status():
     try:
         storage_service = get_service('storage_service')
         if not storage_service:
-            return jsonify({
+            response = jsonify({
                 'success': False,
                 'error': 'Storage service not available',
                 'timestamp': datetime.now().isoformat()
             }), 500
+            response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+            response[0].headers['Pragma'] = 'no-cache'
+            response[0].headers['Expires'] = '0'
+            return response
         
         status_data = storage_service.get_storage_status()
-        return jsonify(status_data)
+        response = jsonify(status_data)
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
         
     except Exception as e:
         logger.error(f"Error getting storage status: {e}")
-        return jsonify({
+        response = jsonify({
             'success': False,
             'error': str(e),
             'timestamp': datetime.now().isoformat()
         }), 500
+        response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+        response[0].headers['Pragma'] = 'no-cache'
+        response[0].headers['Expires'] = '0'
+        return response
 
 @storage_bp.route('/analytics')
 def get_storage_analytics():
@@ -56,23 +72,35 @@ def get_storage_analytics():
     try:
         storage_service = get_service('storage_service')
         if not storage_service:
-            return jsonify({
+            response = jsonify({
                 'success': False,
                 'error': 'Storage service not available',
                 'timestamp': datetime.now().isoformat()
             }), 500
+            response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+            response[0].headers['Pragma'] = 'no-cache'
+            response[0].headers['Expires'] = '0'
+            return response
         
         days = request.args.get('days', 7, type=int)
         analytics_data = storage_service.get_storage_analytics(days)
-        return jsonify(analytics_data)
+        response = jsonify(analytics_data)
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
         
     except Exception as e:
         logger.error(f"Error getting storage analytics: {e}")
-        return jsonify({
+        response = jsonify({
             'success': False,
             'error': str(e),
             'timestamp': datetime.now().isoformat()
         }), 500
+        response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+        response[0].headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
 
 @storage_bp.route('/alerts')
 def get_storage_alerts():
@@ -80,22 +108,34 @@ def get_storage_alerts():
     try:
         storage_service = get_service('storage_service')
         if not storage_service:
-            return jsonify({
+            response = jsonify({
                 'success': False,
                 'error': 'Storage service not available',
                 'timestamp': datetime.now().isoformat()
             }), 500
+            response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+            response[0].headers['Pragma'] = 'no-cache'
+            response[0].headers['Expires'] = '0'
+            return response
         
         alerts_data = storage_service.get_storage_alerts()
-        return jsonify(alerts_data)
+        response = jsonify(alerts_data)
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
         
     except Exception as e:
         logger.error(f"Error getting storage alerts: {e}")
-        return jsonify({
+        response = jsonify({
             'success': False,
             'error': str(e),
             'timestamp': datetime.now().isoformat()
         }), 500
+        response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+        response[0].headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
 
 @storage_bp.route('/cleanup', methods=['POST'])
 def perform_cleanup():

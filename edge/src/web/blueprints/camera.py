@@ -55,20 +55,28 @@ def camera_dashboard():
             'uptime': camera_status.get('uptime', 0)
         }
         
-        return render_template('camera/dashboard.html',
+        response = render_template('camera/dashboard.html',
                              camera_status=camera_status,
                              camera_settings=camera_settings,
                              auto_start_info=auto_start_info,
                              title="Camera Dashboard",
                              timestamp=int(time.time()))
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
     except Exception as e:
         logger.error(f"Error in camera dashboard: {e}")
-        return render_template('camera/dashboard.html',
+        response = render_template('camera/dashboard.html',
                              camera_status={},
                              camera_settings={},
                              auto_start_info={'enabled': False, 'uptime': 0},
                              title="Camera Dashboard",
                              timestamp=int(time.time()))
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
 
 
 @camera_bp.route('/status')
@@ -82,25 +90,37 @@ def get_camera_status():
     try:
         camera_manager = get_service('camera_manager')
         if not camera_manager:
-            return jsonify({'error': 'Camera manager not available'}), 500
+            response = jsonify({'error': 'Camera manager not available'}), 500
+            response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+            response[0].headers['Pragma'] = 'no-cache'
+            response[0].headers['Expires'] = '0'
+            return response
         
         status = camera_manager.get_status()
         
         # Ensure all status data is JSON serializable
         serializable_status = make_json_serializable(status)
         
-        return jsonify({
+        response = jsonify({
             'success': True,
             'status': serializable_status,
             'timestamp': datetime.now().isoformat()
         })
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
     except Exception as e:
         logger.error(f"Error getting camera status: {e}")
-        return jsonify({
+        response = jsonify({
             'success': False,
             'error': str(e),
             'timestamp': datetime.now().isoformat()
         }), 500
+        response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+        response[0].headers['Pragma'] = 'no-cache'
+        response[0].headers['Expires'] = '0'
+        return response
 
 
 @camera_bp.route('/start', methods=['POST'])
@@ -114,28 +134,44 @@ def start_camera():
     try:
         camera_manager = get_service('camera_manager')
         if not camera_manager:
-            return jsonify({'error': 'Camera manager not available'}), 500
+            response = jsonify({'error': 'Camera manager not available'}), 500
+            response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+            response[0].headers['Pragma'] = 'no-cache'
+            response[0].headers['Expires'] = '0'
+            return response
         
         success = camera_manager.start()
         if success:
-            return jsonify({
+            response = jsonify({
                 'success': True,
                 'message': 'Camera started successfully',
                 'timestamp': datetime.now().isoformat()
             })
+            response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+            response.headers['Pragma'] = 'no-cache'
+            response.headers['Expires'] = '0'
+            return response
         else:
-            return jsonify({
+            response = jsonify({
                 'success': False,
                 'error': 'Failed to start camera',
                 'timestamp': datetime.now().isoformat()
             }), 500
+            response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+            response[0].headers['Pragma'] = 'no-cache'
+            response[0].headers['Expires'] = '0'
+            return response
     except Exception as e:
         logger.error(f"Error starting camera: {e}")
-        return jsonify({
+        response = jsonify({
             'success': False,
             'error': str(e),
             'timestamp': datetime.now().isoformat()
         }), 500
+        response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+        response[0].headers['Pragma'] = 'no-cache'
+        response[0].headers['Expires'] = '0'
+        return response
 
 
 @camera_bp.route('/stop', methods=['POST'])
@@ -149,28 +185,44 @@ def stop_camera():
     try:
         camera_manager = get_service('camera_manager')
         if not camera_manager:
-            return jsonify({'error': 'Camera manager not available'}), 500
+            response = jsonify({'error': 'Camera manager not available'}), 500
+            response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+            response[0].headers['Pragma'] = 'no-cache'
+            response[0].headers['Expires'] = '0'
+            return response
         
         success = camera_manager.stop()
         if success:
-            return jsonify({
+            response = jsonify({
                 'success': True,
                 'message': 'Camera stopped successfully',
                 'timestamp': datetime.now().isoformat()
             })
+            response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+            response.headers['Pragma'] = 'no-cache'
+            response.headers['Expires'] = '0'
+            return response
         else:
-            return jsonify({
+            response = jsonify({
                 'success': False,
                 'error': 'Failed to stop camera',
                 'timestamp': datetime.now().isoformat()
             }), 500
+            response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+            response[0].headers['Pragma'] = 'no-cache'
+            response[0].headers['Expires'] = '0'
+            return response
     except Exception as e:
         logger.error(f"Error stopping camera: {e}")
-        return jsonify({
+        response = jsonify({
             'success': False,
             'error': str(e),
             'timestamp': datetime.now().isoformat()
         }), 500
+        response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+        response[0].headers['Pragma'] = 'no-cache'
+        response[0].headers['Expires'] = '0'
+        return response
 
 
 @camera_bp.route('/restart', methods=['POST'])
@@ -188,24 +240,36 @@ def restart_camera():
         
         success = camera_manager.restart()
         if success:
-            return jsonify({
+            response = jsonify({
                 'success': True,
                 'message': 'Camera restarted successfully',
                 'timestamp': datetime.now().isoformat()
             })
+            response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+            response.headers['Pragma'] = 'no-cache'
+            response.headers['Expires'] = '0'
+            return response
         else:
-            return jsonify({
+            response = jsonify({
                 'success': False,
                 'error': 'Failed to restart camera',
                 'timestamp': datetime.now().isoformat()
             }), 500
+            response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+            response[0].headers['Pragma'] = 'no-cache'
+            response[0].headers['Expires'] = '0'
+            return response
     except Exception as e:
         logger.error(f"Error restarting camera: {e}")
-        return jsonify({
+        response = jsonify({
             'success': False,
             'error': str(e),
             'timestamp': datetime.now().isoformat()
         }), 500
+        response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+        response[0].headers['Pragma'] = 'no-cache'
+        response[0].headers['Expires'] = '0'
+        return response
 
 
 @camera_bp.route('/config', methods=['GET', 'POST'])
@@ -219,38 +283,58 @@ def camera_config():
     try:
         camera_manager = get_service('camera_manager')
         if not camera_manager:
-            return jsonify({'error': 'Camera manager not available'}), 500
+            response = jsonify({'error': 'Camera manager not available'}), 500
+            response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+            response[0].headers['Pragma'] = 'no-cache'
+            response[0].headers['Expires'] = '0'
+            return response
         
         if request.method == 'GET':
             # Get current configuration
             config = camera_manager.get_configuration()
             
-            return jsonify({
+            response = jsonify({
                 'success': True,
                 'config': config,
                 'timestamp': datetime.now().isoformat()
             })
+            response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+            response.headers['Pragma'] = 'no-cache'
+            response.headers['Expires'] = '0'
+            return response
         else:
             # Update configuration
             data = request.get_json()
             if not data:
-                return jsonify({'error': 'No configuration data provided'}), 400
+                response = jsonify({'error': 'No configuration data provided'}), 400
+                response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+                response[0].headers['Pragma'] = 'no-cache'
+                response[0].headers['Expires'] = '0'
+                return response
             
             result = camera_manager.update_configuration(data)
             
-            return jsonify({
+            response = jsonify({
                 'success': result.get('success', False),
                 'message': result.get('message', ''),
                 'error': result.get('error', ''),
                 'timestamp': datetime.now().isoformat()
             })
+            response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+            response.headers['Pragma'] = 'no-cache'
+            response.headers['Expires'] = '0'
+            return response
     except Exception as e:
         logger.error(f"Error in camera config: {e}")
-        return jsonify({
+        response = jsonify({
             'success': False,
             'error': str(e),
             'timestamp': datetime.now().isoformat()
         }), 500
+        response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+        response[0].headers['Pragma'] = 'no-cache'
+        response[0].headers['Expires'] = '0'
+        return response
 
 
 @camera_bp.route('/capture', methods=['POST'])
@@ -274,24 +358,36 @@ def capture_image():
             
             # For now, return basic success response
             # The actual image saving is handled by the camera manager internally
-            return jsonify({
+            response = jsonify({
                 'success': True,
                 'message': 'Image captured successfully',
                 'timestamp': datetime.now().isoformat()
             })
+            response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+            response.headers['Pragma'] = 'no-cache'
+            response.headers['Expires'] = '0'
+            return response
         else:
-            return jsonify({
+            response = jsonify({
                 'success': False,
                 'error': 'Failed to capture image',
                 'timestamp': datetime.now().isoformat()
             }), 500
+            response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+            response[0].headers['Pragma'] = 'no-cache'
+            response[0].headers['Expires'] = '0'
+            return response
     except Exception as e:
         logger.error(f"Error capturing image: {e}")
-        return jsonify({
+        response = jsonify({
             'success': False,
             'error': str(e),
             'timestamp': datetime.now().isoformat()
         }), 500
+        response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+        response[0].headers['Pragma'] = 'no-cache'
+        response[0].headers['Expires'] = '0'
+        return response
 
 
 @camera_bp.route('/health')
@@ -305,22 +401,34 @@ def camera_health():
     try:
         camera_manager = get_service('camera_manager')
         if not camera_manager:
-            return jsonify({'error': 'Camera manager not available'}), 500
+            response = jsonify({'error': 'Camera manager not available'}), 500
+            response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+            response[0].headers['Pragma'] = 'no-cache'
+            response[0].headers['Expires'] = '0'
+            return response
         
         health = camera_manager.health_check()
         
-        return jsonify({
+        response = jsonify({
             'success': True,
             'health': health,
             'timestamp': datetime.now().isoformat()
         })
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
     except Exception as e:
         logger.error(f"Error in camera health check: {e}")
-        return jsonify({
+        response = jsonify({
             'success': False,
             'error': str(e),
             'timestamp': datetime.now().isoformat()
         }), 500
+        response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+        response[0].headers['Pragma'] = 'no-cache'
+        response[0].headers['Expires'] = '0'
+        return response
 
 
 def generate_frames():

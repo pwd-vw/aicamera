@@ -22,22 +22,34 @@ def index():
         camera_manager = get_service('camera_manager')
         camera_status = camera_manager.get_status() if camera_manager else {}
         
-        return render_template('index.html', 
+        response = render_template('index.html', 
                              camera_status=camera_status,
                              title="AI Camera Dashboard",
                              timestamp=int(time.time()))
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
     except KeyError as e:
         logger.error(f"Service not Registered: {e}")
-        return render_template('index.html', 
+        response = render_template('index.html', 
                              camera_status={'error': f'Camera service not available: {e}'},
                              title="AI Camera Dashboard",
                              timestamp=int(time.time()))
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
     except Exception as e:
         logger.error(f"Error in main index: {e}")
-        return render_template('index.html', 
+        response = render_template('index.html', 
                              camera_status={'error': str(e)},
                              title="AI Camera Dashboard",
                              timestamp=int(time.time()))
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
 
 
 def register_main_events(socketio):

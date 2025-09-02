@@ -70,7 +70,7 @@ body {
     font-family: var(--font-family-en), var(--font-family-th);
     font-size: var(--font-size-base);
     -webkit-text-size-adjust: 100%;
-    text-size-adjust: 100%; /* เพิ่มสำหรับ Chrome 54+ */
+    text-size-adjust: 100%; /* Support Chrome 54+, Edge 79+ */
     line-height: 1.6;
     color: var(--text-color-dark);
     background-color: var(--background-light);
@@ -78,9 +78,10 @@ body {
     padding: 0;
     padding-top: 120px !important;
 }
+
 th {
     text-align: -webkit-match-parent;
-    text-align: match-parent; /* เพิ่มสำหรับ Safari 15.4+ */
+    text-align: match-parent; /* Support Safari 15.4+ */
 }
 /* ===== NAVIGATION STYLES ===== */
 .navbar {

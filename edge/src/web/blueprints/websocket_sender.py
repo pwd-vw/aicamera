@@ -24,12 +24,20 @@ logger = get_logger(__name__)
 def websocket_sender_dashboard():
     """Render WebSocket sender dashboard."""
     try:
-        return render_template('websocket_sender/dashboard.html', 
+        response = render_template('websocket_sender/dashboard.html', 
                              active_page='websocket_sender',
                              title='WebSocket Sender')
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
     except Exception as e:
         logger.error(f"Error rendering WebSocket sender dashboard: {e}")
-        return "WebSocket sender dashboard not available", 500
+        response = "WebSocket sender dashboard not available", 500
+        response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+        response[0].headers['Pragma'] = 'no-cache'
+        response[0].headers['Expires'] = '0'
+        return response
 
 
 @websocket_sender_bp.route('/status')
@@ -43,28 +51,40 @@ def get_websocket_sender_status():
     try:
         websocket_sender = get_service('websocket_sender')
         if not websocket_sender:
-            return jsonify({
+            response = jsonify({
                 'success': False,
                 'error': 'WebSocket sender service not available',
                 'timestamp': datetime.now().isoformat()
             }), 500
+            response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+            response[0].headers['Pragma'] = 'no-cache'
+            response[0].headers['Expires'] = '0'
+            return response
         
         # Get WebSocket sender status
         status = websocket_sender.get_status()
         
-        return jsonify({
+        response = jsonify({
             'success': True,
             'status': status,
             'timestamp': datetime.now().isoformat()
         })
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
         
     except Exception as e:
         logger.error(f"Error getting WebSocket sender status: {e}")
-        return jsonify({
+        response = jsonify({
             'success': False,
             'error': str(e),
             'timestamp': datetime.now().isoformat()
         }), 500
+        response[0].headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+        response[0].headers['Pragma'] = 'no-cache'
+        response[0].headers['Expires'] = '0'
+        return response
 
 
 @websocket_sender_bp.route('/logs')
