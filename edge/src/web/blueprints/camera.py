@@ -1035,7 +1035,7 @@ def video_feed():
                 _generate_frames_from_service_improved(video_streaming),
                 mimetype='multipart/x-mixed-replace; boundary=frame',
                 headers={
-                    'Cache-Control': 'no-cache, max-age=0',
+                    'Cache-Control': 'no-cache',
                     'Expires': '0',
                     'Connection': 'keep-alive',
                     'Transfer-Encoding': 'chunked',
@@ -1051,7 +1051,7 @@ def video_feed():
                     generate_frames(),
                     mimetype='multipart/x-mixed-replace; boundary=frame',
                     headers={
-                        'Cache-Control': 'no-cache, max-age=0',
+                        'Cache-Control': 'no-cache',
                         'Expires': '0',
                         'Connection': 'keep-alive',
                         'Transfer-Encoding': 'chunked',
@@ -1066,7 +1066,7 @@ def video_feed():
                     _generate_error_stream("Camera service unavailable"),
                     mimetype='multipart/x-mixed-replace; boundary=frame',
                     headers={
-                        'Cache-Control': 'no-cache, max-age=0',
+                        'Cache-Control': 'no-cache',
                         'Expires': '0',
                         'Connection': 'keep-alive',
                         'Transfer-Encoding': 'chunked',
@@ -1081,7 +1081,7 @@ def video_feed():
             _generate_error_stream("Video feed error"),
             mimetype='multipart/x-mixed-replace; boundary=frame',
             headers={
-                'Cache-Control': 'no-cache, max-age=0',
+                'Cache-Control': 'no-cache',
                 
                 'Expires': '0',
                 'Connection': 'keep-alive',

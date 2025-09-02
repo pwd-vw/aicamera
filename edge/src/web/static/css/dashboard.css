@@ -67,15 +67,15 @@
     content: '';
     position: absolute;
     top: 0;
-    left: -100%;
+    transform: translateX(-100%);
     width: 100%;
     height: 100%;
     background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-    transition: left var(--transition-slow);
+    transition: transform var(--transition-slow);
 }
 
 .hero-section .btn:hover::before {
-    left: 100%;
+    transform: translateX(100%);
 }
 
 /* ===== DASHBOARD GRID ===== */
@@ -259,15 +259,15 @@
     content: '';
     position: absolute;
     top: 0;
-    left: -100%;
+    transform: translateX(-100%);
     width: 100%;
     height: 100%;
     background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-    transition: left var(--transition-slow);
+    transition: transform var(--transition-slow);
 }
 
 .button-group .btn:hover::before {
-    left: 100%;
+    transform: translateX(100%);
 }
 
 /* ===== VIDEO CONTAINER ===== */
