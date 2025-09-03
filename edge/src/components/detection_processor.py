@@ -211,7 +211,8 @@ class DetectionProcessor:
             'vehicle_model_name': VEHICLE_DETECTION_MODEL,
             'lp_detection_model_name': LICENSE_PLATE_DETECTION_MODEL,
             'lp_ocr_model_name': LICENSE_PLATE_OCR_MODEL or '',
-            'easyocr_available': bool(status.get('ready', False))
+            'easyocr_available': bool(status.get('is_ready', False)),
+            'easyocr_ready': bool(status.get('is_ready', False))
         })
         return status
     

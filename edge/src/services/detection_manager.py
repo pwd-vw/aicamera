@@ -494,6 +494,42 @@ class DetectionManager:
                 (1 - alpha) * self.detection_stats['processing_time_avg']
             )
     
+    def _calculate_quality_metrics(self) -> Dict[str, float]:
+        """
+        Calculate quality metrics from detection statistics.
+        
+        Returns:
+            Dict[str, float]: Quality metrics for frontend progress bars
+        """
+        stats = self.detection_stats
+        
+        # Detection Accuracy: Based on successful vehicle detections vs total frames
+        total_frames = stats['total_frames_processed']
+        if total_frames > 0:
+            detection_accuracy = (stats['total_vehicles_detected'] / total_frames) * 100
+        else:
+            detection_accuracy = 0.0
+        
+        # OCR Accuracy: Based on successful OCR vs total plates detected
+        total_plates = stats['total_plates_detected']
+        if total_plates > 0:
+            ocr_accuracy = (stats['successful_ocr'] / total_plates) * 100
+        else:
+            ocr_accuracy = 0.0
+        
+        # System Reliability: Based on service uptime and error rate
+        if total_frames > 0:
+            error_rate = (stats['failed_detections'] / total_frames) * 100
+            system_reliability = max(0, 100 - error_rate)  # Higher is better
+        else:
+            system_reliability = 100.0  # No errors if no frames processed
+        
+        return {
+            'detection_accuracy': round(detection_accuracy, 1),
+            'ocr_accuracy': round(ocr_accuracy, 1),
+            'system_reliability': round(system_reliability, 1)
+        }
+    
     def get_status(self) -> Dict[str, Any]:
         """
         Get current status of the detection manager.
@@ -518,6 +554,9 @@ class DetectionManager:
             except Exception:
                 pass
 
+        # Calculate quality metrics from available statistics
+        quality_metrics = self._calculate_quality_metrics()
+        
         return {
             'service_running': self.is_running,
             'detection_processor_status': processor_status,
@@ -526,7 +565,11 @@ class DetectionManager:
             'statistics': self.detection_stats.copy(),
             'queue_size': self.detection_queue.qsize() if self.detection_queue else 0,
             'thread_alive': self.detection_thread.is_alive() if self.detection_thread else False,
-            'last_update': datetime.now().isoformat()
+            'last_update': datetime.now().isoformat(),
+            # Add quality metrics for frontend progress bars
+            'detection_accuracy': quality_metrics['detection_accuracy'],
+            'ocr_accuracy': quality_metrics['ocr_accuracy'],
+            'system_reliability': quality_metrics['system_reliability']
         }
     
     def cleanup(self):

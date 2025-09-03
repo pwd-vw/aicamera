@@ -987,7 +987,24 @@ Response:
             "detection_resolution": [int, int]
         },
         "detection_interval": float,
-        "auto_start": bool
+        "auto_start": bool,
+        "statistics": {
+            "total_frames_processed": int,
+            "total_vehicles_detected": int,
+            "total_plates_detected": int,
+            "successful_ocr": int,
+            "failed_detections": int,
+            "processing_time_avg": float,
+            "last_detection": string,
+            "started_at": string
+        },
+        # NEW: Quality Metrics for frontend progress bars
+        "detection_accuracy": float,      # Percentage based on vehicle detections vs total frames
+        "ocr_accuracy": float,            # Percentage based on successful OCR vs total plates
+        "system_reliability": float,      # Percentage based on service uptime and error rate
+        "queue_size": int,
+        "thread_alive": bool,
+        "last_update": string
     },
     "timestamp": "2025-08-24T10:02:28Z"
 }
@@ -1003,77 +1020,324 @@ const modelsLoaded = processorStatus.models_loaded;
 const detectionInterval = status.detection_interval;
 const autoStart = status.auto_start;
 
+// NEW: Quality Metrics mapping
+const detectionAccuracy = status.detection_accuracy || 0;
+const ocrAccuracy = status.ocr_accuracy || 0;
+const systemReliability = status.system_reliability || 0;
+
 // Update UI elements
 document.getElementById('service-status').textContent = 
     serviceRunning ? 'Running' : 'Stopped';
 document.getElementById('models-status').textContent = 
     modelsLoaded ? 'Loaded' : 'Not Loaded';
+
+// NEW: Update Quality Metrics progress bars
+this.updateQualityProgressBar('detection-accuracy-bar', 'detection-accuracy-value', detectionAccuracy, 'detection');
+this.updateQualityProgressBar('ocr-accuracy-bar', 'ocr-accuracy-value', ocrAccuracy, 'ocr');
+this.updateQualityProgressBar('system-reliability-bar', 'system-reliability-value', systemReliability, 'reliability');
 ```
 
-### **Detection Configuration API (`/detection/config`)**
+### **Quality Metrics Calculation (Backend - Updated 2025-09-03)**
 
-#### **Backend Response Structure:**
+#### **DetectionManager._calculate_quality_metrics() Method:**
 ```python
-{
-    "success": True,
-    "config": {
-        "detection_interval": float,
-        "vehicle_confidence": float,
-        "plate_confidence": float,
-        "detection_resolution": [int, int]
-    },
-    "timestamp": "2025-08-24T10:02:28Z"
+def _calculate_quality_metrics(self) -> Dict[str, float]:
+    """
+    Calculate quality metrics from detection statistics.
+    
+    Returns:
+        Dict[str, float]: Quality metrics for frontend progress bars
+    """
+    stats = self.detection_stats
+    
+    # Detection Accuracy: Based on successful vehicle detections vs total frames
+    total_frames = stats['total_frames_processed']
+    if total_frames > 0:
+        detection_accuracy = (stats['total_vehicles_detected'] / total_frames) * 100
+    else:
+        detection_accuracy = 0.0
+    
+    # OCR Accuracy: Based on successful OCR vs total plates detected
+    total_plates = stats['total_plates_detected']
+    if total_plates > 0:
+        ocr_accuracy = (successful_ocr / total_plates) * 100
+    else:
+        ocr_accuracy = 0.0
+    
+    # System Reliability: Based on service uptime and error rate
+    if total_frames > 0:
+        error_rate = (stats['failed_detections'] / total_frames) * 100
+        system_reliability = max(0, 100 - error_rate)  # Higher is better
+    else:
+        system_reliability = 100.0  # No errors if no frames processed
+    
+    return {
+        'detection_accuracy': round(detection_accuracy, 1),
+        'ocr_accuracy': round(ocr_accuracy, 1),
+        'system_reliability': round(system_reliability, 1)
+    }
+```
+
+#### **Frontend Quality Metrics Display:**
+```javascript
+/**
+ * Update quality progress bar with dynamic colors and percentage display
+ */
+updateQualityProgressBar: function(barId, valueId, percentage, metricType) {
+    const barElement = document.getElementById(barId);
+    const valueElement = document.getElementById(valueId);
+    
+    if (barElement && valueElement) {
+        // Update progress bar width
+        barElement.style.width = percentage + '%';
+        barElement.setAttribute('aria-valuenow', percentage);
+        
+        // Update percentage value display
+        valueElement.textContent = percentage + '%';
+        
+        // Set dynamic colors based on metric type and performance
+        let barColor = '';
+        let textColor = '';
+        
+        if (metricType === 'detection') {
+            if (percentage >= 80) {
+                barColor = 'bg-success';      // Green for excellent
+                textColor = 'text-success';
+            } else if (percentage >= 60) {
+                barColor = 'bg-warning';      // Yellow for good
+                textColor = 'text-warning';
+            } else if (percentage >= 40) {
+                barColor = 'bg-info';         // Blue for fair
+                textColor = 'text-info';
+            } else {
+                barColor = 'bg-danger';       // Red for poor
+                textColor = 'text-danger';
+            }
+        } else if (metricType === 'ocr') {
+            if (percentage >= 90) {
+                barColor = 'bg-success';      // Green for excellent
+                textColor = 'text-success';
+            } else if (percentage >= 75) {
+                barColor = 'bg-warning';      // Yellow for good
+                textColor = 'text-warning';
+            } else if (percentage >= 50) {
+                barColor = 'bg-info';         // Blue for fair
+                textColor = 'text-info';
+            } else {
+                barColor = 'bg-danger';       // Red for poor
+                textColor = 'text-danger';
+            }
+        } else if (metricType === 'reliability') {
+            if (percentage >= 95) {
+                barColor = 'bg-success';      // Green for excellent
+                textColor = 'text-success';
+            } else if (percentage >= 85) {
+                barColor = 'bg-warning';      // Yellow for good
+                textColor = 'text-warning';
+            } else if (percentage >= 70) {
+                barColor = 'bg-info';         // Blue for fair
+                textColor = 'text-info';
+            } else {
+                barColor = 'bg-danger';       // Red for poor
+                textColor = 'text-danger';
+            }
+        }
+        
+        // Apply colors
+        barElement.className = `progress-bar ${barColor}`;
+        valueElement.className = `h5 fw-bold ${textColor}`;
+    }
 }
 ```
 
-#### **Frontend Variable Mapping:**
-```javascript
-// Configuration mapping
-const config = data.config;
-const interval = config.detection_interval;
-const vehicleConf = config.vehicle_confidence;
-const plateConf = config.plate_confidence;
-const resolution = config.detection_resolution;
+### **Health Dashboard Status Mapping (Updated 2025-09-03)**
 
-// Update form fields
-document.getElementById('detection-interval').value = interval;
-document.getElementById('vehicle-confidence').value = vehicleConf;
-document.getElementById('plate-confidence').value = plateConf;
+#### **Component Status Display Logic:**
+
+**Camera Card Status Mapping:**
+```javascript
+case 'camera':
+    icon = '📷';
+    // Get camera properties directly from data
+    const cameraProps = data.camera_properties || {};
+    
+    // Get sensor model from camera properties
+    let sensorModel = 'Unknown';
+    if (cameraProps && cameraProps.Model) {
+        sensorModel = cameraProps.Model;
+    }
+    // Fallback to average_fps when model is unknown
+    const thirdMetricValue = (sensorModel !== 'Unknown')
+        ? sensorModel
+        : (typeof data.average_fps === 'number' ? `${data.average_fps}` : 'N/A');
+    
+    // Get uptime from data (seconds -> formatted)
+    let uptime = 'N/A';
+    if (typeof data.uptime === 'number') {
+        uptime = this.formatUptime(data.uptime);
+    }
+    
+    metrics = `
+        <div class="metric-item">
+            <div class="metric-value">${data.initialized ? 'INITIALIZED' : 'NOT INITIALIZED'}</div>
+            <div class="metric-label"></div>
+        </div>
+        <div class="metric-item">
+            <div class="metric-value">${data.streaming ? 'STREAMING' : 'NOT STREAMING'}</div>
+            <div class="metric-label"></div>
+        </div>
+        <div class="metric-item">
+            <div class="metric-value">${thirdMetricValue}</div>
+            <div class="metric-label">Model</div>
+        </div>
+        <div class="metric-item">
+            <div class="metric-value">${uptime}</div>
+            <div class="metric-label">Uptime</div>
+        </div>
+    `;
+    break;
 ```
 
-### **Detection Statistics API (`/detection/statistics`)**
+**Database Card Status Mapping:**
+```javascript
+case 'database':
+    icon = '💾';
+    metrics = `
+        <div class="metric-item">
+            <div class="metric-value">SQLITE</div>
+            <div class="metric-label">Database Type</div>
+        </div>
+        <div class="metric-item">
+            <div class="metric-value">${data.database_path ? 'PATH OK' : 'N/A'}</div>
+            <div class="metric-label">Database Path</div>
+        </div>
+        <div class="metric-item">
+            <div class="metric-value">${data.connected ? 'Connected' : 'Not Connect'}</div>
+            <div class="metric-label">Connection</div>
+        </div>
+    `;
+    break;
+```
 
-#### **Backend Response Structure:**
-```python
-{
-    "success": True,
-    "statistics": {
-        "total_frames_processed": int,
-        "total_vehicles_detected": int,
-        "total_plates_detected": int,
-        "successful_ocr": int,
-        "detection_rate_percent": float,
-        "avg_processing_time_ms": float
-    },
-    "timestamp": "2025-08-24T10:02:28Z"
+**AI Detection Card Status Mapping:**
+```javascript
+case 'detection':
+    icon = '🤖';
+    metrics = `
+        <div class="metric-item">
+            <div class="metric-value">${data.models_loaded ? 'MODELS LOADED' : 'MODELS NOT LOAD'}</div>
+            <div class="metric-label"></div>
+        </div>
+        <div class="metric-item">
+            <div class="metric-value">${data.easyocr_available ? 'READY' : 'NOT READY'}</div>
+            <div class="metric-label">EASY OCR</div>
+        </div>
+        <div class="metric-item">
+            <div class="metric-value">${data.detection_active ? 'ACTIVE' : 'NOT ACTIVE'}</div>
+            <div class="metric-label"></div>
+        </div>
+        <div class="metric-item">
+            <div class="metric-value">${data.service_running ? 'SERVICE RUNNING' : 'NOT RUNNING'}</div>
+            <div class="metric-label"></div>
+        </div>
+    `;
+    break;
+```
+
+**System Card Status Mapping:**
+```javascript
+case 'system':
+    icon = '🖥️';
+    metrics = `
+        <div class="metric-item">
+            <div class="metric-value">${data.os_info ? `${data.os_info.name} ${data.os_info.architecture}` : 'N/A'}</div>
+            <div class="metric-label">Operating System</div>
+        </div>
+        <div class="metric-item">
+            <div class="metric-value">${data.cpu_info ? `${data.cpu_info.architecture} ${data.cpu_info.processor}` : 'N/A'}</div>
+            <div class="metric-label">CPU</div>
+        </div>
+        <div class="metric-item">
+            <div class="metric-value">${data.ai_accelerator_info ? data.ai_accelerator_info.device_architecture : 'N/A'}</div>
+            <div class="metric-label">AI Accelerator</div>
+        </div>
+    `;
+    break;
+```
+
+#### **Status Indicator Mapping:**
+```javascript
+createStatusIndicator: function(status) {
+    const statusClass = this.getStatusIndicatorClass(status);
+    let statusKey = (status || '').toLowerCase();
+    let statusText = statusKey.charAt(0).toUpperCase() + statusKey.slice(1);
+    
+    // Enhanced status text mapping
+    if (statusKey === 'healthy') statusText = 'Available';
+    else if (statusKey === 'unhealthy') statusText = 'Not Available';
+    else if (statusKey === 'unknown') statusText = 'Needs Attention';
+    
+    return `<span class="status-indicator ${statusClass}">${statusText}</span>`;
 }
 ```
 
-#### **Frontend Variable Mapping:**
-```javascript
-// Statistics mapping
-const stats = data.statistics;
-const framesProcessed = stats.total_frames_processed;
-const vehiclesDetected = stats.total_vehicles_detected;
-const platesDetected = stats.total_plates_detected;
-const successfulOcr = stats.successful_ocr;
-const detectionRate = stats.detection_rate_percent;
-const avgProcessingTime = stats.avg_processing_time_ms;
+#### **Health Service Backend Updates (Updated 2025-09-03):**
 
-// Update statistics display
-document.getElementById('frames-processed').textContent = framesProcessed;
-document.getElementById('vehicles-detected').textContent = vehiclesDetected;
-document.getElementById('plates-detected').textContent = platesDetected;
+**Camera Component with Model Information:**
+```python
+# Modified _build_component_status in health_service.py
+def _build_component_status(self, camera_manager_status, detection_manager_status, database_status, system_info):
+    # ... existing code ...
+    
+    # Get camera properties for model information
+    camera_properties = {}
+    if camera_manager_status and 'camera_handler' in camera_manager_status:
+        camera_handler_status = camera_manager_status.get('camera_handler', {})
+        camera_properties = camera_handler_status.get('camera_properties', {})
+    
+    components['camera'] = {
+        'status': camera_status,
+        'initialized': camera_manager_status.get('initialized', False) if camera_manager_status else False,
+        'streaming': camera_manager_status.get('streaming', False) if camera_manager_status else False,
+        'frame_count': camera_manager_status.get('frame_count', 0) if camera_manager_status else 0,
+        'average_fps': camera_manager_status.get('average_fps', 0.0) if camera_manager_status else 0.0,
+        'uptime': camera_manager_status.get('uptime', 0) if camera_manager_status else 0,
+        'auto_start_enabled': True,  # Default to True as per config
+        'last_check': camera_check.get('timestamp') if camera_check else None,
+        'camera_properties': camera_properties  # NEW: Include camera properties
+    }
+    
+    # ... existing code ...
+    
+    # System status with detailed information
+    system_status = "healthy"  # System is generally healthy if we can get this data
+    components['system'] = {
+        'status': system_status,
+        'last_check': datetime.now().isoformat(),
+        'os_info': system_info.get('os_info', {}),           # NEW: OS information
+        'cpu_info': system_info.get('cpu_info', {}),         # NEW: CPU information
+        'ai_accelerator_info': system_info.get('ai_accelerator_info', {})  # NEW: AI accelerator info
+    }
+    
+    return components
+```
+
+### **Detection Processor EasyOCR Status (Updated 2025-09-03)**
+
+#### **AsyncOCRLoader Status Consistency:**
+```python
+# Modified get_ocr_status in detection_processor.py
+def get_ocr_status(self) -> Dict[str, Any]:
+    # ... existing code ...
+    
+    status.update({
+        'vehicle_model_name': VEHICLE_DETECTION_MODEL,
+        'lp_detection_model_name': LICENSE_PLATE_DETECTION_MODEL,
+        'lp_ocr_model_name': LICENSE_PLATE_OCR_MODEL or '',
+        'easyocr_available': bool(status.get('is_ready', False)),  # Use 'is_ready' consistently
+        'easyocr_ready': bool(status.get('is_ready', False))       # Add for consistency
+    })
+    return status
 ```
 
 ### **Detection Results API (`/detection/results/recent`)**

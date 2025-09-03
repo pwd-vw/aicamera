@@ -284,8 +284,7 @@ const DetectionManager = {
             this.loadStatistics();
         }, 30000);
         
-        // Load recent results after 2 seconds (increased from 1 second)
-        setTimeout(() => this.loadRecentResults(), 2000);
+        // Removed automatic loading of recent results - only load when needed for specific functions
         
         // Add initial log message
         this.addLogMessage('Detection dashboard initialized (optimized)', 'info');
@@ -1549,20 +1548,40 @@ const DetectionManager = {
 showDetail: function(resultId) {
         // Store current modal instance
         this.currentDetailModal = new bootstrap.Modal(document.getElementById('detail-modal'));
-    const modalBody = document.getElementById('detail-modal-body');
-    
-    // Show loading in modal
-    modalBody.innerHTML = `
-        <div class="text-center py-5">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Loading...</span>
+        const modalBody = document.getElementById('detail-modal-body');
+        const modal = document.getElementById('detail-modal');
+        
+        // Store current focus for restoration
+        this.previousFocus = document.activeElement;
+        
+        // Show loading in modal
+        modalBody.innerHTML = `
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <div class="mt-2">Loading detection details...</div>
             </div>
-            <div class="mt-2">Loading detection details...</div>
-        </div>
-    `;
-    
+        `;
+        
         // Show modal
         this.currentDetailModal.show();
+        
+        // Add event listeners for proper focus management
+        modal.addEventListener('shown.bs.modal', () => {
+            // Focus on first focusable element when modal opens
+            const firstFocusable = modal.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+            if (firstFocusable) {
+                firstFocusable.focus();
+            }
+        });
+        
+        modal.addEventListener('hidden.bs.modal', () => {
+            // Restore focus when modal closes
+            if (this.previousFocus && typeof this.previousFocus.focus === 'function') {
+                this.previousFocus.focus();
+            }
+        });
 
         // Load detailed data from specific detection endpoint
         AICameraUtils.apiRequest(`/detection/results/${resultId}`)
@@ -1935,9 +1954,16 @@ setupComprehensiveOutputToggle: function() {
     const content = document.getElementById('comprehensive-output-content');
     
     if (toggle && content) {
+        // Ensure content is visible on page load if toggle is checked
+        if (toggle.checked) {
+            content.style.display = 'block';
+            this.refreshComprehensiveData();
+        }
+        
         toggle.addEventListener('change', (e) => {
             if (e.target.checked) {
-                content.style.display = 'block';                this.refreshComprehensiveData();
+                content.style.display = 'block';
+                this.refreshComprehensiveData();
             } else {
                 content.style.display = 'none';
             }
@@ -1952,8 +1978,7 @@ refreshComprehensiveData: function() {
     this.updateRealTimeMetrics();
     this.updatePerformanceAnalytics();
     this.updateQualityMetrics();
-    this.updateOperationalInsights();
-    this.updateImageAnalysis();
+    // Removed calls to non-existent functions
 },
 
 /**
@@ -2023,10 +2048,10 @@ updateQualityMetrics: function() {
     const ocrAccuracy = stats.ocr_accuracy || 0;
     const systemReliability = stats.system_reliability || 0;
     
-    // Update progress bars
-    this.updateProgressBar('detection-accuracy-bar', detectionAccuracy);
-    this.updateProgressBar('ocr-accuracy-bar', ocrAccuracy);
-    this.updateProgressBar('system-reliability-bar', systemReliability);
+    // Update progress bars with dynamic colors and percentage values
+    this.updateQualityProgressBar('detection-accuracy-bar', 'detection-accuracy-value', detectionAccuracy, 'detection');
+    this.updateQualityProgressBar('ocr-accuracy-bar', 'ocr-accuracy-value', ocrAccuracy, 'ocr');
+    this.updateQualityProgressBar('system-reliability-bar', 'system-reliability-value', systemReliability, 'reliability');
 },
 
 /**
@@ -2099,6 +2124,75 @@ updateProgressBar: function(elementId, percentage) {
     if (element) {
         element.style.width = percentage + '%';
         element.setAttribute('aria-valuenow', percentage);
+    }
+},
+
+/**
+ * Update quality progress bar with dynamic colors and percentage display
+ */
+updateQualityProgressBar: function(barId, valueId, percentage, metricType) {
+    const barElement = document.getElementById(barId);
+    const valueElement = document.getElementById(valueId);
+    
+    if (barElement && valueElement) {
+        // Update progress bar width
+        barElement.style.width = percentage + '%';
+        barElement.setAttribute('aria-valuenow', percentage);
+        
+        // Update percentage value display
+        valueElement.textContent = percentage + '%';
+        
+        // Set dynamic colors based on metric type and performance
+        let barColor = '';
+        let textColor = '';
+        
+        if (metricType === 'detection') {
+            if (percentage >= 80) {
+                barColor = 'bg-success';      // Green for excellent
+                textColor = 'text-success';
+            } else if (percentage >= 60) {
+                barColor = 'bg-warning';      // Yellow for good
+                textColor = 'text-warning';
+            } else if (percentage >= 40) {
+                barColor = 'bg-info';         // Blue for fair
+                textColor = 'text-info';
+            } else {
+                barColor = 'bg-danger';       // Red for poor
+                textColor = 'text-danger';
+            }
+        } else if (metricType === 'ocr') {
+            if (percentage >= 90) {
+                barColor = 'bg-success';      // Green for excellent
+                textColor = 'text-success';
+            } else if (percentage >= 75) {
+                barColor = 'bg-warning';      // Yellow for good
+                textColor = 'text-warning';
+            } else if (percentage >= 50) {
+                barColor = 'bg-info';         // Blue for fair
+                textColor = 'text-info';
+            } else {
+                barColor = 'bg-danger';       // Red for poor
+                textColor = 'text-danger';
+            }
+        } else if (metricType === 'reliability') {
+            if (percentage >= 95) {
+                barColor = 'bg-success';      // Green for excellent
+                textColor = 'text-success';
+            } else if (percentage >= 85) {
+                barColor = 'bg-warning';      // Yellow for good
+                textColor = 'text-warning';
+            } else if (percentage >= 70) {
+                barColor = 'bg-info';         // Blue for fair
+                textColor = 'text-info';
+            } else {
+                barColor = 'bg-danger';       // Red for poor
+                textColor = 'text-danger';
+            }
+        }
+        
+        // Apply colors
+        barElement.className = `progress-bar ${barColor}`;
+        valueElement.className = `h5 fw-bold ${textColor}`;
     }
 },
 

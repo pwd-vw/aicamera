@@ -11,7 +11,7 @@
 {% extends "base.html" %}
 
 {% set active_page = "health" %}
-{% set use_socketio = true %}
+{% set use_socketio = false %}
 
 {% block title %}System Health - AI Camera v2.0{% endblock %}
 
@@ -44,7 +44,10 @@
 .health-actions {
     display: flex;
     gap: 10px;
+    align-items: center;
 }
+
+
 
 .btn-health {
     padding: 10px 20px;
@@ -100,82 +103,111 @@
 
 .health-card {
     background: white;
-    border-radius: 10px;
-    padding: 20px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    transition: transform 0.3s ease;
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.08);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    min-height: 200px;
+    display: flex;
+    flex-direction: column;
 }
 
 .health-card:hover {
-    transform: translateY(-2px);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
 }
 
 .card-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 15px;
-    padding-bottom: 10px;
-    border-bottom: 1px solid #eee;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #f0f0f0;
 }
 
 .card-title {
-    font-size: 1.2rem;
-    font-weight: 600;
+    font-size: 1.3rem;
+    font-weight: 700;
     margin: 0;
+    color: #2c3e50;
 }
 
 .status-indicator {
-    padding: 5px 12px;
-    border-radius: 20px;
-    font-size: 0.8rem;
-    font-weight: 500;
+    padding: 8px 16px;
+    border-radius: 25px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .status-healthy {
-    background: #e8f5e8;
-    color: #2e7d32;
+    background: #4caf50;
+    color: #ffffff;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 .status-unhealthy {
-    background: #fff3e0;
-    color: #f57c00;
+    background: #ff9800;
+    color: #ffffff;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 .status-critical {
-    background: #ffebee;
-    color: #c62828;
+    background: #f44336;
+    color: #ffffff;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 .status-unknown {
-    background: #f5f5f5;
-    color: #757575;
+    background: #9e9e9e;
+    color: #ffffff;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 .health-metrics {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-    gap: 15px;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 18px;
+    flex: 1;
 }
 
 .metric-item {
     text-align: center;
-    padding: 10px;
-    background: #f8f9fa;
-    border-radius: 8px;
+    padding: 16px 12px;
+    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+    border-radius: 10px;
+    border: 1px solid #e9ecef;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    min-height: 80px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.metric-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
 .metric-value {
-    font-size: 1.5rem;
-    font-weight: 600;
-    color: #333;
-    margin-bottom: 5px;
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #2c3e50;
+    margin-bottom: 8px;
+    line-height: 1.2;
+    word-break: break-word;
 }
 
 .metric-label {
-    font-size: 0.8rem;
-    color: #666;
+    font-size: 0.75rem;
+    color: #6c757d;
     text-transform: uppercase;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    line-height: 1.2;
 }
 
 .progress-bar {
@@ -352,7 +384,7 @@
 
     <!-- Health Status Grid -->
     <div class="health-grid" id="health-grid">
-        <div class="loading">Loading health status...</div>
+        <div class="loading">System Health Checking....</div>
     </div>
 
     <!-- Health Logs -->
@@ -388,58 +420,36 @@ const HealthDashboard = {
     autoStartNotificationShown: false, // Flag to track if auto-start notification was shown
     
     init: function() {
-        this.initializeWebSocket();
+        // ใช้ HTTP API โดยตรง ไม่ต้องใช้ WebSocket
+        console.log('Initializing Health Dashboard in HTTP API mode');
+        
+        this.initializeWebSocket(); // เรียกเพื่อ set socket = null
         this.setupEventHandlers();
         this.loadInitialData();
         this.autoStartHealthMonitoring();
-        console.log('Health Dashboard initialized with auto-start');
+        console.log('Health Dashboard initialized with auto-start (HTTP API mode)');
     },
     
     initializeWebSocket: function() {
-        if (typeof io === 'undefined') {
-            console.warn('Socket.IO not available');
-            return;
-        }
-        
-        console.log('Initializing WebSocket connection to health service...');
-        this.socket = io('/health');
-        this.setupSocketHandlers();
-        
-        // Join health monitoring room
-        this.socket.emit('join_health_room');
+        // ใช้ HTTP API โดยตรง ไม่ต้องพยายามใช้ WebSocket
+        console.log('Using HTTP API mode only - no WebSocket needed');
+        this.socket = null;
     },
     
     setupSocketHandlers: function() {
-        if (!this.socket) return;
-        
-        this.socket.on('connect', () => {
-            console.log('Connected to health service');
-            AICameraUtils.addLogMessage('health-status', 'Connected to health service', 'success');
-        });
-        
-        this.socket.on('connect_error', (error) => {
-            console.error('WebSocket connection error:', error);
-        });
-        
-        this.socket.on('disconnect', (reason) => {
-            console.log('WebSocket disconnected:', reason);
-        });
-        
-        this.socket.on('health_status_update', (data) => {
-            this.updateHealthStatus(data);
-        });
-        
-        this.socket.on('health_logs_update', (data) => {
-            this.updateLogs(data);
-        });
-        
-        this.socket.on('health_monitor_response', (data) => {
-            this.handleMonitorResponse(data);
-        });
-        
-        this.socket.on('health_check_response', (data) => {
-            this.handleCheckResponse(data);
-        });
+        // ไม่ใช้ WebSocket - ใช้ HTTP API เท่านั้น
+        console.log('HTTP API mode - no WebSocket handlers needed');
+    },
+    
+    handleWebSocketMessage: function(message) {
+        // ไม่ใช้ WebSocket - ใช้ HTTP API เท่านั้น
+        console.log('HTTP API mode - no WebSocket message handling needed');
+    },
+    
+    sendMessage: function(type, data) {
+        // ไม่ใช้ WebSocket - ใช้ HTTP API เท่านั้น
+        console.log('HTTP API mode - using HTTP API directly');
+        this.fallbackToHttpAPI(type, data);
     },
     
     setupEventHandlers: function() {
@@ -511,7 +521,7 @@ const HealthDashboard = {
         
         if (!health || !health.components) {
             console.error('No health data or components available:', health);
-            grid.innerHTML = '<div class="error-message">No health data available</div>';
+            grid.innerHTML = '<div class="error-message">System Health Checking....</div>';
             return;
         }
         
@@ -534,6 +544,7 @@ const HealthDashboard = {
     },
     
     createOverallStatusCard: function(health) {
+        const hasComponents = !!(health && health.components);
         const status = health.overall_status || 'unknown';
         const statusIndicator = this.createStatusIndicator(status);
         
@@ -569,9 +580,28 @@ const HealthDashboard = {
                         `).join('')}
                     </div>
                 `;
+            } else {
+                // Fallback: provide a meaningful summary even when no per-component detail is flagged
+                const fallbackReason = this.deriveOverallIssueReason(health, status);
+                statusDetails = `
+                    <div class="status-details" style="margin-top: 15px; padding: 10px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 5px;">
+                        <div style="font-weight: 600; color: #856404; margin-bottom: 8px;">
+                            ⚠️ Needs Attention
+                        </div>
+                        <div style="font-size: 0.9rem; color: #636e72;">${fallbackReason}</div>
+                    </div>
+                `;
             }
         }
         
+        // Decide informative footer message
+        let footerMessage = '';
+        if (!hasComponents) {
+            footerMessage = 'System Health Checking....';
+        } else if ((status || '').toLowerCase() === 'healthy') {
+            footerMessage = 'Edge AI Camera Running Smooth as Silk';
+        }
+
         return `
             <div class="health-card">
                 <div class="card-header">
@@ -589,11 +619,9 @@ const HealthDashboard = {
                     </div>
                 </div>
                 ${statusDetails}
-                ${status !== 'healthy' ? `
-                    <div style="margin-top: 15px; text-align: center;">
-                        <button onclick="HealthDashboard.showHealthLogs()" class="btn-health btn-secondary" style="font-size: 0.9rem; padding: 8px 16px;">
-                            🔍 View Health Logs
-                        </button>
+                ${footerMessage ? `
+                    <div style="margin-top: 12px; text-align: center; font-weight: 600;">
+                        ${footerMessage}
                     </div>
                 ` : ''}
             </div>
@@ -610,51 +638,41 @@ const HealthDashboard = {
         switch (component) {
             case 'camera':
                 icon = '📷';
-                // Extract metadata information
-                const metadata = data.metadata || {};
-                const cameraProps = metadata.camera_properties || {};
-                const currentConfig = metadata.current_config || {};
-                const mainConfig = currentConfig.main || {};
+                // Get camera properties directly from data
+                const cameraProps = data.camera_properties || {};
                 
-                // Get resolution from metadata
-                let resolution = 'Unknown';
-                if (mainConfig.size && Array.isArray(mainConfig.size)) {
-                    resolution = `${mainConfig.size[0]}x${mainConfig.size[1]}`;
-                } else if (data.config && data.config.resolution) {
-                    resolution = `${data.config.resolution[0]}x${data.config.resolution[1]}`;
-                }
-                
-                // Get sensor model from metadata
+                // Get sensor model from camera properties
                 let sensorModel = 'Unknown';
                 if (cameraProps && cameraProps.Model) {
                     sensorModel = cameraProps.Model;
                 }
+                // Fallback to average_fps when model is unknown
+                const thirdMetricValue = (sensorModel !== 'Unknown')
+                    ? sensorModel
+                    : (typeof data.average_fps === 'number' ? `${data.average_fps}` : 'N/A');
                 
-                // Get framerate from metadata
-                let framerate = 'Unknown';
-                if (mainConfig.controls && mainConfig.controls.FrameDurationLimits) {
-                    const frameDuration = mainConfig.controls.FrameDurationLimits[0];
-                    framerate = `${Math.round(1000000 / frameDuration)} FPS`;
-                } else if (data.config && data.config.framerate) {
-                    framerate = `${data.config.framerate} FPS`;
+                // Get uptime from data (seconds -> formatted)
+                let uptime = 'N/A';
+                if (typeof data.uptime === 'number') {
+                    uptime = this.formatUptime(data.uptime);
                 }
                 
                 metrics = `
                     <div class="metric-item">
-                        <div class="metric-value">${data.initialized ? 'Yes' : 'No'}</div>
-                        <div class="metric-label">Initialized</div>
+                        <div class="metric-value">${data.initialized ? 'INITIALIZED' : 'NOT INITIALIZED'}</div>
+                        <div class="metric-label"></div>
                     </div>
                     <div class="metric-item">
-                        <div class="metric-value">${data.streaming ? 'Yes' : 'No'}</div>
-                        <div class="metric-label">Streaming</div>
+                        <div class="metric-value">${data.streaming ? 'STREAMING' : 'NOT STREAMING'}</div>
+                        <div class="metric-label"></div>
                     </div>
                     <div class="metric-item">
-                        <div class="metric-value">${resolution}</div>
-                        <div class="metric-label">Resolution</div>
+                        <div class="metric-value">${thirdMetricValue}</div>
+                        <div class="metric-label">Model</div>
                     </div>
                     <div class="metric-item">
-                        <div class="metric-value">${framerate}</div>
-                        <div class="metric-label">Frame Rate</div>
+                        <div class="metric-value">${uptime}</div>
+                        <div class="metric-label">Uptime</div>
                     </div>
                 `;
                 break;
@@ -662,16 +680,20 @@ const HealthDashboard = {
                 icon = '🤖';
                 metrics = `
                     <div class="metric-item">
-                        <div class="metric-value">${data.models_loaded ? 'Yes' : 'No'}</div>
-                        <div class="metric-label">Models Loaded</div>
+                        <div class="metric-value">${data.models_loaded ? 'MODELS LOADED' : 'MODELS NOT LOAD'}</div>
+                        <div class="metric-label"></div>
                     </div>
                     <div class="metric-item">
-                        <div class="metric-value">${data.easyocr_available ? 'Yes' : 'No'}</div>
-                        <div class="metric-label">EasyOCR Ready</div>
+                        <div class="metric-value">${data.easyocr_available ? 'READY' : 'NOT READY'}</div>
+                        <div class="metric-label">EASY OCR</div>
                     </div>
                     <div class="metric-item">
-                        <div class="metric-value">${data.detection_active ? 'Yes' : 'No'}</div>
-                        <div class="metric-label">Detection Active</div>
+                        <div class="metric-value">${data.detection_active ? 'ACTIVE' : 'NOT ACTIVE'}</div>
+                        <div class="metric-label"></div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-value">${data.service_running ? 'SERVICE RUNNING' : 'NOT RUNNING'}</div>
+                        <div class="metric-label"></div>
                     </div>
                 `;
                 break;
@@ -679,8 +701,16 @@ const HealthDashboard = {
                 icon = '💾';
                 metrics = `
                     <div class="metric-item">
-                        <div class="metric-value">${data.connected ? 'Yes' : 'No'}</div>
-                        <div class="metric-label">Connected</div>
+                        <div class="metric-value">SQLITE</div>
+                        <div class="metric-label">Database Type</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-value">${data.database_path ? 'PATH OK' : 'N/A'}</div>
+                        <div class="metric-label">Database Path</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-value">${data.connected ? 'Connected' : 'Not Connect'}</div>
+                        <div class="metric-label">Connection</div>
                     </div>
                 `;
                 break;
@@ -688,8 +718,16 @@ const HealthDashboard = {
                 icon = '🖥️';
                 metrics = `
                     <div class="metric-item">
-                        <div class="metric-value">System Online</div>
-                        <div class="metric-label">Status</div>
+                        <div class="metric-value">${data.os_info ? `${data.os_info.name} ${data.os_info.architecture}` : 'N/A'}</div>
+                        <div class="metric-label">Operating System</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-value">${data.cpu_info ? `${data.cpu_info.architecture} ${data.cpu_info.processor}` : 'N/A'}</div>
+                        <div class="metric-label">CPU</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-value">${data.ai_accelerator_info ? data.ai_accelerator_info.device_architecture : 'N/A'}</div>
+                        <div class="metric-label">AI Accelerator</div>
                     </div>
                 `;
                 break;
@@ -871,8 +909,33 @@ const HealthDashboard = {
     
     createStatusIndicator: function(status) {
         const statusClass = this.getStatusIndicatorClass(status);
-        const statusText = status.charAt(0).toUpperCase() + status.slice(1);
+        let statusKey = (status || '').toLowerCase();
+        let statusText = statusKey.charAt(0).toUpperCase() + statusKey.slice(1);
+        if (statusKey === 'healthy') statusText = 'Available';
+        else if (statusKey === 'unhealthy') statusText = 'Not Available';
+        else if (statusKey === 'unknown') statusText = 'Needs Attention';
         return `<span class="status-indicator ${statusClass}">${statusText}</span>`;
+    },
+
+    // Provide meaningful fallback reason when no component explicitly reports issues
+    deriveOverallIssueReason: function(health, status) {
+        const components = health.components || {};
+        // Prioritize likely causes
+        if (components.camera && components.camera.status && components.camera.status !== 'healthy') {
+            return this.getComponentErrorDetails('camera', components.camera);
+        }
+        if (components.detection && components.detection.status && components.detection.status !== 'healthy') {
+            return this.getComponentErrorDetails('detection', components.detection);
+        }
+        if (components.database && components.database.status && components.database.status !== 'healthy') {
+            return this.getComponentErrorDetails('database', components.database);
+        }
+        if (components.system && components.system.status && components.system.status !== 'healthy') {
+            return this.getComponentErrorDetails('system', components.system);
+        }
+        // If nothing stands out, give a concise, actionable message
+        const prettyStatus = (status || 'unknown').toString();
+        return `Overall status reported as "${prettyStatus}". Run Health Check or review component cards for details.`;
     },
     
     getComponentErrorDetails: function(componentName, component) {
@@ -962,9 +1025,9 @@ const HealthDashboard = {
         if (this.refreshInterval) {
             clearInterval(this.refreshInterval);
         }
-        if (this.socket) {
-            this.socket.emit('leave_health_room');
-        }
+        
+        // ไม่ใช้ WebSocket ใน Unix socket mode
+        console.log('No WebSocket cleanup needed in HTTP-only mode');
     },
     
     autoStartHealthMonitoring: function() {
@@ -1004,6 +1067,7 @@ const HealthDashboard = {
                     
                     // If both camera and detection are running, start health monitoring
                     if (cameraRunning && detectionRunning) {
+                        console.log('Camera and detection are running, starting health monitoring...');
                         this.startHealthMonitoring();
                     } else {
                         console.log('Waiting for camera and detection to start...');
@@ -1016,41 +1080,101 @@ const HealthDashboard = {
     },
     
     startHealthMonitoring: function() {
-        console.log('Starting health monitoring automatically...');
+        console.log('Starting health monitoring automatically via HTTP API...');
         
-        if (this.socket) {
-            this.socket.emit('health_monitor_start', { interval: 60 });
-            
-            // Only show notification once
-            if (!this.autoStartNotificationShown) {
-                AICameraUtils.showToast('Health monitoring started automatically', 'success');
-                this.autoStartNotificationShown = true;
-            }
-        } else {
-            console.warn('WebSocket not available for health monitoring');
+        // ใช้ HTTP API โดยตรง ไม่ต้องตรวจสอบ WebSocket
+        this.startMonitoringViaHTTP({ interval: 60 });
+        
+        // Only show notification once
+        if (!this.autoStartNotificationShown) {
+            AICameraUtils.showToast('Health monitoring started automatically via HTTP API', 'success');
+            this.autoStartNotificationShown = true;
         }
+    },
+    
+    updateConnectionStatus: function(mode) {
+        // ไม่ใช้ connection status - ใช้ HTTP API เท่านั้น
+        console.log('HTTP API mode - connection status not needed');
+    },
+    
+    fallbackToHttpMode: function() {
+        // ใช้ HTTP API โดยตรง ไม่ต้อง fallback
+        console.log('HTTP API mode - loading initial data');
+        this.socket = null;
+        this.loadInitialData();
+    },
+    
+    fallbackToHttpAPI: function(type, data) {
+        console.log('Using HTTP API fallback for:', type, data);
+        
+        switch (type) {
+            case 'health_monitor_start':
+                this.startMonitoringViaHTTP(data);
+                break;
+            case 'health_monitor_stop':
+                this.stopMonitoringViaHTTP();
+                break;
+            case 'health_check_run':
+                this.runHealthCheckViaHTTP();
+                break;
+            default:
+                console.log('No HTTP fallback for:', type);
+        }
+    },
+    
+    startMonitoringViaHTTP: function(data) {
+        AICameraUtils.apiRequest('/health/monitor/start', {
+            method: 'POST',
+            body: JSON.stringify(data)
+        }).then(response => {
+            if (response.success) {
+                AICameraUtils.showToast('Health monitoring started via HTTP API', 'success');
+            }
+        }).catch(error => {
+            console.error('Failed to start monitoring via HTTP:', error);
+        });
+    },
+    
+    stopMonitoringViaHTTP: function() {
+        AICameraUtils.apiRequest('/health/monitor/stop', {
+            method: 'POST'
+        }).then(response => {
+            if (response.success) {
+                AICameraUtils.showToast('Health monitoring stopped via HTTP API', 'success');
+            }
+        }).catch(error => {
+            console.error('Failed to stop monitoring via HTTP:', error);
+        });
+    },
+    
+    runHealthCheckViaHTTP: function() {
+        AICameraUtils.apiRequest('/health/check/run', {
+            method: 'POST'
+        }).then(response => {
+            if (response.success) {
+                AICameraUtils.showToast('Health check completed via HTTP API', 'success');
+                this.loadHealthStatus();
+            }
+        }).catch(error => {
+            console.error('Failed to run health check via HTTP:', error);
+        });
     }
 };
 
 // Global functions for button actions
 function runHealthCheck() {
-    if (HealthDashboard.socket) {
-        HealthDashboard.socket.emit('health_check_run');
-    } else {
-        HealthDashboard.loadHealthStatus();
-    }
+    // ใช้ HTTP API โดยตรง ไม่ต้องตรวจสอบ WebSocket
+    HealthDashboard.runHealthCheckViaHTTP();
 }
 
 function startMonitoring() {
-    if (HealthDashboard.socket) {
-        HealthDashboard.socket.emit('health_monitor_start', { interval: 60 });
-    }
+    // ใช้ HTTP API โดยตรง ไม่ต้องตรวจสอบ WebSocket
+    HealthDashboard.startMonitoringViaHTTP({ interval: 60 });
 }
 
 function stopMonitoring() {
-    if (HealthDashboard.socket) {
-        HealthDashboard.socket.emit('health_monitor_stop');
-    }
+    // ใช้ HTTP API โดยตรง ไม่ต้องตรวจสอบ WebSocket
+    HealthDashboard.stopMonitoringViaHTTP();
 }
 
 function refreshData() {

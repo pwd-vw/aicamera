@@ -2054,4 +2054,138 @@ This system has been optimized to prioritize core camera and detection functiona
 
 ---
 
-**Note:** This documentation reflects the current implementation as of September 2, 2025. All endpoints and data structures have been validated against the actual project code in `/edge/src/web/blueprints/`.
+**Note:** This documentation reflects the current implementation as of September 3, 2025. All endpoints and data structures have been validated against the actual project code in `/edge/src/web/blueprints/`.
+
+## Quality Metrics System (Added 2025-09-03)
+
+### Overview
+The Quality Metrics system provides real-time performance indicators for the AI detection pipeline, displaying dynamic progress bars with intelligent color coding based on performance thresholds.
+
+### Quality Metrics Endpoints
+
+#### GET /detection/status - Quality Metrics
+**Response includes quality metrics:**
+```json
+{
+    "success": true,
+    "detection_status": {
+        # ... existing fields ...
+        "detection_accuracy": 8.5,           # Percentage based on vehicle detections vs total frames
+        "ocr_accuracy": 69.2,                # Percentage based on successful OCR vs total plates
+        "system_reliability": 91.5,          # Percentage based on service uptime and error rate
+        # ... other fields ...
+    }
+}
+```
+
+### Quality Metrics Calculation
+
+#### Backend Calculation (DetectionManager)
+```python
+def _calculate_quality_metrics(self) -> Dict[str, float]:
+    """
+    Calculate quality metrics from detection statistics.
+    
+    Returns:
+        Dict[str, float]: Quality metrics for frontend progress bars
+    """
+    stats = self.detection_stats
+    
+    # Detection Accuracy: Based on successful vehicle detections vs total frames
+    total_frames = stats['total_frames_processed']
+    if total_frames > 0:
+        detection_accuracy = (stats['total_vehicles_detected'] / total_frames) * 100
+    else:
+        detection_accuracy = 0.0
+    
+    # OCR Accuracy: Based on successful OCR vs total plates detected
+    total_plates = stats['total_plates_detected']
+    if total_plates > 0:
+        ocr_accuracy = (stats['successful_ocr'] / total_plates) * 100
+    else:
+        ocr_accuracy = 0.0
+    
+    # System Reliability: Based on service uptime and error rate
+    if total_frames > 0:
+        error_rate = (stats['failed_detections'] / total_frames) * 100
+        system_reliability = max(0, 100 - error_rate)  # Higher is better
+    else:
+        system_reliability = 100.0  # No errors if no frames processed
+    
+    return {
+        'detection_accuracy': round(detection_accuracy, 1),
+        'ocr_accuracy': round(ocr_accuracy, 1),
+        'system_reliability': round(system_reliability, 1)
+    }
+```
+
+### Frontend Quality Metrics Display
+
+#### Dynamic Color Logic
+**Detection Accuracy:**
+- **≥80%**: 🟢 `bg-success` (Green) - Excellent
+- **≥60%**: 🟡 `bg-warning` (Yellow) - Good  
+- **≥40%**: 🔵 `bg-info` (Blue) - Fair
+- **<40%**: 🔴 `bg-danger` (Red) - Poor
+
+**OCR Accuracy:**
+- **≥90%**: 🟢 `bg-success` (Green) - Excellent
+- **≥75%**: 🟡 `bg-warning` (Yellow) - Good
+- **≥50%**: 🔵 `bg-info` (Blue) - Fair
+- **<50%**: 🔴 `bg-danger` (Red) - Poor
+
+**System Reliability:**
+- **≥95%**: 🟢 `bg-success` (Green) - Excellent
+- **≥85%**: 🟡 `bg-warning` (Yellow) - Good
+- **≥70%**: 🔵 `bg-info` (Blue) - Fair
+- **<70%**: 🔴 `bg-danger` (Red) - Poor
+
+#### Frontend Implementation
+```javascript
+/**
+ * Update quality progress bar with dynamic colors and percentage display
+ */
+updateQualityProgressBar: function(barId, valueId, percentage, metricType) {
+    const barElement = document.getElementById(barId);
+    const valueElement = document.getElementById(valueId);
+    
+    if (barElement && valueElement) {
+        // Update progress bar width and percentage value
+        barElement.style.width = percentage + '%';
+        barElement.setAttribute('aria-valuenow', percentage);
+        valueElement.textContent = percentage + '%';
+        
+        // Set dynamic colors based on metric type and performance
+        let barColor = '';
+        let textColor = '';
+        
+        // Apply color logic based on metricType and percentage
+        // ... color logic implementation ...
+        
+        // Apply colors
+        barElement.className = `progress-bar ${barColor}`;
+        valueElement.className = `h5 fw-bold ${textColor}`;
+    }
+}
+```
+
+### Quality Metrics Integration
+
+#### Detection Dashboard
+- **Progress Bars**: Real-time quality metrics with dynamic colors
+- **Percentage Display**: Clear percentage values below each progress bar
+- **Smart Color Coding**: Colors that make sense with performance statistics
+- **Responsive Design**: Adapts to different screen sizes
+
+#### Health Dashboard Integration
+- **Component Status**: Enhanced status mapping for all components
+- **Camera Information**: Model display with uptime information
+- **Database Status**: Connection and path information
+- **AI Detection Status**: Model loading and service status
+- **System Information**: OS, CPU, and AI accelerator details
+
+### Performance Benefits
+- **Real-time Monitoring**: Live updates of system performance
+- **Visual Feedback**: Immediate understanding of system health
+- **Proactive Maintenance**: Early detection of performance issues
+- **User Experience**: Clear, intuitive interface for system monitoring

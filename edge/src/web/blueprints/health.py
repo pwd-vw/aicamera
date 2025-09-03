@@ -376,3 +376,87 @@ def register_health_events(socketio):
                 'error': str(e),
                 'timestamp': datetime.now().isoformat()
             })
+
+
+
+
+
+@health_bp.route('/monitor/start', methods=['POST'])
+def start_monitoring_http():
+    """HTTP endpoint to start health monitoring."""
+    try:
+        health_service = get_service('health_service')
+        if not health_service:
+            return jsonify({
+                'success': False,
+                'error': 'Health service not available'
+            }), 500
+        
+        # Start monitoring
+        health_service.start_monitoring()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Health monitoring started successfully'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error starting health monitoring via HTTP: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@health_bp.route('/monitor/stop', methods=['POST'])
+def stop_monitoring_http():
+    """HTTP endpoint to stop health monitoring."""
+    try:
+        health_service = get_service('health_service')
+        if not health_service:
+            return jsonify({
+                'success': False,
+                'error': 'Health service not available'
+            }), 500
+        
+        # Stop monitoring
+        health_service.stop_monitoring()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Health monitoring stopped successfully'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error stopping health monitoring via HTTP: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@health_bp.route('/check/run', methods=['POST'])
+def run_health_check_http():
+    """HTTP endpoint to run health check."""
+    try:
+        health_service = get_service('health_service')
+        if not health_service:
+            return jsonify({
+                'success': False,
+                'error': 'Health service not available'
+            }), 500
+        
+        # Run health check
+        health_data = health_service.get_system_health()
+        
+        return jsonify({
+            'success': True,
+            'data': health_data
+        })
+        
+    except Exception as e:
+        logger.error(f"Error running health check via HTTP: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500

@@ -175,6 +175,12 @@ class HealthService:
                 except:
                     pass
             
+            # Get camera properties for model information
+            camera_properties = {}
+            if camera_manager_status and 'camera_handler' in camera_manager_status:
+                camera_handler_status = camera_manager_status.get('camera_handler', {})
+                camera_properties = camera_handler_status.get('camera_properties', {})
+            
             components['camera'] = {
                 'status': camera_status,
                 'initialized': camera_manager_status.get('initialized', False) if camera_manager_status else False,
@@ -183,7 +189,8 @@ class HealthService:
                 'average_fps': camera_manager_status.get('average_fps', 0.0) if camera_manager_status else 0.0,
                 'uptime': camera_manager_status.get('uptime', 0) if camera_manager_status else 0,
                 'auto_start_enabled': True,  # Default to True as per config
-                'last_check': camera_check.get('timestamp') if camera_check else None
+                'last_check': camera_check.get('timestamp') if camera_check else None,
+                'camera_properties': camera_properties
             }
             
             # Detection status - use detection module patterns for accurate status
@@ -266,7 +273,10 @@ class HealthService:
             system_status = "healthy"  # System is generally healthy if we can get this data
             components['system'] = {
                 'status': system_status,
-                'last_check': datetime.now().isoformat()
+                'last_check': datetime.now().isoformat(),
+                'os_info': system_info.get('os_info', {}),
+                'cpu_info': system_info.get('cpu_info', {}),
+                'ai_accelerator_info': system_info.get('ai_accelerator_info', {})
             }
             
             return components

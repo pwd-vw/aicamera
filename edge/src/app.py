@@ -579,6 +579,41 @@ def create_app():
             }), 500
     
 
+    @app.route('/system/info')
+    def api_system_info():
+        """Return system information used by the dashboard.
+
+        Response shape expected by dashboard.js.updateSystemInfoFromAPI:
+        { "success": true, "info": { ... } }
+        """
+        try:
+            # Prefer consolidated data from health_service if available
+            health_service = get_service('health_service')
+            if health_service and hasattr(health_service, 'get_system_health'):
+                health_data = health_service.get_system_health()
+                # health_data is expected to be { success: bool, data: { system: {...}, ... }, ... }
+                system_info = None
+                if isinstance(health_data, dict):
+                    data_obj = health_data.get('data') or {}
+                    system_info = data_obj.get('system') or {}
+
+                return jsonify({
+                    'success': True,
+                    'info': system_info or {}
+                })
+
+            # Fallback minimal info when health_service is unavailable
+            return jsonify({
+                'success': True,
+                'info': {}
+            })
+        except Exception as e:
+            logger.error(f"System info endpoint error: {e}")
+            return jsonify({
+                'success': False,
+                'error': str(e)
+            }), 500
+
     
     @app.errorhandler(404)
     def not_found(error):

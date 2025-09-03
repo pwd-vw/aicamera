@@ -1,7 +1,7 @@
 # UI Dashboard Enhancement Documentation
 
-**Version:** 2.0.0  
-**Last Updated:** 2025-09-02  
+**Version:** 2.1.0  
+**Last Updated:** 2025-09-03  
 **Author:** AI Camera Team  
 **Category:** User Interface Documentation  
 **Status:** Active
@@ -10,9 +10,114 @@
 
 เอกสารนี้บันทึกการปรับปรุงและพัฒนา UI Dashboard ของระบบ AI Camera v2.0 รวมถึงฟีเจอร์ใหม่ การแก้ไขปัญหา และการปรับปรุงประสบการณ์ผู้ใช้
 
-## การปรับปรุงหลักในวันนี้ (2025-09-02)
+## การปรับปรุงหลักในวันนี้ (2025-09-03)
 
-### 1. Toggle Show/Hide Functionality
+### 1. Quality Metrics Enhancement in Detection Dashboard
+
+#### ฟีเจอร์ใหม่:
+- **Dynamic Progress Bar Colors**: Progress bar เปลี่ยนสีตามประสิทธิภาพของระบบ
+- **Percentage Display**: แสดงตัวเลข % ด้านล่างของ progress bar แต่ละอัน
+- **Smart Color Logic**: สีที่เหมาะสมกับผลของสถิติ
+
+#### การทำงาน:
+```javascript
+// Quality Metrics with Dynamic Colors and Percentage Display
+updateQualityProgressBar: function(barId, valueId, percentage, metricType) {
+    // Update progress bar width and percentage value
+    // Set dynamic colors based on metric type and performance
+    // Apply colors to both progress bar and percentage text
+}
+```
+
+#### Color Logic by Metric Type:
+
+**Detection Accuracy:**
+- **≥80%**: 🟢 `bg-success` (Green) - Excellent
+- **≥60%**: 🟡 `bg-warning` (Yellow) - Good  
+- **≥40%**: 🔵 `bg-info` (Blue) - Fair
+- **<40%**: 🔴 `bg-danger` (Red) - Poor
+
+**OCR Accuracy:**
+- **≥90%**: 🟢 `bg-success` (Green) - Excellent
+- **≥75%**: 🟡 `bg-warning` (Yellow) - Good
+- **≥50%**: 🔵 `bg-info` (Blue) - Fair
+- **<50%**: 🔴 `bg-danger` (Red) - Poor
+
+**System Reliability:**
+- **≥95%**: 🟢 `bg-success` (Green) - Excellent
+- **≥85%**: 🟡 `bg-warning` (Yellow) - Good
+- **≥70%**: 🔵 `bg-info` (Blue) - Fair
+- **<70%**: 🔴 `bg-danger` (Red) - Poor
+
+#### Metric Calculation (Backend):
+```python
+def _calculate_quality_metrics(self) -> Dict[str, float]:
+    # Detection Accuracy: Based on successful vehicle detections vs total frames
+    # OCR Accuracy: Based on successful OCR vs total plates detected
+    # System Reliability: Based on service uptime and error rate
+    return {
+        'detection_accuracy': round(detection_accuracy, 1),
+        'ocr_accuracy': round(ocr_accuracy, 1),
+        'system_reliability': round(system_reliability, 1)
+    }
+```
+
+### 2. Enhanced Health Dashboard Status Display
+
+#### การปรับปรุง Status Display:
+
+**สถานะและข้อความ:**
+- **🟢 Online**: "ตรวจสอบทุก 60 วินาที"
+- **🟡 Warning**: สาเหตุเฉพาะ
+- **🔴 Offline**: สาเหตุเฉพาะ
+
+**สาเหตุที่แสดงผล:**
+1. Camera not initialized
+2. Camera not streaming
+3. AI models not loaded
+4. Detection not active
+5. Database disconnected
+6. System resources critical
+7. Service unavailable
+8. Not Running (default)
+
+#### Component Status Mapping:
+
+**Camera Card:**
+- `initialized: true|false` → `INITIALIZED` | `NOT INITIALIZED`
+- `streaming: true|false` → `STREAMING` | `NOT STREAMING`
+- `camera_properties.Model` → แสดง camera model (IMX219, etc.)
+- `uptime` → แสดง uptime แทน Frame Rate
+- Fallback: แสดง `average_fps` เมื่อ `sensorModel` เป็น 'Unknown'
+
+**Database Card:**
+- `connected: true|false` → `Connected` | `Not Connect`
+- `database_path` → `PATH OK` | `N/A`
+- Database Type: `SQLITE` (hardcoded)
+
+**AI Detection Card:**
+- `models_loaded: true|false` → `MODELS LOADED` | `MODELS NOT LOAD`
+- `easyocr_available: true|false` → `READY` | `NOT READY`
+- `detection_active: true|false` → `ACTIVE` | `NOT ACTIVE`
+- `service_running: true|false` → `SERVICE RUNNING` | `NOT RUNNING`
+
+**System Card:**
+- `os_info` (`name`, `architecture`) → Operating System
+- `cpu_info` (`architecture`, `processor`) → CPU
+- `ai_accelerator_info` (`device_architecture`) → AI Accelerator
+
+#### Status Indicator Mapping:
+```javascript
+createStatusIndicator: function(status) {
+    let statusText = '';
+    if (status === 'healthy') statusText = 'Available';
+    else if (status === 'unhealthy') statusText = 'Not Available';
+    else if (status === 'unknown') statusText = 'Needs Attention';
+    return `<span class="status-indicator ${statusClass}">${statusText}</span>`;
+}
+```
+
+### 3. Toggle Show/Hide Functionality
 
 #### ฟีเจอร์ใหม่:
 - **Toggle Control Buttons**: ปุ่มควบคุมการแสดง/ซ่อนเนื้อหา
@@ -49,7 +154,7 @@ document.getElementById('toggle-system-info-content').addEventListener('click', 
 }
 ```
 
-### 2. Health Monitor Status Enhancement
+### 4. Health Monitor Status Enhancement
 
 #### การปรับปรุง Status Display:
 
@@ -81,7 +186,7 @@ updateHealthMonitorStatus: function(healthData) {
 }
 ```
 
-### 3. Server Connection Status Priority
+### 5. Server Connection Status Priority
 
 #### ลำดับความสำคัญใหม่:
 1. **Connected** (🟢 Green) - สูงสุด
@@ -106,14 +211,14 @@ if (status.connected) {
 }
 ```
 
-### 4. Data Sending Status
+### 6. Data Sending Status
 
 #### สถานะที่เป็นไปได้:
 1. **Active** (🟢 Green): `status.running && (total_detections_sent > 0 || total_health_sent > 0)`
 2. **Ready** (🟡 Yellow): `status.running` แต่ยังไม่มีการส่งข้อมูล
 3. **Inactive** (🔴 Red): `status.running = false`
 
-### 5. Accessibility Improvements
+### 7. Accessibility Improvements
 
 #### การแก้ไข:
 - เพิ่ม `title` attributes ให้ toggle buttons
@@ -129,7 +234,7 @@ if (status.connected) {
 </button>
 ```
 
-### 6. CSS Performance & Compatibility
+### 8. CSS Performance & Compatibility
 
 #### การแก้ไข:
 - แก้ไข `left` property ใน `@keyframes` เป็น `transform: translateX()`
@@ -150,7 +255,7 @@ if (status.connected) {
 }
 ```
 
-### 7. Feature Descriptions in Thai
+### 9. Feature Descriptions in Thai
 
 #### การปรับปรุง:
 - แปลคำอธิบายคุณสมบัติเป็นภาษาไทย
@@ -212,6 +317,13 @@ if (overallStatus === 'healthy') {
 } else {
     // Red status with specific reason
 }
+```
+
+#### 4. Quality Metrics Functions:
+```javascript
+updateQualityMetrics()              // Update all quality metrics
+updateQualityProgressBar()          // Update individual progress bar with colors
+_calculate_quality_metrics()        // Backend calculation of metrics
 ```
 
 ## Manual Capture System Integration
@@ -286,15 +398,22 @@ text-align: -webkit-match-parent;
 ### Modified Files:
 ```
 edge/src/web/templates/index.html          # Main dashboard template
+edge/src/web/templates/detection/dashboard.html # Detection dashboard with quality metrics
+edge/src/web/templates/health/dashboard.html    # Health dashboard with enhanced status
 edge/src/web/static/js/dashboard.js        # Dashboard JavaScript
+edge/src/web/static/js/detection.js        # Detection JavaScript with quality metrics
+edge/src/web/static/js/health.js           # Health JavaScript
 edge/src/web/static/css/base.css          # Global CSS styles
 edge/src/web/static/css/health.css        # Health-specific styles
-edge/src/web/blueprints/camera.py         # Camera API endpoints
-edge/src/web/blueprints/websocket_sender.py # WebSocket sender endpoints
-edge/src/web/blueprints/storage.py        # Storage endpoints
+edge/src/blueprints/camera.py         # Camera API endpoints
+edge/src/blueprints/websocket_sender.py # WebSocket sender endpoints
+edge/src/blueprints/storage.py        # Storage endpoints
+edge/src/services/detection_manager.py    # Quality metrics calculation
 ```
 
 ### New Features Added:
+- Quality metrics with dynamic colors and percentage display
+- Enhanced health dashboard status mapping
 - Toggle controls for content visibility
 - Health status detail messages
 - Accessibility attributes
@@ -343,7 +462,30 @@ edge/src/web/blueprints/storage.py        # Storage endpoints
 ### Key Achievements:
 - 🎯 Enhanced user experience with toggle functionality
 - 🏥 Improved health monitoring with detailed status information
+- 📊 Quality metrics with dynamic colors and percentage display
 - 🚀 Better performance with optimized CSS and cache headers
 - ♿ Full accessibility compliance
 - 🌐 Cross-browser compatibility
 - 📱 Responsive design for all devices
+- 🎨 Smart color logic for quality metrics
+
+## Changelog
+
+### Version 2.1.0 (September 3, 2025)
+- ✅ Added Quality Metrics enhancement with dynamic colors
+- ✅ Enhanced percentage display for progress bars
+- ✅ Improved status mapping in health dashboard
+- ✅ Updated component status display logic
+- ✅ Enhanced camera model and uptime display
+- ✅ Improved database and AI detection status mapping
+- ✅ Added system information display enhancement
+- ✅ Updated detection dashboard with quality metrics
+- ✅ Enhanced health dashboard status indicators
+
+### Version 2.0.0 (September 2, 2025)
+- ✅ Enhanced user experience with toggle functionality
+- ✅ Improved health monitoring with detailed status information
+- ✅ Better performance with optimized CSS and cache headers
+- ✅ Full accessibility compliance
+- ✅ Cross-browser compatibility
+- ✅ Responsive design for all devices

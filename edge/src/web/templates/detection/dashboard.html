@@ -19,6 +19,64 @@
 {% block additional_css %}
 <link href="{{ url_for('static', filename='css/detection.css', v=timestamp) }}" rel="stylesheet">
 <link href="{{ url_for('static', filename='libs/font-awesome/all.min.css') }}" rel="stylesheet">
+    <style>
+        /* Focus management for accessibility */
+        .modal:not(.show) {
+            pointer-events: none;
+        }
+
+        .modal:not(.show) * {
+            pointer-events: none;
+        }
+
+        /* Ensure focus is visible */
+        .btn:focus,
+        .form-control:focus,
+        .form-select:focus {
+            outline: 2px solid #007bff;
+            outline-offset: 2px;
+        }
+
+        /* Modal focus management */
+        .modal.show {
+            pointer-events: auto;
+        }
+
+        .modal.show * {
+            pointer-events: auto;
+        }
+
+        /* Prevent focus on hidden elements */
+        [aria-hidden="true"] {
+            pointer-events: none;
+        }
+
+        [aria-hidden="true"] * {
+            pointer-events: none;
+        }
+
+        /* Fix comprehensive output content visibility */
+        #comprehensive-output-content {
+            overflow: visible !important;
+            max-height: none !important;
+            opacity: 1 !important;
+            transition: none !important;
+        }
+
+        #comprehensive-output-content .card-body {
+            overflow: visible !important;
+            max-height: none !important;
+        }
+
+        /* Ensure Quality Metrics cards are fully visible */
+        #comprehensive-output-content .card {
+            overflow: visible !important;
+        }
+
+        #comprehensive-output-content .card-body {
+            overflow: visible !important;
+        }
+    </style>
 {% endblock %}
 
 {% block container_class %}mt-1{% endblock %}
@@ -26,8 +84,8 @@
 {% block content %}
 <div class="row">
     <div class="col-12">
-        <h1 class="mb-0" style="font-size: 1.5rem; margin-top: 0;"><i class="fas fa-robot"></i> Detection Dashboard <small
-                class="text-muted" style="font-size: 0.75rem;">AI Detection Control, Monitoring, and Results</small>
+        <h1 class="mb-0" style="font-size: 1.5rem; margin-top: 0;"><i class="fas fa-robot"></i> Detection Dashboard
+            <small class="text-muted" style="font-size: 0.75rem;">AI Detection Control, Monitoring, and Results</small>
         </h1>
     </div>
 </div>
@@ -75,11 +133,12 @@
                 <form id="detection-config-form">
                     <div class="d-flex align-items-center" style="gap: 0.5rem;">
                         <div class="d-flex align-items-center" style="gap: 0.25rem;">
-                            <label for="detection-interval-input" class="form-label small mb-0" style="margin: 0;">Interval
+                            <label for="detection-interval-input" class="form-label small mb-0"
+                                style="margin: 0;">Interval
                                 (s):</label>
-                            <input type="number" class="form-control form-control-sm" id="detection-interval-input" min="0.1"
-                                max="1000.0" step="0.1" value="0.1" style="width: 60px; max-width: 60px; margin: 0;"
-                                maxlength="5">
+                            <input type="number" class="form-control form-control-sm" id="detection-interval-input"
+                                min="0.1" max="1000.0" step="0.1" value="0.1"
+                                style="width: 60px; max-width: 60px; margin: 0;" maxlength="5">
                         </div>
                         <div class="d-flex align-items-center" style="gap: 0.25rem;">
                             <label for="vehicle-confidence" class="form-label small mb-0" style="margin: 0;">Vehicle
@@ -111,34 +170,34 @@
 <div class="row mb-4">
     <div class="col-12">
         <div class="card">
-                            <div class="card-header">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <h6 class="mb-0">
-                            <i class="fas fa-filter me-2"></i>Filters & Search
-                        </h6>
-                        <div class="d-flex align-items-center gap-2">
-                            <span class="text-muted" id="results-count">Loading...</span>
-                            <div class="d-flex align-items-center gap-1">
-                                <button type="button" class="btn btn-primary btn-sm" id="refresh-results-btn">
-                                    <i class="fas fa-sync-alt"></i> Refresh
-                                </button>
-                                <button type="button" class="btn btn-success btn-sm" id="export-results-btn">
-                                    <i class="fas fa-download"></i> Export
-                                </button>
-                                <label for="per-page-select" class="form-label mb-0 text-muted">Show:</label>
-                                <select class="form-select form-select-sm" id="per-page-select" style="width: auto;">
-                                    <option value="10">10</option>
-                                    <option value="20" selected>20</option>
-                                    <option value="50">50</option>
-                                    <option value="100">100</option>
-                                </select>
-                            </div>
-                            <button type="button" class="btn btn-sm btn-outline-secondary" id="clear-filters-btn">
-                                <i class="fas fa-times"></i> Clear All
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">
+                        <i class="fas fa-filter me-2"></i>Filters & Search
+                    </h6>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="text-muted" id="results-count">Loading...</span>
+                        <div class="d-flex align-items-center gap-1">
+                            <button type="button" class="btn btn-primary btn-sm" id="refresh-results-btn">
+                                <i class="fas fa-sync-alt"></i> Refresh
                             </button>
+                            <button type="button" class="btn btn-success btn-sm" id="export-results-btn">
+                                <i class="fas fa-download"></i> Export
+                            </button>
+                            <label for="per-page-select" class="form-label mb-0 text-muted">Show:</label>
+                            <select class="form-select form-select-sm" id="per-page-select" style="width: auto;">
+                                <option value="10">10</option>
+                                <option value="20" selected>20</option>
+                                <option value="50">50</option>
+                                <option value="100">100</option>
+                            </select>
                         </div>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="clear-filters-btn">
+                            <i class="fas fa-times"></i> Clear All
+                        </button>
                     </div>
                 </div>
+            </div>
             <div class="card-body">
                 <form id="filters-form" class="row g-3">
                     <!-- Search Input -->
@@ -256,7 +315,8 @@
 </div>
 
 <!-- Detail View Modal -->
-<div class="modal fade" id="detail-modal" tabindex="-1" aria-labelledby="detail-modal-label">
+<div class="modal fade" id="detail-modal" tabindex="-1" aria-labelledby="detail-modal-label" style="display:block;" role="dialog"
+    aria-modal="true">
     <div class="modal-dialog modal-xxl">
         <div class="modal-content">
             <div class="modal-header">
@@ -281,7 +341,8 @@
 </div>
 
 <!-- Export Modal -->
-<div class="modal fade" id="export-modal" tabindex="-1" aria-labelledby="export-modal-label">
+<div class="modal fade" id="export-modal" tabindex="-1" aria-labelledby="export-modal-label" role="dialog"
+    aria-modal="true">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
@@ -329,8 +390,8 @@
                     </label>
                 </div>
             </div>
-            <div class="card-body" id="comprehensive-output-content">
-                
+            <div class="card-body" id="comprehensive-output-content" style="overflow: visible !important; padding-bottom: 2rem; max-height: none !important; opacity: 1 !important;">
+
                 <!-- Real-time Detection Metrics -->
                 <div class="row mb-4">
                     <div class="col-12">
@@ -351,7 +412,8 @@
                                 <div class="card bg-success text-white h-100 w-100">
                                     <div class="card-body text-center d-flex flex-column justify-content-center">
                                         <div class="mb-2"><i class="fas fa-id-card fa-lg"></i></div>
-                                        <h4 class="mb-1"><span id="plates-detected-count">0</span> (<span id="plate-detection-rate">0%</span>)</h4>
+                                        <h4 class="mb-1"><span id="plates-detected-count">0</span> (<span
+                                                id="plate-detection-rate">0%</span>)</h4>
                                         <small class="text-white-50">Plate Detection Rate (out of vehicles)</small>
                                     </div>
                                 </div>
@@ -360,7 +422,8 @@
                                 <div class="card bg-info text-white h-100 w-100">
                                     <div class="card-body text-center d-flex flex-column justify-content-center">
                                         <div class="mb-2"><i class="fas fa-language fa-lg"></i></div>
-                                        <h4 class="mb-1"><span id="successful-ocr-count">0</span> (<span id="ocr-success-rate">0%</span>)</h4>
+                                        <h4 class="mb-1"><span id="successful-ocr-count">0</span> (<span
+                                                id="ocr-success-rate">0%</span>)</h4>
                                         <small class="text-white-50">OCR Success Rate (out of plate detection)</small>
                                     </div>
                                 </div>
@@ -472,212 +535,75 @@
                 </div>
 
                 <!-- Quality Metrics -->
-                <div class="row mb-4">
+                <div class="row mb-5">
                     <div class="col-12">
-                        <h6 class="text-info mb-3">
+                        <h6 class="text-info mb-4">
                             <i class="fas fa-award me-2"></i>Quality Metrics
                         </h6>
                         <div class="row">
-                            <div class="col-md-4 mb-3">
-                                <div class="card">
-                                    <div class="card-header">
-                                        <h6 class="mb-0">Detection Accuracy</h6>
-                                    </div>
-                                    <div class="card-body">
-                                        <div class="progress mb-2">
-                                            <div class="progress-bar bg-success" id="detection-accuracy-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"
-                                                style="width: 0%"></div>
-                                        </div>
-                                        <small class="text-muted">Based on confidence thresholds</small>
-                                    </div>
+                                                    <div class="col-md-4 mb-4">
+                            <div class="card h-100">
+                                <div class="card-header">
+                                    <h6 class="mb-0">Detection Accuracy</h6>
                                 </div>
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                <div class="card">
-                                    <div class="card-header">
-                                        <h6 class="mb-0">OCR Accuracy</h6>
+                                <div class="card-body d-flex flex-column">
+                                    <div class="progress mb-2">
+                                        <div class="progress-bar" id="detection-accuracy-bar"
+                                            role="progressbar" aria-valuemin="0" aria-valuemax="100"
+                                            aria-valuenow="0" style="width: 0%"></div>
                                     </div>
-                                    <div class="card-body">
-                                        <div class="progress mb-2">
-                                            <div class="progress-bar bg-info" id="ocr-accuracy-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" style="width: 0%">
-                                            </div>
-                                        </div>
-                                        <small class="text-muted">Text recognition confidence</small>
+                                    <div class="text-center mb-2">
+                                        <span class="h5 fw-bold" id="detection-accuracy-value">0%</span>
                                     </div>
-                                </div>
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                <div class="card">
-                                    <div class="card-header">
-                                        <h6 class="mb-0">System Reliability</h6>
-                                    </div>
-                                    <div class="card-body">
-                                        <div class="progress mb-2">
-                                            <div class="progress-bar bg-warning" id="system-reliability-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"
-                                                style="width: 0%"></div>
-                                        </div>
-                                        <small class="text-muted">Uptime and error rates</small>
-                                    </div>
+                                    <small class="text-muted mt-auto">Based on successful vehicle detections vs total frames</small>
                                 </div>
                             </div>
                         </div>
+                        <div class="col-md-4 mb-4">
+                            <div class="card h-100">
+                                <div class="card-header">
+                                    <h6 class="mb-0">OCR Accuracy</h6>
+                                </div>
+                                <div class="card-body d-flex flex-column">
+                                    <div class="progress mb-2">
+                                        <div class="progress-bar" id="ocr-accuracy-bar" role="progressbar"
+                                            aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"
+                                            style="width: 0%">
+                                        </div>
+                                    </div>
+                                    <div class="text-center mb-2">
+                                        <span class="h5 fw-bold" id="ocr-accuracy-value">0%</span>
+                                    </div>
+                                    <small class="text-muted mt-auto">Based on successful OCR vs total plates detected</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-4">
+                            <div class="card h-100">
+                                <div class="card-header">
+                                    <h6 class="mb-0">System Reliability</h6>
+                                </div>
+                                <div class="card-body d-flex flex-column">
+                                    <div class="progress mb-2">
+                                        <div class="progress-bar" id="system-reliability-bar"
+                                            role="progressbar" aria-valuemin="0" aria-valuemax="100"
+                                            aria-valuenow="0" style="width: 0%"></div>
+                                    </div>
+                                    <div class="text-center mb-2">
+                                        <span class="h5 fw-bold" id="system-reliability-value">0%</span>
+                                    </div>
+                                    <small class="text-muted mt-auto">Based on service uptime and error rate</small>
+                                </div>
+                            </div>
+                        </div>
+                        </div>
                     </div>
                 </div>
-
-                <!-- Operational Insights -->
+                
+                <!-- Bottom spacing for comprehensive content -->
                 <div class="row mb-4">
                     <div class="col-12">
-                        <h6 class="text-warning mb-3">
-                            <i class="fas fa-lightbulb me-2"></i>Operational Insights
-                        </h6>
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <div class="card">
-                                    <div class="card-header">
-                                        <h6 class="mb-0">Peak Detection Times</h6>
-                                    </div>
-                                    <div class="card-body">
-                                        <div id="peak-detection-times">
-                                            <p class="text-muted">No peak detection data available</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <div class="card">
-                                    <div class="card-header">
-                                        <h6 class="mb-0">Resource Utilization</h6>
-                                    </div>
-                                    <div class="card-body">
-                                        <div class="d-flex justify-content-between">
-                                            <span>CPU Usage:</span>
-                                            <strong id="cpu-usage">N/A</strong>
-                                        </div>
-                                        <div class="d-flex justify-content-between">
-                                            <span>Memory Usage:</span>
-                                            <strong id="memory-usage">N/A</strong>
-                                        </div>
-                                        <div class="d-flex justify-content-between">
-                                            <span>Storage Used:</span>
-                                            <strong id="storage-used">N/A</strong>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Image Output Analysis -->
-                <div class="row mb-4">
-                    <div class="col-12">
-                        <h6 class="text-danger mb-3">
-                            <i class="fas fa-images me-2"></i>Image Output Analysis
-                        </h6>
-                        <div class="row">
-                            <div class="col-md-3 mb-3">
-                                <div class="card">
-                                    <div class="card-header">
-                                        <h6 class="mb-0">Original Images</h6>
-                                    </div>
-                                    <div class="card-body text-center">
-                                        <i class="fas fa-camera fa-3x text-info mb-2"></i>
-                                        <h5 id="original-images-count">0</h5>
-                                        <small class="text-muted">Raw captured images</small>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-3 mb-3">
-                                <div class="card">
-                                    <div class="card-header">
-                                        <h6 class="mb-0">Vehicle Detection Images</h6>
-                                    </div>
-                                    <div class="card-body text-center">
-                                        <i class="fas fa-car fa-3x text-primary mb-2"></i>
-                                        <h5 id="vehicle-detection-count">0</h5>
-                                        <small class="text-muted">Images with vehicle bounding boxes</small>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-3 mb-3">
-                                <div class="card">
-                                    <div class="card-header">
-                                        <h6 class="mb-0">Plate Detection Images</h6>
-                                    </div>
-                                    <div class="card-body text-center">
-                                        <i class="fas fa-id-card fa-3x text-success mb-2"></i>
-                                        <h5 id="plate-detection-count">0</h5>
-                                        <small class="text-muted">Images with plate bounding boxes & OCR</small>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-3 mb-3">
-                                <div class="card">
-                                    <div class="card-header">
-                                        <h6 class="mb-0">Cropped Plates</h6>
-                                    </div>
-                                    <div class="card-body text-center">
-                                        <i class="fas fa-crop fa-3x text-warning mb-2"></i>
-                                        <h5 id="cropped-plates-count">0</h5>
-                                        <small class="text-muted">Extracted license plate images</small>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Experimental Controls -->
-                <div class="row">
-                    <div class="col-12">
-                        <div class="card border-warning">
-                            <div class="card-header bg-warning text-dark">
-                                <h6 class="mb-0">
-                                    <i class="fas fa-flask me-2"></i>Experimental Controls
-                                </h6>
-                            </div>
-                            <div class="card-body">
-                                <div class="row">
-                                    <div class="col-md-6">
-                                        <div class="form-check form-switch mb-2">
-                                            <input class="form-check-input" type="checkbox"
-                                                id="real-time-updates-toggle" checked>
-                                            <label class="form-check-label" for="real-time-updates-toggle">
-                                                Real-time Updates
-                                            </label>
-                                        </div>
-                                        <div class="form-check form-switch mb-2">
-                                            <input class="form-check-input" type="checkbox"
-                                                id="detailed-logging-toggle">
-                                            <label class="form-check-label" for="detailed-logging-toggle">
-                                                Detailed Logging
-                                            </label>
-                                        </div>
-                                        <div class="form-check form-switch mb-2">
-                                            <input class="form-check-input" type="checkbox"
-                                                id="performance-monitoring-toggle" checked>
-                                            <label class="form-check-label" for="performance-monitoring-toggle">
-                                                Performance Monitoring
-                                            </label>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <button type="button" class="btn btn-outline-primary btn-sm mb-2"
-                                            onclick="DetectionManager.refreshComprehensiveData()">
-                                            <i class="fas fa-sync-alt"></i> Refresh Data
-                                        </button>
-                                        <button type="button" class="btn btn-outline-success btn-sm mb-2"
-                                            onclick="DetectionManager.exportComprehensiveReport()">
-                                            <i class="fas fa-file-export"></i> Export Report
-                                        </button>
-                                        <button type="button" class="btn btn-outline-warning btn-sm mb-2"
-                                            onclick="DetectionManager.resetComprehensiveMetrics()">
-                                            <i class="fas fa-undo"></i> Reset Metrics
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                        <div style="height: 4rem;"></div>
                     </div>
                 </div>
             </div>
