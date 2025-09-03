@@ -983,6 +983,11 @@ const DashboardManager = {
                 healthStatusElement.className = 'status-indicator status-warning';
                 healthStatusText.textContent = 'Warning';
                 this.updateHealthStatusDetail(healthData, healthStatusDetail);
+            } else if (overallStatus === 'unknown' || !healthData.overall_status) {
+                // Show checking status when status is unknown or not yet loaded
+                healthStatusElement.className = 'status-indicator status-checking';
+                healthStatusText.textContent = 'Checking';
+                healthStatusDetail.textContent = 'กำลังตรวจสอบสถานะ...';
             } else {
                 healthStatusElement.className = 'status-indicator status-offline';
                 healthStatusText.textContent = 'Offline';

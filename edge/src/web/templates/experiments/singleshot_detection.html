@@ -333,11 +333,11 @@
 </div>
 
 <!-- Experiment Progress Modal -->
-<div class="modal fade" id="experimentProgressModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" style="display: block;" aria-modal="true">
+<div class="modal fade" id="experimentProgressModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" role="dialog" aria-modal="true" aria-labelledby="experimentProgressModalLabel">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title"><i class="fas fa-cog fa-spin me-2"></i>Running Single Shot Detection</h5>
+                <h5 class="modal-title" id="experimentProgressModalLabel"><i class="fas fa-cog fa-spin me-2"></i>Running Single Shot Detection</h5>
             </div>
             <div class="modal-body">
                 <div class="text-center mb-4">
@@ -471,6 +471,22 @@
 
     .experiment-running {
         animation: pulse 2s infinite;
+    }
+    
+    /* Modal focus management for accessibility */
+    .modal:focus {
+        outline: none;
+    }
+    
+    .modal .btn:focus,
+    .modal button:focus {
+        outline: 2px solid #007bff;
+        outline-offset: 2px;
+    }
+    
+    /* Ensure modal content is properly visible */
+    .modal.show {
+        display: block !important;
     }
 </style>
 {% endblock %}
@@ -652,6 +668,15 @@
         // Show progress modal
         const modal = new bootstrap.Modal(document.getElementById('experimentProgressModal'));
         modal.show();
+        
+        // Focus management for accessibility
+        setTimeout(() => {
+            const modalElement = document.getElementById('experimentProgressModal');
+            const firstFocusableElement = modalElement.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+            if (firstFocusableElement) {
+                firstFocusableElement.focus();
+            }
+        }, 100);
 
         // Start experiment pipeline
         runDetectionPipeline();
@@ -704,6 +729,11 @@
         // Hide modal
         const modal = bootstrap.Modal.getInstance(document.getElementById('experimentProgressModal'));
         modal.hide();
+        
+        // Return focus to start button for accessibility
+        setTimeout(() => {
+            document.getElementById('startExperimentBtn').focus();
+        }, 100);
 
         // Update UI
         document.getElementById('startExperimentBtn').disabled = false;
@@ -835,6 +865,11 @@
             // Hide modal
             const modal = bootstrap.Modal.getInstance(document.getElementById('experimentProgressModal'));
             modal.hide();
+            
+            // Return focus to start button for accessibility
+            setTimeout(() => {
+                document.getElementById('startExperimentBtn').focus();
+            }, 100);
 
             alert('Experiment stopped by user.');
         }

@@ -1212,6 +1212,17 @@ p {
     background-color: var(--warning-color);
 }
 
+/* Checking Status Colors */
+.status-indicator.status-checking {
+    background-color: var(--info-color);
+    box-shadow: 0 0 8px rgba(23, 162, 184, 0.4);
+    animation: pulse 1.5s infinite;
+}
+
+.status-indicator.status-checking::after {
+    background-color: var(--info-color);
+}
+
 /* Database Status Colors */
 .status-indicator.status-connected {
     background-color: var(--success-color);

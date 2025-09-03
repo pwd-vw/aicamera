@@ -766,8 +766,8 @@ class HealthService:
                             self.logger.info(f"⏳ Waiting for components to be ready... (check {check_count}/{max_checks})")
                             self.logger.info(f"   Camera: {camera_status}, Detection: {detection_status}")
                         
-                        # Wait 45 seconds before next check (increased for better detection initialization)
-                        time.sleep(45)
+                        # Wait 60 seconds before next check (increased for better detection initialization and reduced resource usage)
+                        time.sleep(60)
                         
                     except Exception as e:
                         self.logger.error(f"Error in auto-start monitor: {e}")

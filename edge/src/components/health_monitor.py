@@ -28,6 +28,15 @@ from edge.src.core.config import (
     EASYOCR_LANGUAGES, HEALTH_CHECK_INTERVAL, BASE_DIR
 )
 
+# Import HEF_MODEL_PATH and MODEL_ZOO_URL with fallback handling
+try:
+    from edge.src.core.config import HEF_MODEL_PATH, MODEL_ZOO_URL
+except ImportError:
+    # Fallback values if import fails
+    HEF_MODEL_PATH = "@local"
+    MODEL_ZOO_URL = "https://hailo-model-zoo.s3.eu-west-2.amazonaws.com/ModelZoo/"
+    logger.warning("Failed to import HEF_MODEL_PATH and MODEL_ZOO_URL, using fallback values")
+
 logger = get_logger(__name__)
 
 
@@ -309,17 +318,26 @@ class HealthMonitor:
     
     def check_model_loading(self) -> bool:
         """
-        Check if detection models are available and loadable using degirum library.
+        Check if detection models are available and loadable using detection service API.
+        Optimized to reduce CPU/RAM usage and avoid redundant checks.
         
         Returns:
             bool: True if models are available, False otherwise
         """
         component = "Detection Models"
+        
+        # Add caching to prevent excessive API calls
+        if hasattr(self, '_last_model_check_time') and hasattr(self, '_last_model_check_result'):
+            time_since_last_check = time.time() - self._last_model_check_time
+            if time_since_last_check < 30:  # Cache results for 30 seconds
+                self.logger.debug(f"Using cached model check result (checked {time_since_last_check:.1f}s ago)")
+                return self._last_model_check_result
+        
         try:
-            # First, try to get detection service status via API
+            # Use detection service API as primary method (more efficient)
             try:
                 import requests
-                response = requests.get('http://localhost/detection/status', timeout=5)
+                response = requests.get('http://localhost/detection/status', timeout=10)  # Increased timeout
                 if response.status_code == 200:
                     detection_data = response.json()
                     if detection_data.get('success'):
@@ -346,6 +364,9 @@ class HealthMonitor:
                         if essential_models_ok:
                             self._log_result(component, "PASS", 
                                 f"Detection models loaded successfully via detection service API", details)
+                            # Cache successful result
+                            self._last_model_check_time = time.time()
+                            self._last_model_check_result = True
                             return True
                         else:
                             missing = []
@@ -356,12 +377,30 @@ class HealthMonitor:
                             
                             self._log_result(component, "FAIL", 
                                 f"Missing essential detection models: {', '.join(missing)}", details)
+                            # Cache failed result
+                            self._last_model_check_time = time.time()
+                            self._last_model_check_result = False
                             return False
             except Exception as e:
                 self.logger.warning(f"Could not access detection service API: {e}")
-                # Continue to fallback method
+                # Continue to fallback method only if API fails consistently
             
-            # Fallback: Try to check models using degirum directly
+            # Fallback: Use degirum check only when necessary (reduced frequency)
+            # This method is more resource-intensive, so we use it sparingly
+            if not hasattr(self, '_degirum_fallback_count'):
+                self._degirum_fallback_count = 0
+            
+            # Only use degirum fallback every 3rd failed API check to reduce resource usage
+            if self._degirum_fallback_count % 3 != 0:
+                self._degirum_fallback_count += 1
+                self.logger.info(f"Skipping degirum fallback check (attempt {self._degirum_fallback_count})")
+                # Cache result to prevent excessive checks
+                self._last_model_check_time = time.time()
+                self._last_model_check_result = False
+                return False
+            
+            self._degirum_fallback_count += 1
+            
             try:
                 # Configure HailoRT logging before importing degirum
                 from edge.config.hailort_logging import configure_hailort_logging
@@ -413,18 +452,30 @@ class HealthMonitor:
                 if models_loaded >= 2:  # At least vehicle + LP detection
                     self._log_result(component, "PASS", 
                         f"Detection models available via degirum ({models_loaded} models)", details)
+                    # Cache successful result
+                    self._last_model_check_time = time.time()
+                    self._last_model_check_result = True
                     return True
                 else:
                     self._log_result(component, "FAIL", 
                         f"Missing detection models via degirum: {', '.join(missing_models)}", details)
+                    # Cache failed result
+                    self._last_model_check_time = time.time()
+                    self._last_model_check_result = False
                     return False
                     
             except ImportError:
                 self._log_result(component, "FAIL", "degirum library not available")
+                # Cache failed result
+                self._last_model_check_time = time.time()
+                self._last_model_check_result = False
                 return False
                 
         except Exception as e:
             self._log_result(component, "FAIL", f"Model loading check failed: {e}")
+            # Cache failed result
+            self._last_model_check_time = time.time()
+            self._last_model_check_result = False
             return False
     
     def check_easyocr_init(self) -> bool:
@@ -671,6 +722,63 @@ class HealthMonitor:
                 'timestamp': datetime.now().isoformat()
             }
     
+    def run_light_checks(self) -> Dict[str, Any]:
+        """
+        Run light health checks excluding resource-intensive components like detection models.
+        This reduces CPU/RAM usage while maintaining basic system monitoring.
+        
+        Returns:
+            Dict containing light health check results
+        """
+        try:
+            self.logger.debug("Running light health checks (skipping detection models)...")
+            
+            # Run essential health checks only (skip detection models and EasyOCR)
+            checks = {
+                'camera': self.check_camera(),
+                'disk_space': self.check_disk_space(),
+                'cpu_ram': self.check_cpu_ram(),
+                'database': self.check_database_connection(),
+                'network': self.check_network_connectivity(),
+                'storage': self.check_storage_management()
+            }
+            
+            # Determine overall status based on essential components
+            failed_checks = sum(1 for status in checks.values() if not status)
+            total_checks = len(checks)
+            
+            # Critical checks: camera, database, storage
+            critical_checks = ['camera', 'database', 'storage']
+            critical_failures = [check for check in checks.keys() if check in critical_checks and not checks[check]]
+            
+            if len(critical_failures) == 0:
+                overall_status = "healthy"
+            elif len(critical_failures) == 1:
+                overall_status = "warning"
+            else:
+                overall_status = "critical"
+            
+            result = {
+                'overall_status': overall_status,
+                'checks_passed': total_checks - failed_checks,
+                'checks_failed': failed_checks,
+                'total_checks': total_checks,
+                'component_status': checks,
+                'note': 'Light check - detection models not included',
+                'timestamp': datetime.now().isoformat()
+            }
+            
+            self.logger.debug(f"Light health checks completed: {overall_status} ({total_checks - failed_checks}/{total_checks} passed)")
+            return result
+            
+        except Exception as e:
+            self.logger.error(f"Error running light health checks: {e}")
+            return {
+                'overall_status': 'error',
+                'error': str(e),
+                'timestamp': datetime.now().isoformat()
+            }
+    
     def get_latest_health_checks(self, limit: int = 10) -> List[Dict[str, Any]]:
         """
         Get latest health check results from database.
@@ -763,9 +871,20 @@ class HealthMonitor:
         """Background monitoring loop - OPTIMIZED for reduced resource usage."""
         try:
             self.logger.info(f"Health monitoring started with {interval}s interval (optimized for core components)")
+            
+            # Add staggered check intervals to reduce resource usage
+            check_count = 0
             while not self.stop_event.is_set():
-                # Run health checks (reduced frequency for non-essential monitoring)
-                health_result = self.run_all_checks()
+                check_count += 1
+                
+                # Run health checks with reduced frequency for resource-intensive components
+                if check_count % 2 == 0:  # Every 2nd check (every 2 minutes if interval=60)
+                    self.logger.debug("Running full health check (including detection models)")
+                    health_result = self.run_all_checks()
+                else:
+                    # Light check - skip detection models to reduce resource usage
+                    self.logger.debug("Running light health check (skipping detection models)")
+                    health_result = self.run_light_checks()
                 
                 # Wait for next check (longer interval to reduce resource usage)
                 self.stop_event.wait(interval)
