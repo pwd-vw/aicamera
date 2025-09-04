@@ -229,6 +229,7 @@ diagrams/
 *.docx
 *.jpg
 *.png
+!assets/aicamera_logo.png
 
 # =============================================================================
 # LOGS AND TEMP FILES
