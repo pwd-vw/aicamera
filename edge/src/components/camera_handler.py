@@ -456,7 +456,7 @@ class CameraHandler:
                 # According to Picamera2 manual, use proper stream configuration
                 from edge.src.core.config import MAIN_RESOLUTION, LORES_RESOLUTION
                 main_config = {"size": MAIN_RESOLUTION, "format": "RGB888"}
-                lores_config = {"size": LORES_RESOLUTION, "format": "XBGR8888"}
+                lores_config = {"size": LORES_RESOLUTION, "format": "RGB888"}  # Changed from XBGR8888 to RGB888 for consistency
                 
                 # Create configuration with proper stream setup
                 config = self.picam2.create_video_configuration(
@@ -698,7 +698,7 @@ class CameraHandler:
                 'frame': frame,
                 'metadata': metadata,
                 'timestamp': time.time(),
-                'format': 'XBGR8888',
+                'format': 'RGB888',  # Changed from XBGR8888 to RGB888 for consistency
                 'size': frame.shape[:2]
             }
                 
@@ -737,7 +737,7 @@ class CameraHandler:
                 'metadata': make_json_serializable(metadata),
                 'timestamp': time.time(),
                 'main_format': 'RGB888',
-                'lores_format': 'XBGR8888',
+                'lores_format': 'RGB888',  # Changed from XBGR8888 to RGB888 for consistency
                 'main_size': main_frame.shape[:2],
                 'lores_size': lores_frame.shape[:2]
             }

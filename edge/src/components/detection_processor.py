@@ -285,8 +285,8 @@ class DetectionProcessor:
             if len(frame.shape) == 3:
                 if frame.shape[2] == 4:  # BGRA
                     frame = cv2.cvtColor(frame, cv2.COLOR_BGRA2BGR)
-                elif frame.shape[2] == 3:  # Already BGR/RGB - assume BGR
-                    pass  # Keep as-is
+                elif frame.shape[2] == 3:  # RGB from camera - convert to BGR for OpenCV
+                    frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
             elif len(frame.shape) == 2:  # Grayscale
                 frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
             else:
