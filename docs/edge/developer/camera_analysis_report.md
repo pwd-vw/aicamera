@@ -662,13 +662,13 @@ def _optimize_for_detection(self, frame: np.ndarray) -> np.ndarray:
     """Optimize frame specifically for detection models."""
     try:
         # Step 1: Apply quality enhancements before resizing
-        enhanced_frame = self._enhance_frame_quality(frame)
+        enhanced_frame = self._enhance_frame_quality(frame) # must Dev
         
         # Step 2: Smart resizing with letterboxing for aspect ratio preservation
-        detection_frame = self._resize_with_letterbox(enhanced_frame, self.detection_resolution)
+        detection_frame = self._resize_with_letterbox(enhanced_frame, self.detection_resolution) # Must Dev
         
         # Step 3: Apply final detection-specific optimizations
-        detection_frame = self._apply_detection_optimizations(detection_frame)
+        detection_frame = self._apply_detection_optimizations(detection_frame) # Must Dev
         
         return detection_frame
         
@@ -938,3 +938,33 @@ def _monitor_processing_performance(self):
     except Exception as e:
         self.logger.warning(f"Performance monitoring failed: {e}")
 ```
+
+### create the feature branch and prepare for development:
+```bash
+# Check current status
+git status
+
+# Create and switch to feature branch
+git checkout -b feature/improve_camera
+
+# Verify current branch, You should see feature/improve_camera with an asterisk () indicating it's the current branch.
+git branch
+
+# Push to remote (optional)
+git push -u origin feature/improve_camera
+
+# Verify remote branch
+git branch -a
+```
+### Make commits with descriptive messages like
+```bash
+   git add .
+   git commit -m "feat: implement autofocus initialization system"
+   git commit -m "feat: add focus quality monitoring and optimization"
+   git commit -m "feat: implement smart resolution management for detection"
+```
+### Push changes regularly
+```bash
+   git push origin feature/improve_camera
+```
+When ready to merge, create a pull request from feature/improve_camera to main

@@ -230,16 +230,41 @@ class DetectionProcessor:
     
     def cleanup(self):
         """
-        Clean up resources including async OCR loader.
+        Clean up all resources including async OCR loader, parallel processor, and models.
+        Safe to call multiple times (idempotent).
         """
         try:
-            if hasattr(self, 'async_ocr_loader'):
-                self.async_ocr_loader.cleanup()
+            self.logger.info("Cleaning up DetectionProcessor...")
             
+            # Step 1: Clean up parallel OCR processor if present
             if hasattr(self, 'parallel_ocr_processor') and self.parallel_ocr_processor:
-                self.parallel_ocr_processor.cleanup()
-                
-            self.logger.info("DetectionProcessor cleaned up")
+                try:
+                    self.parallel_ocr_processor.cleanup()
+                    self.logger.debug("Parallel OCR processor cleaned up")
+                except Exception as e:
+                    self.logger.warning(f"Error cleaning up parallel OCR processor: {e}")
+            
+            # Step 2: Clean up async OCR loader if present
+            if hasattr(self, 'async_ocr_loader'):
+                try:
+                    self.async_ocr_loader.cleanup()
+                    self.logger.debug("Async OCR loader cleaned up")
+                except Exception as e:
+                    self.logger.warning(f"Error cleaning up async OCR loader: {e}")
+            
+            # Step 3: Clean up model references
+            try:
+                self.vehicle_model = None
+                self.lp_detection_model = None  
+                self.lp_ocr_model = None
+                self.ocr_reader = None
+                self.models_loaded = False
+                self.logger.debug("Model references cleaned up")
+            except Exception as e:
+                self.logger.warning(f"Error cleaning up model references: {e}")
+            
+            self.logger.info("DetectionProcessor cleanup completed")
+            
         except Exception as e:
             self.logger.error(f"Error during DetectionProcessor cleanup: {e}")
     
@@ -650,20 +675,233 @@ class DetectionProcessor:
                 'error': str(e)
             }
     
-    def cleanup(self):
-        """Clean up resources and models."""
+    def _create_high_quality_detection_pipeline(self, frame: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Create high-quality frame for storage and detection-optimized frame for AI models.
+        
+        Returns:
+            Tuple of (high_quality_frame, detection_frame)
+        """
         try:
-            self.logger.info("Cleaning up DetectionProcessor...")
+            # Keep original high-quality frame for storage
+            high_quality_frame = frame.copy()
             
-            # Clean up model references
-            self.vehicle_model = None
-            self.lp_detection_model = None  
-            self.lp_ocr_model = None
-            self.ocr_reader = None
+            # Create detection-optimized frame
+            detection_frame = self._optimize_for_detection(frame)
             
-            self.models_loaded = False
-            
-            self.logger.info("DetectionProcessor cleanup completed")
+            return high_quality_frame, detection_frame
             
         except Exception as e:
-            self.logger.error(f"Error during DetectionProcessor cleanup: {e}")
+            self.logger.error(f"Failed to create detection pipeline: {e}")
+            return frame, frame
+
+    def _optimize_for_detection(self, frame: np.ndarray) -> np.ndarray:
+        """Optimize frame specifically for detection models."""
+        try:
+            # Step 1: Apply quality enhancements before resizing
+            enhanced_frame = self._enhance_frame_quality(frame)
+            
+            # Step 2: Smart resizing with letterboxing for aspect ratio preservation
+            detection_frame = self._resize_with_letterbox(enhanced_frame, self.detection_resolution)
+            
+            # Step 3: Apply final detection-specific optimizations
+            detection_frame = self._apply_detection_optimizations(detection_frame)
+            
+            return detection_frame
+            
+        except Exception as e:
+            self.logger.error(f"Detection optimization failed: {e}")
+            return cv2.resize(frame, self.detection_resolution)
+
+    def _resize_with_letterbox(self, frame: np.ndarray, target_size: Tuple[int, int], 
+                            padding_color: Tuple[int, int, int] = (114, 114, 114)) -> np.ndarray:
+        """
+        Resize frame to target size while preserving aspect ratio using letterboxing.
+        
+        Args:
+            frame: Input frame
+            target_size: Target (width, height)
+            padding_color: BGR color for padding
+            
+        Returns:
+            Resized frame with letterboxing
+        """
+        try:
+            target_w, target_h = target_size
+            frame_h, frame_w = frame.shape[:2]
+            
+            # Calculate scaling factor
+            scale = min(target_w / frame_w, target_h / frame_h)
+            
+            # Calculate new dimensions
+            new_w = int(frame_w * scale)
+            new_h = int(frame_h * scale)
+            
+            # Resize frame
+            resized = cv2.resize(frame, (new_w, new_h), interpolation=cv2.INTER_LINEAR)
+            
+            # Create target canvas with padding color
+            canvas = np.full((target_h, target_w, 3), padding_color, dtype=np.uint8)
+            
+            # Calculate padding
+            pad_x = (target_w - new_w) // 2
+            pad_y = (target_h - new_h) // 2
+            
+            # Place resized frame on canvas
+            canvas[pad_y:pad_y + new_h, pad_x:pad_x + new_w] = resized
+            
+            return canvas
+            
+        except Exception as e:
+            self.logger.error(f"Letterbox resizing failed: {e}")
+            return cv2.resize(frame, target_size)
+
+            # Add to DetectionProcessor
+   
+    def _enhance_frame_quality(self, frame: np.ndarray) -> np.ndarray:
+        """Apply advanced image enhancement for better detection quality."""
+        try:
+            enhanced_frame = frame.copy()
+            
+            # Step 1: Noise reduction
+            enhanced_frame = cv2.fastNlMeansDenoisingColored(enhanced_frame, None, 10, 10, 7, 21)
+            
+            # Step 2: Sharpening using unsharp masking
+            enhanced_frame = self._apply_unsharp_masking(enhanced_frame, amount=1.5, radius=1.0, threshold=0)
+            
+            # Step 3: Contrast enhancement using CLAHE
+            enhanced_frame = self._apply_clahe_enhancement(enhanced_frame)
+            
+            # Step 4: Brightness normalization
+            enhanced_frame = self._normalize_brightness(enhanced_frame)
+            
+            return enhanced_frame
+            
+        except Exception as e:
+            self.logger.warning(f"Frame enhancement failed: {e}")
+            return frame
+
+    def _apply_unsharp_masking(self, frame: np.ndarray, amount: float = 1.5, 
+                          radius: float = 1.0, threshold: int = 0) -> np.ndarray:
+        """Apply unsharp masking for image sharpening."""
+        try:
+            # Convert to float for processing
+            frame_float = frame.astype(np.float32) / 255.0
+            
+            # Create Gaussian blur
+            blurred = cv2.GaussianBlur(frame_float, (0, 0), radius)
+            
+            # Apply unsharp masking
+            sharpened = frame_float + amount * (frame_float - blurred)
+            
+            # Clip values and convert back to uint8
+            sharpened = np.clip(sharpened, 0, 1)
+            return (sharpened * 255).astype(np.uint8)
+            
+        except Exception as e:
+            self.logger.warning(f"Unsharp masking failed: {e}")
+            return frame
+
+            # Add to DetectionProcessor
+   
+    def _assess_frame_quality(self, frame: np.ndarray) -> Dict[str, Any]:
+        """Assess overall frame quality for detection."""
+        try:
+            # Convert to grayscale for analysis
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            
+            # Calculate Laplacian variance for sharpness
+            laplacian_var = cv2.Laplacian(gray, cv2.CV_64F).var()
+            
+            # Calculate brightness and contrast
+            brightness = np.mean(gray)
+            contrast = np.std(gray)
+            
+            # Calculate noise level using local variance
+            noise_level = self._estimate_noise_level(gray)
+            
+            # Determine overall quality score
+            quality_score = self._calculate_quality_score(laplacian_var, brightness, contrast, noise_level)
+            
+            return {
+                'sharpness_score': laplacian_var,
+                'brightness': brightness,
+                'contrast': contrast,
+                'noise_level': noise_level,
+                'quality_score': quality_score,
+                'overall_quality': 'excellent' if quality_score > 80 else 'good' if quality_score > 60 else 'fair' if quality_score > 40 else 'poor'
+            }
+            
+        except Exception as e:
+            self.logger.warning(f"Quality assessment failed: {e}")
+            return {}
+
+    def _calculate_quality_score(self, sharpness: float, brightness: float, 
+                            contrast: float, noise: float) -> float:
+        """Calculate overall quality score (0-100)."""
+        try:
+            # Normalize values to 0-100 scale
+            sharpness_score = min(sharpness / 10.0, 100)  # Normalize sharpness
+            brightness_score = 100 - abs(brightness - 128) / 1.28  # Optimal around 128
+            contrast_score = min(contrast / 2.0, 100)  # Normalize contrast
+            noise_score = max(100 - noise, 0)  # Lower noise = higher score
+            
+            # Weighted average
+            weights = [0.4, 0.2, 0.2, 0.2]  # Sharpness is most important
+            scores = [sharpness_score, brightness_score, contrast_score, noise_score]
+            
+            quality_score = sum(w * s for w, s in zip(weights, scores))
+            return max(0, min(100, quality_score))
+            
+        except Exception as e:
+            self.logger.warning(f"Quality score calculation failed: {e}")
+            return 50.0  # Default middle score
+
+    def _log_quality_metrics(self, frame: np.ndarray, detection_results: List[Dict[str, Any]]):
+        """Log quality metrics for analytics and monitoring."""
+        try:
+            quality_metrics = self._assess_frame_quality(frame)
+            
+            # Add detection performance metrics
+            quality_metrics.update({
+                'detection_count': len(detection_results),
+                'detection_confidence_avg': np.mean([d.get('confidence', 0) for d in detection_results]) if detection_results else 0,
+                'timestamp': time.time(),
+                'frame_shape': frame.shape
+            })
+            
+            # Log to database or analytics system
+            self._store_quality_metrics(quality_metrics)
+            
+            # Alert if quality is consistently poor
+            if quality_metrics['overall_quality'] == 'poor':
+                self._alert_poor_quality(quality_metrics)
+                
+        except Exception as e:
+            self.logger.warning(f"Quality metrics logging failed: {e}")
+
+    def _monitor_processing_performance(self):
+        """Monitor detection processing performance."""
+        try:
+            current_time = time.time()
+            
+            # Calculate processing time
+            if hasattr(self, '_last_processing_time'):
+                processing_time = current_time - self._last_processing_time
+                self._processing_times.append(processing_time)
+                
+                # Keep only last 100 measurements
+                if len(self._processing_times) > 100:
+                    self._processing_times.pop(0)
+                    
+                # Calculate average processing time
+                avg_processing_time = np.mean(self._processing_times)
+                
+                # Alert if processing is too slow
+                if avg_processing_time > 0.1:  # More than 100ms
+                    self.logger.warning(f"Slow processing detected: {avg_processing_time:.3f}s average")
+                    
+            self._last_processing_time = current_time
+            
+        except Exception as e:
+            self.logger.warning(f"Performance monitoring failed: {e}")

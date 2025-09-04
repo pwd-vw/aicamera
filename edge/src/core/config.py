@@ -72,6 +72,9 @@ LOCATION_LON = os.getenv("LOCATION_LON", "100.501443")
 CAMERA_LOCATION = os.getenv("CAMERA_LOCATION", "Main Entrance")
 
 # Camera properties defaults - Can be overridden via environment variables
+HIGH_QUALITY_CAPTURE_RESOLUTION = tuple(map(int, os.getenv("HIGH_QUALITY_CAPTURE_RESOLUTION", "1920x1080").split('x')))
+DETECTION_RESOLUTION = tuple(map(int, os.getenv("DETECTION_RESOLUTION", "640x640").split('x')))
+QUALITY_ENHANCEMENT_ENABLED = os.getenv("QUALITY_ENHANCEMENT_ENABLED", "true").lower() == "true"
 DEFAULT_RESOLUTION = tuple(map(int, os.getenv("CAMERA_RESOLUTION", "640x640").split('x')))
 
 # Main and Lores stream resolutions - Can be overridden via environment variables
@@ -83,6 +86,8 @@ DEFAULT_CONTRAST = float(os.getenv("CAMERA_CONTRAST", "1.0"))    # 0.0 to 2.0
 DEFAULT_SATURATION = float(os.getenv("CAMERA_SATURATION", "1.0"))  # 0.0 to 2.0
 DEFAULT_SHARPNESS = float(os.getenv("CAMERA_SHARPNESS", "1.0"))   # 0.0 to 4.0
 DEFAULT_AWB_MODE = int(os.getenv("CAMERA_AWB_MODE", "0"))      # 0=auto, 1=fluorescent, etc.
+DEFAULT_AUTOFOCUS_MODE = os.getenv("DEFAULT_AUTOFOCUS_MODE", "Auto")
+DEFAULT_QUALITY_MONITORING = os.getenv("DEFAULT_QUALITY_MONITORING", "enabled")
 
 # Detection Settings - Can be overridden via environment variables
 DETECTION_INTERVAL = float(os.getenv("DETECTION_INTERVAL", "30.0"))  # Optimized to 30.0s for performance
