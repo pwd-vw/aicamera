@@ -36,6 +36,26 @@ check_root() {
     fi
 }
 
+# Check if service is already running
+check_service_running() {
+    local service_name=$1
+    if systemctl is-active --quiet "$service_name"; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Check if package is already installed
+check_package_installed() {
+    local package_name=$1
+    if dpkg -l | grep -q "^ii  $package_name "; then
+        return 0
+    else
+        return 1
+    fi
+}
+
 # Install system dependencies
 install_dependencies() {
     print_info "Installing system dependencies..."
@@ -44,17 +64,33 @@ install_dependencies() {
     if command -v apt-get >/dev/null 2>&1; then
         sudo apt-get update
         
-        # Install MQTT broker (Mosquitto)
-        print_info "Installing Mosquitto MQTT broker..."
-        sudo apt-get install -y mosquitto mosquitto-clients
+        # Install MQTT broker (Mosquitto) - check if already installed
+        if ! check_package_installed "mosquitto"; then
+            print_info "Installing Mosquitto MQTT broker..."
+            sudo apt-get install -y mosquitto mosquitto-clients
+        else
+            print_info "Mosquitto MQTT broker already installed"
+        fi
         
-        # Install rsync
-        print_info "Installing rsync..."
-        sudo apt-get install -y rsync
+        # Install rsync - check if already installed
+        if ! check_package_installed "rsync"; then
+            print_info "Installing rsync..."
+            sudo apt-get install -y rsync
+        else
+            print_info "rsync already installed"
+        fi
         
-        # Install OpenSSH server (for SFTP)
-        print_info "Installing OpenSSH server..."
-        sudo apt-get install -y openssh-server
+        # Install OpenSSH server (for SFTP) - check if already installed
+        if ! check_package_installed "openssh-server"; then
+            print_info "Installing OpenSSH server..."
+            sudo apt-get install -y openssh-server
+        else
+            print_info "OpenSSH server already installed"
+        fi
+        
+        # Install Python dependencies for edge communication
+        print_info "Installing Python dependencies for edge communication..."
+        sudo apt-get install -y python3-paho-mqtt python3-paramiko python3-pil python3-requests python3-websocket
         
         print_status "System dependencies installed"
         
@@ -77,32 +113,29 @@ install_dependencies() {
 setup_mqtt() {
     print_info "Setting up MQTT broker..."
     
+    # Check if Mosquitto is already running
+    if check_service_running "mosquitto"; then
+        print_info "Mosquitto service is already running"
+        return 0
+    fi
+    
+    # Check if snap version is running and stop it
+    if pgrep -f "snap.*mosquitto" > /dev/null; then
+        print_warning "Snap version of Mosquitto detected, stopping it..."
+        sudo snap stop mosquitto
+        sudo snap disable mosquitto
+    fi
+    
     # Create MQTT configuration
     sudo mkdir -p /etc/mosquitto/conf.d
     
-    # Create basic mosquitto configuration
+    # Create clean mosquitto configuration (avoiding duplicates)
     cat << 'EOF' | sudo tee /etc/mosquitto/conf.d/aicamera.conf
 # AI Camera MQTT Configuration
 listener 1883
 allow_anonymous true
 max_connections 100
 max_queued_messages 1000
-
-# Logging
-log_dest file /var/log/mosquitto/mosquitto.log
-log_type error
-log_type warning
-log_type notice
-log_type information
-
-# Persistence
-persistence true
-persistence_location /var/lib/mosquitto/
-
-# Connection settings
-keepalive_interval 60
-retry_interval 20
-sys_interval 10
 EOF
 
     # Create log directory
@@ -112,6 +145,10 @@ EOF
     # Create persistence directory
     sudo mkdir -p /var/lib/mosquitto
     sudo chown mosquitto:mosquitto /var/lib/mosquitto
+    
+    # Create runtime directory
+    sudo mkdir -p /run/mosquitto
+    sudo chown mosquitto:mosquitto /run/mosquitto
     
     # Enable and start mosquitto
     sudo systemctl enable mosquitto
@@ -223,9 +260,28 @@ setup_edge_deps() {
         # Activate virtual environment and install dependencies
         source venv_hailo/bin/activate
         pip install --upgrade pip
+        
+        # Install core requirements
         pip install -r requirements.txt
-        pip install paramiko  # For SFTP client
-        pip install paho-mqtt  # For MQTT client
+        
+        # Install communication dependencies (only if not already installed system-wide)
+        if ! python3 -c "import paho.mqtt.client" 2>/dev/null; then
+            pip install paho-mqtt
+        else
+            print_info "paho-mqtt already available"
+        fi
+        
+        if ! python3 -c "import paramiko" 2>/dev/null; then
+            pip install paramiko
+        else
+            print_info "paramiko already available"
+        fi
+        
+        if ! python3 -c "import PIL" 2>/dev/null; then
+            pip install pillow
+        else
+            print_info "PIL/Pillow already available"
+        fi
         
         deactivate
         cd ..
@@ -336,38 +392,38 @@ EOF
     print_status "Created systemd services"
 }
 
-# Test the communication system
-test_system() {
+# Test communication system functionality
+test_communication_system() {
     print_info "Testing communication system..."
     
-    # Test MQTT
+    # Test MQTT broker
     print_info "Testing MQTT broker..."
-    if command -v mosquitto_pub >/dev/null 2>&1; then
-        mosquitto_pub -h localhost -t "aicamera/test" -m "test message" -q 1
-        if [ $? -eq 0 ]; then
-            print_status "MQTT broker test successful"
-        else
-            print_error "MQTT broker test failed"
-        fi
+    if mosquitto_pub -h localhost -t test/topic -m "Hello MQTT" -p 1883 >/dev/null 2>&1; then
+        print_status "MQTT broker test successful"
     else
-        print_warning "mosquitto_pub not available for testing"
+        print_error "MQTT broker test failed"
+        return 1
     fi
     
-    # Test SFTP
+    # Test SFTP server
     print_info "Testing SFTP server..."
-    echo "pwd" | sftp -o BatchMode=no -o StrictHostKeyChecking=no aicamera@localhost 2>/dev/null
-    if [ $? -eq 0 ]; then
+    if echo "pwd" | sftp -o BatchMode=no -o StrictHostKeyChecking=no -P 22 aicamera@localhost >/dev/null 2>&1; then
         print_status "SFTP server test successful"
     else
-        print_warning "SFTP server test failed - may need manual configuration"
+        print_error "SFTP server test failed"
+        return 1
     fi
     
-    # Test directories
+    # Test storage directories
+    print_info "Testing storage directories..."
     if [ -d "./server/image_storage" ] && [ -d "./edge/captured_images" ]; then
         print_status "Storage directories are ready"
     else
         print_error "Storage directories not found"
+        return 1
     fi
+    
+    print_status "Communication system tests completed successfully"
 }
 
 # Create test data
@@ -463,7 +519,7 @@ main() {
     setup_edge_deps
     create_configs
     create_services
-    test_system
+    test_communication_system
     
     if [ "$CREATE_TEST_DATA" = true ]; then
         create_test_data

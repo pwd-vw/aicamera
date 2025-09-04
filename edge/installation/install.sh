@@ -518,11 +518,11 @@ app = Flask(__name__)
 
 @app.route('/health')
 def health_check():
-    return {'status': 'healthy', 'service': 'aicamera_v1.3'}
+    return {'status': 'healthy', 'service': 'aicamera_lpr'}
 
 @app.route('/')
 def index():
-    return {'message': 'AI Camera v1.3 Service Running'}
+    return {'message': 'AI Camera Service Running'}
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
@@ -771,13 +771,13 @@ fi
 
 # Setup and start systemd service
 echo "Setting up systemd service..."
-if [[ -f "edge/systemd_service/aicamera_v1.3.service" ]]; then
-    sudo cp edge/systemd_service/aicamera_v1.3.service /etc/systemd/system/
+if [[ -f "edge/systemd_service/aicamera_lpr.service" ]]; then
+    sudo cp edge/systemd_service/aicamera_lpr.service /etc/systemd/system/
     sudo systemctl daemon-reload
-    sudo systemctl enable aicamera_v1.3.service
+    sudo systemctl enable aicamera_lpr.service
     
-    echo "Starting aicamera_v1.3 service..."
-    if sudo systemctl start aicamera_v1.3.service; then
+    echo "Starting aicamera_lpr service..."
+    if sudo systemctl start aicamera_lpr.service; then
         echo "✅ Service started successfully"
         
         # Wait for service to be fully ready
@@ -785,7 +785,7 @@ if [[ -f "edge/systemd_service/aicamera_v1.3.service" ]]; then
         sleep 5
         
         # Check service status
-        if sudo systemctl is-active --quiet aicamera_v1.3.service; then
+        if sudo systemctl is-active --quiet aicamera_lpr.service; then
             echo "✅ Service is running"
             
             # Validate web interface is accessible
@@ -809,7 +809,7 @@ if [[ -f "edge/systemd_service/aicamera_v1.3.service" ]]; then
             if [[ "$web_accessible" == "false" ]]; then
                 echo "⚠️  Web interface validation failed after $max_retries attempts"
                 echo "📋 Checking service logs for issues..."
-                sudo journalctl -u aicamera_v1.3.service --no-pager -n 20
+                sudo journalctl -u aicamera_lpr.service --no-pager -n 20
                 echo "📋 Service is running but web interface may have issues"
                 echo "📋 You can check manually: curl http://localhost/health"
             fi
@@ -821,20 +821,20 @@ if [[ -f "edge/systemd_service/aicamera_v1.3.service" ]]; then
                 xdg-open http://localhost/health 2>/dev/null || echo "Browser opened manually: http://localhost/health"
             else
                 echo "🌐 Service is running at: http://localhost/health"
-                echo "📊 Check service status with: sudo systemctl status aicamera_v1.3.service"
+                echo "📊 Check service status with: sudo systemctl status aicamera_lpr.service"
             fi
         else
             echo "❌ Service failed to start properly"
-            sudo systemctl status aicamera_v1.3.service
+            sudo systemctl status aicamera_lpr.service
             exit 1
         fi
     else
         echo "❌ Failed to start service"
-        sudo systemctl status aicamera_v1.3.service
+        sudo systemctl status aicamera_lpr.service
         exit 1
     fi
 else
-    echo "❌ Service file not found: edge/systemd_service/aicamera_v1.3.service"
+    echo "❌ Service file not found: edge/systemd_service/aicamera_lpr.service"
     exit 1
 fi
 
@@ -903,8 +903,8 @@ else
 fi
 
 echo ""
-echo "📋 Service Status: sudo systemctl status aicamera_v1.3.service"
-echo "📋 Service Logs: sudo journalctl -u aicamera_v1.3.service -f"
+echo "📋 Service Status: sudo systemctl status aicamera_lpr.service"
+echo "📋 Service Logs: sudo journalctl -u aicamera_lpr.service -f"
 echo "🌐 Web Interface: http://localhost"
 echo "🔍 Validation: python edge/scripts/validate_installation.py"
 
@@ -1028,3 +1028,145 @@ else
 fi
 
 echo "   ✅ Boot logo setup completed (optional feature)"
+
+# Edge Communication system setup
+echo ""
+echo "🔌 Setting up Edge Communication System..."
+echo "   ℹ️  This will install and configure MQTT, SFTP, and WebSocket communication"
+echo "   ℹ️  This is a required component for edge-to-server communication"
+
+# Check prerequisites for edge communication setup
+echo "   🔍 Checking prerequisites for edge communication setup..."
+
+# Check if we have internet connectivity for package installation
+if ping -c 1 8.8.8.8 >/dev/null 2>&1; then
+    echo "   ✅ Internet connectivity available"
+else
+    echo "   ⚠️  No internet connectivity detected"
+    echo "   📋 Some packages may not install - ensure system packages are available"
+fi
+
+# Check if we're in the right directory to run the setup script
+if [[ -f "../../scripts/setup_edge_communication_system.sh" ]]; then
+    echo "   📋 Found edge communication setup script"
+    
+    # Make the script executable
+    chmod +x ../../scripts/setup_edge_communication_system.sh
+    
+    # Check if setup script has any specific requirements
+    echo "   📋 Checking setup script requirements..."
+    
+    # Run the edge communication setup with verbose output
+    echo "   🚀 Running edge communication system setup..."
+    echo "   📋 This may take several minutes depending on system performance..."
+    
+    if cd ../../ && ./scripts/setup_edge_communication_system.sh; then
+        echo "   ✅ Edge communication system setup completed successfully"
+        
+        # Return to installation directory
+        cd edge/installation/
+        
+        # Verify the configuration was created
+        if [[ -f ".env.production" ]]; then
+            echo "   ✅ Edge configuration file created: .env.production"
+            echo "   📋 Configuration file location: $(pwd)/.env.production"
+            
+            # Show configuration file info
+            echo "   📊 Configuration file details:"
+            echo "      - Size: $(du -h .env.production | cut -f1)"
+            echo "      - Lines: $(wc -l < .env.production)"
+            echo "      - Last modified: $(stat -c %y .env.production)"
+        else
+            echo "   ⚠️  Edge configuration file not found - check setup script output"
+        fi
+        
+        # Check if edge services were created
+        if [[ -f "../src/services/mqtt_client.py" ]] && \
+           [[ -f "../src/services/sftp_transfer.py" ]] && \
+           [[ -f "../src/services/websocket_client.py" ]]; then
+            echo "   ✅ Edge communication services created"
+            
+            # Show service files info
+            echo "   📊 Service files created:"
+            for service in mqtt_client.py sftp_transfer.py websocket_client.py; do
+                if [[ -f "../src/services/$service" ]]; then
+                    echo "      - $service: $(du -h "../src/services/$service" | cut -f1)"
+                fi
+            done
+        else
+            echo "   ⚠️  Some edge services not found - check setup script output"
+        fi
+        
+        # Check if startup script was created
+        if [[ -f "../start_edge.sh" ]]; then
+            echo "   ✅ Edge startup script created: ../start_edge.sh"
+            echo "   📋 To start edge application: cd .. && ./start_edge.sh"
+            
+            # Make startup script executable
+            chmod +x ../start_edge.sh
+            echo "   ✅ Startup script made executable"
+        else
+            echo "   ⚠️  Edge startup script not found - check setup script output"
+        fi
+        
+        # Check if logs directory was created
+        if [[ -d "../logs" ]]; then
+            echo "   ✅ Logs directory created: ../logs"
+        else
+            echo "   ℹ️  Logs directory not found - will be created when edge starts"
+        fi
+        
+    else
+        echo "   ❌ Edge communication system setup failed"
+        echo "   📋 Check the setup script output for error details"
+        echo "   📋 You can run the setup manually: ./scripts/setup_edge_communication_system.sh"
+        echo "   📋 Common troubleshooting steps:"
+        echo "      - Check system package availability: sudo apt update"
+        echo "      - Verify Python environment: python3 --version"
+        echo "      - Check permissions: ls -la scripts/setup_edge_communication_system.sh"
+        
+        # Return to installation directory even if setup failed
+        cd edge/installation/
+    fi
+    
+else
+    echo "   ⚠️  Edge communication setup script not found: ../../scripts/setup_edge_communication_system.sh"
+    echo "   📋 Please ensure the setup script exists in the scripts/ directory"
+    echo "   📋 You can run the setup manually from the project root directory"
+    echo "   📋 Expected location: $(pwd)/../../scripts/setup_edge_communication_system.sh"
+fi
+
+echo "   ✅ Edge communication system setup completed"
+
+# Final installation summary
+echo ""
+echo "🎉 AI Camera Edge Installation Complete!"
+echo "=========================================="
+echo ""
+echo "📋 Installation Summary:"
+echo "   ✅ System dependencies installed"
+echo "   ✅ Python environment configured"
+echo "   ✅ AI Camera application installed"
+echo "   ✅ Camera hardware configured"
+echo "   ✅ Kiosk browser service installed (optional)"
+echo "   ✅ Boot logo configured (optional)"
+echo "   ✅ Edge communication system configured"
+echo ""
+echo "🚀 Next Steps:"
+echo "   1. Configure edge environment: nano .env.production"
+echo "   2. Start edge application: cd .. && ./start_edge.sh"
+echo "   3. Monitor communication: mosquitto_sub -h localhost -t 'aicamera/edge/#'"
+echo "   4. Check logs: tail -f ../logs/edge.log"
+echo ""
+echo "📚 Documentation:"
+echo "   - Main docs: ../../docs/shared/COMMUNICATION_SYSTEM_IMPLEMENTATION.md"
+echo "   - Edge setup: ../../scripts/setup_edge_communication_system.sh"
+echo "   - Test scripts: ../../scripts/test_*.py"
+echo ""
+echo "🔧 Troubleshooting:"
+echo "   - Check service status: sudo systemctl status mosquitto"
+echo "   - Test communication: python3 ../../scripts/test_edge_services_direct.py"
+echo "   - View setup logs: journalctl -u edge-communication-setup.service"
+echo ""
+echo "🎯 The edge device is now ready for AI Camera operations!"
+echo "   Happy detecting! 🚗📸"
