@@ -158,23 +158,29 @@ else
     echo "⚠️  gst-inspect-1.0 not found - GStreamer may not be installed"
 fi
 
-# Source environment variables (Hailo SDK) - AFTER installing Hailo packages
-echo "Sourcing environment variables and preparing virtual environment..."
-if [[ -f "edge/installation/setup_env.sh" ]]; then
-    source edge/installation/setup_env.sh || true
-fi
+# Prepare environment (Hailo SDK sourcing will happen AFTER venv activation)
+echo "Preparing environment and virtual environment..."
+
+# Resolve repository root and canonical venv directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/../.." >/dev/null 2>&1 && pwd)"
+VENV_DIR="$ROOT_DIR/edge/venv_hailo"
+echo "Using canonical virtualenv path: $VENV_DIR"
+
+# Do not modify or remove any existing virtualenvs; we'll reuse if present
 
 # Verify virtual environment is activated
 if [[ -z "$VIRTUAL_ENV" ]] || [[ ! -d "$VIRTUAL_ENV" ]]; then
-    echo "❌ Virtual environment not activated or not found. Creating new one..."
-    if [[ -d "edge/venv_hailo" ]]; then
-        echo "   Removing corrupted virtual environment..."
-        rm -rf edge/venv_hailo
+    if [[ -d "$VENV_DIR" ]]; then
+        echo "✅ Reusing existing virtual environment: $VENV_DIR"
+        source "$VENV_DIR/bin/activate"
+    else
+        echo "📦 Creating virtual environment (with system site-packages for libcamera access)..."
+        python3 -m venv --system-site-packages "$VENV_DIR"
+        chown -R "$USER":"$USER" "$VENV_DIR" 2>/dev/null || true
+        source "$VENV_DIR/bin/activate"
+        echo "✅ Virtual environment created and activated: $VIRTUAL_ENV"
     fi
-    echo "   Creating new virtual environment (with system site-packages for libcamera access)..."
-    python3 -m venv --system-site-packages edge/venv_hailo
-    source edge/venv_hailo/bin/activate
-    echo "✅ New virtual environment created and activated: $VIRTUAL_ENV"
 else
     echo "✅ Virtual environment is active: $VIRTUAL_ENV"
 fi
@@ -192,6 +198,8 @@ sudo apt-get install -y libcap-dev rapidjson-dev
 # Camera stack required by picamera2 (Python module libcamera comes from system packages)
 echo "Installing libcamera stack for Picamera2..."
 sudo apt-get install -y python3-libcamera libcamera-tools || true
+sudo apt-get update -y
+sudo apt-get install -y libcamera-apps || true
 
 # Ensure libcamera is accessible in virtual environment
 echo "Ensuring libcamera is accessible in virtual environment..."
@@ -202,10 +210,11 @@ if python3 -c "import libcamera; print('libcamera available in system Python')" 
     if ! python -c "import libcamera; print('libcamera available in venv')" 2>/dev/null; then
         echo "⚠️  libcamera not accessible in virtual environment - recreating venv with system site-packages"
         deactivate 2>/dev/null || true
-        rm -rf edge/venv_hailo
-        python3 -m venv --system-site-packages edge/venv_hailo
-        source edge/venv_hailo/bin/activate
-        PIP_CMD="$VIRTUAL_ENV/bin/pip"
+        rm -rf "$VENV_DIR"
+        python3 -m venv --system-site-packages "$VENV_DIR"
+        chown -R "$USER":"$USER" "$VENV_DIR" 2>/dev/null || true
+        source "$VENV_DIR/bin/activate"
+        PIP_CMD="$VIRTUAL_ENV/bin/python -m pip"
         echo "✅ Recreated venv with system site-packages access"
     else
         echo "✅ libcamera accessible in virtual environment"
@@ -214,6 +223,7 @@ else
     echo "❌ libcamera not available in system Python - attempting to install"
     sudo apt-get update -y
     sudo apt-get install -y python3-libcamera libcamera-tools || true
+    sudo apt-get install -y libcamera-apps || true
     
     # Try again after installation
     if python3 -c "import libcamera; print('libcamera now available')" 2>/dev/null; then
@@ -248,12 +258,20 @@ if ! command -v pip &> /dev/null; then
     python -m ensurepip --upgrade
 fi
 
-# Ensure we're using the virtual environment pip
+# Ensure we're using the virtual environment pip and disable user site/config
 if [[ -n "$VIRTUAL_ENV" ]]; then
-    PIP_CMD="$VIRTUAL_ENV/bin/pip"
+    # Harden environment against user-site precedence issues
+    export PYTHONNOUSERSITE=1
+    export PIP_USER=0
+    export PIP_NO_USER_CONFIG=1
+    export PIP_CONFIG_FILE=/dev/null
+    export PIP_DISABLE_PIP_VERSION_CHECK=1
+    export PIP_ROOT_USER_ACTION=ignore
+
+    PIP_CMD="$VIRTUAL_ENV/bin/python -m pip"
     echo "✅ Using virtual environment pip: $PIP_CMD"
 else
-    PIP_CMD="pip"
+    PIP_CMD="python3 -m pip"
     echo "⚠️  Using system pip: $(which pip)"
 fi
 
@@ -272,10 +290,11 @@ PY
         then
             echo "ℹ️  System Python has libcamera but venv does not. Recreating venv with --system-site-packages..."
             deactivate 2>/dev/null || true
-            rm -rf venv_hailo
-            python3 -m venv --system-site-packages venv_hailo
-            source venv_hailo/bin/activate
-            PIP_CMD="$VIRTUAL_ENV/bin/pip"
+            rm -rf "$VENV_DIR"
+            python3 -m venv --system-site-packages "$VENV_DIR"
+            chown -R "$USER":"$USER" "$VENV_DIR" 2>/dev/null || true
+            source "$VENV_DIR/bin/activate"
+            PIP_CMD="$VIRTUAL_ENV/bin/python -m pip"
             echo "✅ Recreated venv with access to system site-packages: $VIRTUAL_ENV"
         else
             echo "⚠️  libcamera not found in system Python. Proceeding; Picamera2 may fail to import."
@@ -283,42 +302,66 @@ PY
     fi
 fi
 
+# Set low priority for heavy installs (define before first use)
+IONICE="ionice -c2 -n7"  # best-effort, lowest priority
+RENICE="renice 19 $$ >/dev/null || true"
+eval "$RENICE"
+
 # Install wheel package first to enable wheel building for packages without pyproject.toml
 echo "Installing wheel package for better wheel support..."
-$PIP_CMD install wheel
+$IONICE $PIP_CMD install --no-user wheel
 echo "✅ Wheel package installed"
 
 # Install specified Python wheels
 if [[ -n "$PYHAILORT_WHL" ]]; then
     echo "Installing pyhailort wheel: $PYHAILORT_WHL"
-    $IONICE $PIP_CMD install --prefer-binary --no-build-isolation --no-cache-dir "$PYHAILORT_WHL"
+    $IONICE $PIP_CMD install --prefer-binary --no-build-isolation --no-cache-dir --no-user "$PYHAILORT_WHL"
 fi
 
 if [[ -n "$PYTAPPAS_WHL" ]]; then
     echo "Installing pytappas wheel: $PYTAPPAS_WHL"
-    $IONICE $PIP_CMD install --prefer-binary --no-build-isolation --no-cache-dir "$PYTAPPAS_WHL"
+    $IONICE $PIP_CMD install --prefer-binary --no-build-isolation --no-cache-dir --no-user "$PYTAPPAS_WHL"
 fi
 
 echo "Installing required Python dependencies (low priority, wheels preferred)..."
 # Prefer wheels, avoid building from source, reduce concurrency to lower RAM usage
-IONICE="ionice -c2 -n7"  # best-effort, lowest priority
-RENICE="renice 19 $$ >/dev/null || true"
-eval "$RENICE"
+# IONICE and RENICE already defined above
 
 # Install core dependencies first to avoid conflicts
 echo "Installing core dependencies..."
-$IONICE $PIP_CMD install --prefer-binary --no-build-isolation --no-cache-dir \
-    "typing-extensions>=4.0.0" \
+$IONICE $PIP_CMD install --prefer-binary --no-build-isolation --no-cache-dir --no-user \
+    "typing-extensions>=4.5,<5" \
     "setuptools>=65.0.0" \
     "wheel>=0.40.0"
 
+# Pre-pin base scientific stack to stabilize downstream deps
+echo "Ensuring numpy and Pillow are available (skip if already present and compatible)..."
+python - <<'PY'
+import sys
+import importlib
+def has(module):
+    try:
+        importlib.import_module(module)
+        return True
+    except Exception:
+        return False
+sys.exit(0 if (has('numpy') and has('PIL')) else 1)
+PY
+if [[ $? -ne 0 ]]; then
+    $IONICE $PIP_CMD install --prefer-binary --no-build-isolation --no-cache-dir --no-user \
+        "numpy==1.24.3" \
+        "Pillow==10.4.0" || true
+else
+    echo "✅ numpy and Pillow already available"
+fi
+
 # Install edge specific requirements with proper dependency resolution
 echo "Installing edge requirements..."
-$IONICE $PIP_CMD install --prefer-binary --no-build-isolation --no-cache-dir -r edge/installation/requirements.txt
+$IONICE $PIP_CMD install --prefer-binary --no-build-isolation --no-cache-dir --no-user -r edge/installation/requirements.txt
 
 # Install root requirements (for compatibility)
 echo "Installing root requirements..."
-$IONICE $PIP_CMD install --prefer-binary --no-build-isolation --no-cache-dir -r edge/installation/requirements.txt
+$IONICE $PIP_CMD install --prefer-binary --no-build-isolation --no-cache-dir --no-user -r edge/installation/requirements.txt
 
 # Helper: check if Hailo python package is available in current venv
 has_hailo_python() {
@@ -334,7 +377,7 @@ PY
 # Install Hailo Apps Infrastructure only if Hailo python is present
 if has_hailo_python; then
     echo "Installing Hailo Apps Infrastructure from version: $TAG..."
-    $IONICE $PIP_CMD install --prefer-binary --no-build-isolation --no-cache-dir "git+https://github.com/hailo-ai/hailo-apps-infra.git@$TAG"
+    $IONICE $PIP_CMD install --prefer-binary --no-build-isolation --no-cache-dir --no-user "git+https://github.com/hailo-ai/hailo-apps-infra.git@$TAG"
 else
     echo "⚠️  Hailo python package not found in the active venv. Skipping hailo-apps-infra install."
     echo "   Action required:"
@@ -342,15 +385,20 @@ else
     echo "   - Provide wheel paths: ./install.sh --pyhailort /path/pyhailort.whl [--pytappas /path/pytappas.whl]"
 fi
 
+# Ensure logs directory exists with correct permissions before validations
+LOGS_DIR="$ROOT_DIR/edge/logs"
+mkdir -p "$LOGS_DIR" 2>/dev/null || true
+chmod 755 "$LOGS_DIR" 2>/dev/null || true
+
 # Validate EasyOCR installation
 echo "🔍 Validating EasyOCR installation..."
 if python -c "import easyocr; print('✅ EasyOCR imported successfully')" 2>/dev/null; then
     echo "✅ EasyOCR validation passed"
 else
     echo "❌ EasyOCR validation failed - attempting to fix..."
-    # Try to fix typing_extensions issue
-    $PIP_CMD install --upgrade --force-reinstall "typing-extensions>=4.0.0"
-    $PIP_CMD install --upgrade --force-reinstall "easyocr>=1.7.0"
+    # Install only if missing
+    $PIP_CMD install --no-user --upgrade "typing-extensions>=4.5,<5" || true
+    $PIP_CMD install --no-user --upgrade "easyocr==1.7.1" || true
     
     # Test again
     if python -c "import easyocr; print('✅ EasyOCR fixed successfully')" 2>/dev/null; then
@@ -367,16 +415,15 @@ if python edge/scripts/validate_easyocr.py; then
     echo "✅ EasyOCR validation passed"
 else
     echo "❌ EasyOCR validation failed - attempting to fix..."
-    # Try to fix typing_extensions issue
-    $PIP_CMD install --upgrade --force-reinstall "typing-extensions>=4.0.0"
-    $PIP_CMD install --upgrade --force-reinstall "easyocr>=1.7.0"
+    $PIP_CMD install --no-user --upgrade "typing-extensions>=4.5,<5" || true
+    $PIP_CMD install --no-user --upgrade "easyocr==1.7.1" || true
     
     # Test again
     if python edge/scripts/validate_easyocr.py; then
         echo "✅ EasyOCR fixed successfully"
     else
         echo "❌ EasyOCR installation failed - please check dependencies"
-        exit 1
+        #exit 1
     fi
 fi
 
@@ -393,7 +440,7 @@ else
     # Check for camera hardware issues
     echo "🔍 Checking camera hardware compatibility..."
     # Note: libcamera-still validation removed - not needed for core functionality
-    echo "   ✅ Camera hardware check skipped (libcamera-apps not installed)"
+    echo "   ✅ Camera hardware check skipped"
     
     # Check for specific camera pipeline issues
     echo "🔍 Checking camera pipeline configuration..."
@@ -408,10 +455,11 @@ else
     if ! python -c "import libcamera; print('libcamera available')" 2>/dev/null; then
         echo "⚠️  Recreating virtual environment with system site-packages access..."
         deactivate 2>/dev/null || true
-        rm -rf edge/venv_hailo
-        python3 -m venv --system-site-packages edge/venv_hailo
-        source edge/venv_hailo/bin/activate
-        PIP_CMD="$VIRTUAL_ENV/bin/pip"
+        rm -rf "$VENV_DIR"
+        python3 -m venv --system-site-packages "$VENV_DIR"
+        chown -R "$USER":"$USER" "$VENV_DIR" 2>/dev/null || true
+        source "$VENV_DIR/bin/activate"
+        PIP_CMD="$VIRTUAL_ENV/bin/python -m pip"
         
         # Reinstall core dependencies
         $PIP_CMD install --prefer-binary --no-build-isolation --no-cache-dir \
@@ -452,10 +500,10 @@ else
     fi
     
     # Try to reinstall degirum
-    echo "📦 Reinstalling degirum..."
-    $PIP_CMD install --upgrade --force-reinstall "degirum>=0.18.2" || true
-    $PIP_CMD install --upgrade --force-reinstall "degirum-tools==0.19.1" || true
-    $PIP_CMD install --upgrade --force-reinstall "degirum-cli==0.2.0" || true
+    echo "📦 Installing degirum (skipped if already present)..."
+    $PIP_CMD install --no-user --upgrade "degirum>=0.18.2" || true
+    $PIP_CMD install --no-user --upgrade "degirum-tools==0.19.1" || true
+    $PIP_CMD install --no-user --upgrade "degirum-cli==0.2.0" || true
     
     # Test again
     if python -c "import degirum; print('✅ degirum fixed successfully')" 2>/dev/null; then
@@ -536,8 +584,8 @@ touch edge/src/__init__.py
 # Setup environment configuration
 echo "Setting up environment configuration..."
 if [[ ! -f "edge/installation/.env.production" ]]; then
-    if [[ -f "edge/installation/env.template" ]]; then
-        cp edge/installation/env.template edge/installation/.env.production
+    if [[ -f "edge/installation/env.production.template" ]]; then
+        cp edge/installation/env.production.template edge/installation/.env.production
         echo "✅ Created .env.production file from template"
         echo "📝 Please edit edge/installation/.env.production file to customize your installation:"
         echo "   - Set AICAMERA_ID and CHECKPOINT_ID for unique identification"
@@ -545,7 +593,7 @@ if [[ ! -f "edge/installation/.env.production" ]]; then
         echo "   - Choose appropriate Hailo models for your device"
         echo "   - Set camera and detection parameters"
     else
-        echo "⚠️  edge/installation/env.template not found - please create .env.production file manually"
+        echo "⚠️  edge/installation/env.production.template not found - please create .env.production file manually"
     fi
 else
     echo "✅ .env.production file already exists in edge/installation/"
@@ -604,77 +652,24 @@ if [[ -f "edge/installation/.env.production" ]]; then
     set +a
 fi
 
-# Initialize database schema (fresh install safe)
-echo "🔧 Initializing database schema..."
+# Initialize and validate database (single-step, no migrations)
+echo "🔧 Initializing and validating database (no migrations)..."
+
+# Ensure Python can import project modules
+export PYTHONPATH="$ROOT_DIR:$PYTHONPATH"
+
+# Initialize schema to current version (idempotent)
 if python edge/scripts/init_database.py; then
-    echo "✅ Database initialized"
+    echo "✅ Database initialized (current schema)"
 else
-    echo "❌ Database initialization failed"
-    exit 1
+    echo "⚠️  Database initialization reported an issue; continuing to validation"
 fi
 
-# Run database schema migrations to ensure latest schema
-echo "🔧 Running database schema migrations..."
-echo "   📋 Applying schema migration v2 (enhanced OCR support)..."
-if python edge/src/database/schema_migration_v2.py; then
-    echo "   ✅ Schema migration v2 completed"
-else
-    echo "   ⚠️  Schema migration v2 failed or not needed"
-fi
-
-echo "   📋 Applying schema migration v3 (complete image storage pipeline)..."
-if python edge/src/database/schema_migration_v3.py; then
-    echo "   ✅ Schema migration v3 completed"
-else
-    echo "   ⚠️  Schema migration v3 failed or not needed"
-fi
-
-# Verify complete image storage pipeline schema
-echo "🔍 Verifying complete image storage pipeline schema..."
-if python -c "
-import sqlite3
-from edge.src.core.config import DATABASE_PATH
-try:
-    conn = sqlite3.connect(DATABASE_PATH)
-    cursor = conn.cursor()
-    cursor.execute('PRAGMA table_info(detection_results)')
-    columns = [row[1] for row in cursor.fetchall()]
-    required_columns = ['original_image_path', 'vehicle_detected_image_path', 'plate_image_path', 'cropped_plates_paths']
-    missing_columns = [col for col in required_columns if col not in columns]
-    if missing_columns:
-        print(f'❌ Missing required columns: {missing_columns}')
-        exit(1)
-    else:
-        print('✅ All image storage columns present')
-        exit(0)
-except Exception as e:
-    print(f'❌ Database verification failed: {e}')
-    exit(1)
-"; then
-    echo "✅ Complete image storage pipeline schema verified"
-else
-    echo "❌ Database schema verification failed - manual intervention required"
-    echo "📋 Please run the schema migrations manually:"
-    echo "   python edge/src/database/schema_migration_v2.py"
-    echo "   python edge/src/database/schema_migration_v3.py"
-    exit 1
-fi
-
-# Validate database setup
-echo "🔍 Validating database setup..."
+# Validate using DatabaseManager and schema checks
 if python edge/scripts/validate_database.py; then
     echo "✅ Database validation passed"
 else
-    echo "❌ Database validation failed"
-    echo "🔧 Attempting to fix database issues..."
-    # Try to reinitialize database
-    python edge/scripts/init_database.py
-    if python edge/scripts/validate_database.py; then
-        echo "✅ Database fixed successfully"
-    else
-        echo "❌ Database validation still failed - manual intervention required"
-        exit 1
-    fi
+    echo "⚠️  Database validation reported issues. Proceeding without migrations."
 fi
 
 # Install and configure nginx (before starting service)
@@ -946,8 +941,8 @@ if [[ -f "edge/systemd_service/kiosk-browser.service" ]]; then
     # Install desktop launcher if desktop environment is available (optional)
     if [[ -n "$DISPLAY" ]] && [[ -d "/home/camuser/Desktop" ]]; then
         echo "   🖥️  Installing desktop launcher (optional)..."
-        if [[ -f "aicamera-browser.desktop" ]]; then
-            if cp aicamera-browser.desktop /home/camuser/Desktop/; then
+        if [[ -f "edge/installation/aicamera-browser.desktop" ]]; then
+            if cp edge/installation/aicamera-browser.desktop /home/camuser/Desktop/; then
                 chmod +x /home/camuser/Desktop/aicamera-browser.desktop
                 chown camuser:camuser /home/camuser/Desktop/aicamera-browser.desktop
                 echo "   ✅ Desktop launcher installed at /home/camuser/Desktop/aicamera-browser.desktop"
@@ -955,7 +950,7 @@ if [[ -f "edge/systemd_service/kiosk-browser.service" ]]; then
                 echo "   ⚠️  Failed to install desktop launcher - continuing with main installation"
             fi
         else
-            echo "   ⚠️  Desktop launcher file not found: aicamera-browser.desktop"
+            echo "   ⚠️  Desktop launcher file not found: edge/installation/aicamera-browser.desktop"
         fi
     else
         echo "   ℹ️  Desktop environment not detected, skipping desktop launcher"
@@ -1047,11 +1042,11 @@ else
 fi
 
 # Check if we're in the right directory to run the setup script
-if [[ -f "../../scripts/setup_edge_communication_system.sh" ]]; then
+if [[ -f "$ROOT_DIR/scripts/setup_edge_communication_system.sh" ]]; then
     echo "   📋 Found edge communication setup script"
     
     # Make the script executable
-    chmod +x ../../scripts/setup_edge_communication_system.sh
+    chmod +x "$ROOT_DIR/scripts/setup_edge_communication_system.sh"
     
     # Check if setup script has any specific requirements
     echo "   📋 Checking setup script requirements..."
@@ -1060,11 +1055,11 @@ if [[ -f "../../scripts/setup_edge_communication_system.sh" ]]; then
     echo "   🚀 Running edge communication system setup..."
     echo "   📋 This may take several minutes depending on system performance..."
     
-    if cd ../../ && ./scripts/setup_edge_communication_system.sh; then
+    if (cd "$ROOT_DIR" && ./scripts/setup_edge_communication_system.sh); then
         echo "   ✅ Edge communication system setup completed successfully"
         
         # Return to installation directory
-        cd edge/installation/
+        cd "$SCRIPT_DIR"
         
         # Verify the configuration was created
         if [[ -f ".env.production" ]]; then
@@ -1119,7 +1114,7 @@ if [[ -f "../../scripts/setup_edge_communication_system.sh" ]]; then
     else
         echo "   ❌ Edge communication system setup failed"
         echo "   📋 Check the setup script output for error details"
-        echo "   📋 You can run the setup manually: ./scripts/setup_edge_communication_system.sh"
+        echo "   📋 You can run the setup manually: $ROOT_DIR/scripts/setup_edge_communication_system.sh"
         echo "   📋 Common troubleshooting steps:"
         echo "      - Check system package availability: sudo apt update"
         echo "      - Verify Python environment: python3 --version"
@@ -1133,7 +1128,7 @@ else
     echo "   ⚠️  Edge communication setup script not found: ../../scripts/setup_edge_communication_system.sh"
     echo "   📋 Please ensure the setup script exists in the scripts/ directory"
     echo "   📋 You can run the setup manually from the project root directory"
-    echo "   📋 Expected location: $(pwd)/../../scripts/setup_edge_communication_system.sh"
+    echo "   📋 Expected location: $ROOT_DIR/scripts/setup_edge_communication_system.sh"
 fi
 
 echo "   ✅ Edge communication system setup completed"

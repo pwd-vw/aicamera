@@ -468,8 +468,9 @@ class CameraHandler:
                 # Configure camera (this sets up the camera but doesn't start it)
                 self.picam2.configure(config)
                 
-                # Get initial configuration after configure()
-                self.current_config = self.picam2.camera_configuration()
+                # Get initial configuration after configure() (normalize to dict)
+                raw_cfg = self.picam2.camera_configuration()
+                self.current_config = self._normalize_camera_config(raw_cfg)
                 
                 # Camera is now configured but not started
                 self.initialized = True
@@ -1133,7 +1134,7 @@ class CameraHandler:
             
                 # Get raw configuration and make it JSON serializable
                 raw_config = self.picam2.camera_configuration()
-                return make_json_serializable(raw_config)
+                return self._normalize_camera_config(raw_config)
             
         except Exception as e:
             self.logger.error(f"Failed to get configuration: {e}")
@@ -1164,7 +1165,7 @@ class CameraHandler:
                 # Apply new configuration
                 self.logger.info("Applying new camera configuration...")
                 self.picam2.configure(config)
-                self.current_config = self.picam2.camera_configuration()
+                self.current_config = self._normalize_camera_config(self.picam2.camera_configuration())
                 
                 # Always restart camera after configuration update
                 self.logger.info("Restarting camera with new configuration...")
@@ -1180,6 +1181,37 @@ class CameraHandler:
         except Exception as e:
             self.logger.error(f"Failed to update configuration: {e}")
             return False
+
+    def _normalize_camera_config(self, raw_config: Any) -> Dict[str, Any]:
+        """Safely convert Picamera2/libcamera camera configuration to a JSON-serializable dict.
+        Guards missing attributes like 'transform' across libcamera versions.
+        """
+        try:
+            cfg = make_json_serializable(raw_config)
+            if isinstance(cfg, dict):
+                # Ensure expected top-level keys exist
+                cfg.setdefault('buffer_count', cfg.get('buffer_count', None))
+                cfg.setdefault('use_case', cfg.get('use_case', None))
+                # Normalize transform if absent
+                if 'transform' not in cfg or cfg.get('transform') in (None, ''):
+                    cfg['transform'] = 'identity'
+                # Normalize colour_space
+                if 'colour_space' in cfg and cfg['colour_space'] is None:
+                    cfg['colour_space'] = 'sRGB'
+                # Ensure stream sections are dicts
+                for key in ('main', 'lores', 'raw', 'sensor'):
+                    if key in cfg and cfg[key] is not None and not isinstance(cfg[key], dict):
+                        try:
+                            cfg[key] = make_json_serializable(cfg[key])
+                        except Exception:
+                            cfg[key] = {}
+            return cfg if isinstance(cfg, dict) else {'config': cfg}
+        except Exception as e:
+            self.logger.warning(f"Failed to normalize camera configuration: {e}")
+            try:
+                return make_json_serializable(raw_config)
+            except Exception:
+                return {}
     
     def autofocus_cycle(self) -> bool:
         """

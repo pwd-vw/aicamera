@@ -14,17 +14,17 @@ SQLAlchemy==2.0.23
 alembic==1.12.1
 
 # Image Processing
-Pillow==10.0.1
+Pillow==10.4.0
 opencv-python==4.8.1.78
 numpy==1.24.3
 
 # Core Dependencies (install first)
-typing-extensions>=4.0.0
+typing-extensions>=4.5,<5
 setuptools>=65.0.0
 wheel>=0.40.0
 
 # AI and OCR
-easyocr>=1.7.0
+easyocr==1.7.1
 degirum>=0.18.2
 degirum-tools==0.19.1
 degirum-cli==0.2.0

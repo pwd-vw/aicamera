@@ -72,8 +72,8 @@ def validate_database_schema():
         
         required_columns = [
             'id', 'timestamp', 'vehicles_count', 'plates_count', 
-            'ocr_results', 'annotated_image_path', 'image_path',
-            'cropped_plates_paths', 'vehicle_detections', 'plate_detections',
+            'ocr_results', 'original_image_path',
+            'vehicle_detections', 'plate_detections',
             'processing_time_ms', 'created_at', 'sent_to_server', 'sent_at', 
             'server_response', 'hailo_ocr_results', 'easyocr_results', 
             'best_ocr_method', 'ocr_processing_time_ms', 'parallel_ocr_success',

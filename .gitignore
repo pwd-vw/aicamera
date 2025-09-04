@@ -259,3 +259,8 @@ aicamera_deploy_key.pub
 
 # Simulation virtual environment
 edge/venv_simulation/
+
+# =============================================================================
+# GStreamer GstShark traces
+# =============================================================================
+gstshark*
