@@ -13,7 +13,7 @@ Date: August 8, 2025
 # Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-VENV_PATH="$PROJECT_ROOT/../venv_hailo"
+VENV_PATH="$PROJECT_ROOT/../installation/venv_hailo"
 
 # Colors for output
 RED='\033[0;31m'

@@ -229,6 +229,7 @@ diagrams/
 *.docx
 *.jpg
 *.png
+!assets/aicamera_logo.png
 
 # =============================================================================
 # LOGS AND TEMP FILES
@@ -258,3 +259,8 @@ aicamera_deploy_key.pub
 
 # Simulation virtual environment
 edge/venv_simulation/
+
+# =============================================================================
+# GStreamer GstShark traces
+# =============================================================================
+gstshark*

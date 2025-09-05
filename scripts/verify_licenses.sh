@@ -13,7 +13,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Configuration
-VENV_PATH="edge/venv_hailo"
+VENV_PATH="edge/installation/venv_hailo"
 REPORT_DIR="docs/edge/license-reports"
 DATE=$(date +%Y%m%d_%H%M%S)
 
