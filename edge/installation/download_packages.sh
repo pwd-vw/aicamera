@@ -106,7 +106,7 @@ PACKAGE_COUNT=$((PACKAGE_COUNT + 1))
 echo "📊 Progress: $PACKAGE_COUNT/$TOTAL_PACKAGES packages"
 
 # Image Processing packages
-echo "📦 Downloading Pillow==11.3.0..."
+echo "📦 Downloading Pillow==10.4.0..."
 echo "   🔍 Checking for ARM64 wheel availability..."
 
 # Check if Pillow already exists (as wheel or source)
@@ -114,13 +114,12 @@ existing_pillow=$(ls "$PACKAGES_DIR"/pillow*.whl "$PACKAGES_DIR"/Pillow*.whl 2>/
 if [ -n "$existing_pillow" ]; then
     echo "   ✅ Pillow wheel already exists, skipping download"
 else
-    # Download specific ARM64 wheel for Pillow 11.3.0
-    echo "   📥 Downloading Pillow 11.3.0 ARM64 wheel from PyPI..."
-    if wget -q --show-progress -O "$PACKAGES_DIR/pillow-11.3.0-cp311-cp311-manylinux2014_aarch64.manylinux_2_17_aarch64.whl" \
-        "https://files.pythonhosted.org/packages/d5/90/442068a160fd179938ba55ec8c97050a612426fae5ec0a764e345839f76d/pillow-11.3.0-cp311-cp311-manylinux2014_aarch64.manylinux_2_17_aarch64.whl"; then
-        echo "   ✅ Downloaded Pillow==11.3.0 (ARM64 wheel)"
+    # Download Pillow 10.4.0 using pip download
+    echo "   📥 Downloading Pillow 10.4.0 using pip download..."
+    if pip download --no-deps --dest "$PACKAGES_DIR" "Pillow==10.4.0" 2>/dev/null; then
+        echo "   ✅ Downloaded Pillow==10.4.0"
     else
-        echo "   ⚠️  Failed to download Pillow ARM64 wheel"
+        echo "   ⚠️  Failed to download Pillow 10.4.0"
         echo "   💡 Will use system package or existing source distribution"
     fi
 fi

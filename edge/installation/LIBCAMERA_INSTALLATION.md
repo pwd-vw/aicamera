@@ -65,7 +65,20 @@ sudo apt-get install -y python3 python3-pip python3-venv git curl wget
 
 # 2. For Raspberry Pi: Add Raspberry Pi repository
 echo "deb http://archive.raspberrypi.org/debian/ bookworm main" | sudo tee /etc/apt/sources.list.d/raspberrypi.list
-curl -fsSL https://archive.raspberrypi.org/debian/raspberrypi-archive-keyring.gpg | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/raspberrypi-archive-keyring.gpg
+# Try to download the key, but handle 404 errors gracefully
+if curl -fsSL https://archive.raspberrypi.org/debian/raspberrypi-archive-keyring.gpg 2>/dev/null | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/raspberrypi-archive-keyring.gpg 2>/dev/null; then
+    echo "✅ Raspberry Pi GPG key downloaded and installed"
+else
+    echo "⚠️  Could not download GPG key from archive.raspberrypi.org"
+    echo "🔍 Checking if key already exists in system..."
+    if [ -f /etc/apt/trusted.gpg.d/raspberrypi-archive-stable.gpg ]; then
+        echo "✅ Using existing Raspberry Pi GPG key"
+        sudo cp /etc/apt/trusted.gpg.d/raspberrypi-archive-stable.gpg /etc/apt/trusted.gpg.d/raspberrypi-archive-keyring.gpg
+    else
+        echo "⚠️  No existing GPG key found. Repository may not be trusted."
+        echo "📋 You may need to manually add the GPG key or install raspberrypi-archive-keyring package"
+    fi
+fi
 sudo apt-get update
 
 # 3. Install camera software
@@ -95,7 +108,8 @@ pip install -r requirements.txt
 
 ### rpicam (Raspberry Pi only)
 - **Purpose**: Optimized camera applications for Raspberry Pi
-- **Components**:
+- **Package**: `rpicam-apps` (contains all rpicam tools)
+- **Components** (provided by rpicam-apps):
   - `rpicam-hello`: Camera detection and testing
   - `rpicam-still`: Still image capture
   - `rpicam-vid`: Video recording

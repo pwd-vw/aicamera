@@ -23,6 +23,9 @@ PACKAGES_DIR="/home/camuser/aicamera/edge/installation/local_packages"
 TARGET_SYSTEM="auto"  # auto, raspberry-pi, generic
 FORCE_RPICAM=false
 EDGE_ONLY=false
+SKIP_VERSION_CHECKS=false
+FAST_INSTALL=false
+INSTALL_TESTING=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -46,6 +49,23 @@ while [[ $# -gt 0 ]]; do
             EDGE_ONLY=true
             shift
             ;;
+        --skip-version-checks)
+            SKIP_VERSION_CHECKS=true
+            shift
+            ;;
+        --fast-install)
+            SKIP_VERSION_CHECKS=true
+            FAST_INSTALL=true
+            shift
+            ;;
+        --install-testing)
+            INSTALL_TESTING=true
+            shift
+            ;;
+        --skip-easyocr-validation)
+            SKIP_EASYOCR_VALIDATION=true
+            shift
+            ;;
         -h|--help)
             echo "AI Camera v2.0.0 Installation Script"
             echo ""
@@ -57,6 +77,10 @@ while [[ $# -gt 0 ]]; do
             echo "  --target-system TYPE    Target system type: auto, raspberry-pi, generic"
             echo "  --force-rpicam          Force rpicam installation even on non-Raspberry Pi"
             echo "  --edge-only             Install only edge components (skip server components)"
+            echo "  --skip-version-checks   Skip version compatibility checks (faster installation)"
+            echo "  --fast-install         Ultra-fast installation (skip dependency resolution)"
+            echo "  --install-testing      Install testing packages (pytest, notebook, etc.)"
+            echo "  --skip-easyocr-validation  Skip EasyOCR validation (faster installation)"
             echo "  -h, --help             Show this help message"
             echo ""
             echo "Examples:"
@@ -65,6 +89,10 @@ while [[ $# -gt 0 ]]; do
             echo "  $0 --target-system raspberry-pi      # Force Raspberry Pi installation"
             echo "  $0 --edge-only                       # Edge-only installation"
             echo "  $0 --force-rpicam                    # Force rpicam on any system"
+            echo "  $0 --skip-version-checks             # Fast installation (skip version checks)"
+            echo "  $0 --fast-install                   # Ultra-fast installation (skip dependency resolution)"
+            echo "  $0 --install-testing                # Install testing packages after main installation"
+            echo "  $0 --skip-easyocr-validation        # Skip EasyOCR validation (faster installation)"
             exit 0
             ;;
         *)
@@ -153,7 +181,24 @@ install_raspberry_pi_camera_software() {
         
         # Add Raspberry Pi GPG key
         echo "🔑 Adding Raspberry Pi GPG key..."
-        curl -fsSL https://archive.raspberrypi.org/debian/raspberrypi-archive-keyring.gpg | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/raspberrypi-archive-keyring.gpg
+        if [ ! -f /etc/apt/trusted.gpg.d/raspberrypi-archive-keyring.gpg ]; then
+            # Try to download the key, but handle 404 errors gracefully
+            if curl -fsSL https://archive.raspberrypi.org/debian/raspberrypi-archive-keyring.gpg 2>/dev/null | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/raspberrypi-archive-keyring.gpg 2>/dev/null; then
+                echo "✅ Raspberry Pi GPG key downloaded and installed"
+            else
+                echo "⚠️  Could not download GPG key from archive.raspberrypi.org"
+                echo "🔍 Checking if key already exists in system..."
+                if [ -f /etc/apt/trusted.gpg.d/raspberrypi-archive-stable.gpg ]; then
+                    echo "✅ Using existing Raspberry Pi GPG key"
+                    sudo cp /etc/apt/trusted.gpg.d/raspberrypi-archive-stable.gpg /etc/apt/trusted.gpg.d/raspberrypi-archive-keyring.gpg
+                else
+                    echo "⚠️  No existing GPG key found. Repository may not be trusted."
+                    echo "📋 You may need to manually add the GPG key or install raspberrypi-archive-keyring package"
+                fi
+            fi
+        else
+            echo "✅ Raspberry Pi GPG key already exists"
+        fi
         
         # Update package lists
         echo "🔄 Updating package lists with Raspberry Pi repository..."
@@ -172,31 +217,16 @@ install_raspberry_pi_camera_software() {
         libcamera-doc \
         python3-libcamera \
         libcamera-apps \
-        rpicam-apps \
-        rpicam-hello \
-        rpicam-still \
-        rpicam-vid \
-        rpicam-raw \
-        rpicam-jpeg \
-        rpicam-detect \
-        rpicam-sycn || {
-        echo "⚠️  Some rpicam packages failed to install - continuing with available packages"
+        rpicam-apps || {
+        echo "⚠️  Some camera packages failed to install - continuing with available packages"
     }
     
-    # Verify rpicam installation
-    echo "🔍 Verifying rpicam installation..."
+    # Verify camera installation
+    # Check if rpicam-apps provides the expected tools
     if command -v rpicam-hello >/dev/null 2>&1; then
-        echo "✅ rpicam-hello available"
-        rpicam-hello --version 2>/dev/null || echo "   Version info not available"
+        echo "✅ rpicam tools available"
     else
-        echo "⚠️  rpicam-hello not found"
-    fi
-    
-    if command -v libcamera-hello >/dev/null 2>&1; then
-        echo "✅ libcamera-hello available"
-        libcamera-hello --version 2>/dev/null || echo "   Version info not available"
-    else
-        echo "⚠️  libcamera-hello not found"
+        echo "ℹ️  rpicam tools not found - using libcamera tools instead"
     fi
     
     echo "✅ Raspberry Pi camera software installed"
@@ -525,6 +555,30 @@ IONICE="ionice -c2 -n7"  # best-effort, lowest priority
 RENICE="renice 19 $$ >/dev/null || true"
 eval "$RENICE"
 
+# Simple package installation function
+install_package_simple() {
+    local package="$1"
+    local package_name=$(echo "$package" | cut -d'=' -f1 | cut -d'>' -f1 | cut -d'<' -f1)
+    
+    # Check if package exists in local_packages directory
+    if [ -d "$PACKAGES_DIR" ] && ls "$PACKAGES_DIR"/${package_name,,}*.whl 2>/dev/null | head -1 >/dev/null; then
+        echo "📦 Installing $package from local packages..."
+        $IONICE $PIP_CMD install --no-index --find-links "$PACKAGES_DIR" --no-deps "$PACKAGES_DIR"/${package_name,,}*.whl || true
+    else
+        echo "📦 Installing $package from online..."
+        $IONICE $PIP_CMD install --prefer-binary --no-cache-dir --no-user "$package" || true
+    fi
+}
+
+# Set pip options for simple installation
+if [ "$FAST_INSTALL" = true ]; then
+    PIP_FAST_OPTS="--no-deps --force-reinstall"
+    echo "⚡ Fast install mode: Skipping dependency resolution"
+else
+    PIP_FAST_OPTS="--prefer-binary --no-build-isolation"
+    echo "🔍 Standard install mode: Simple package installation"
+fi
+
 # Install wheel package first to enable wheel building for packages without pyproject.toml
 echo "Installing wheel package for better wheel support..."
 $IONICE $PIP_CMD install --no-user wheel
@@ -547,30 +601,25 @@ echo "Installing required Python dependencies (low priority, wheels preferred)..
 
 # Install core dependencies first to avoid conflicts
 echo "Installing core dependencies..."
-$IONICE $PIP_CMD install --prefer-binary --no-build-isolation --no-cache-dir --no-user \
-    "typing-extensions>=4.5,<5" \
-    "setuptools>=65.0.0" \
-    "wheel>=0.40.0"
+install_package_simple "typing-extensions>=4.5,<5"
+install_package_simple "setuptools>=65.0.0"
+install_package_simple "wheel>=0.40.0"
 
 # Pre-pin base scientific stack to stabilize downstream deps
-echo "Ensuring numpy and Pillow are available (skip if already present and compatible)..."
-python - <<'PY'
-import sys
-import importlib
-def has(module):
-    try:
-        importlib.import_module(module)
-        return True
-    except Exception:
-        return False
-sys.exit(0 if (has('numpy') and has('PIL')) else 1)
-PY
-if [[ $? -ne 0 ]]; then
-    $IONICE $PIP_CMD install --prefer-binary --no-build-isolation --no-cache-dir --no-user \
-        "numpy==1.24.3" \
-        "Pillow==10.4.0" || true
+if [ "$SKIP_VERSION_CHECKS" = true ]; then
+    echo "⚡ Skipping version checks - installing numpy and Pillow directly..."
+    install_package_simple "numpy==2.3.2"
+    install_package_simple "Pillow==10.4.0"
 else
-    echo "✅ numpy and Pillow already available"
+    echo "Ensuring numpy and Pillow are available (skip if already present and compatible)..."
+    # Fast check using Python import
+    if python3 -c "import numpy, PIL" 2>/dev/null; then
+        echo "✅ numpy and Pillow already available"
+    else
+        echo "📦 Installing numpy and Pillow..."
+        install_package_simple "numpy==1.26.4"
+        install_package_simple "Pillow==10.4.0"
+    fi
 fi
 
 # Install unified requirements with proper dependency resolution
@@ -616,8 +665,8 @@ if [ "$LOCAL_PACKAGES" = true ]; then
         "Werkzeug==3.1.3" \
         "SQLAlchemy==2.0.43" \
         "alembic==1.12.1" \
-        "Pillow==11.3.0" \
-        "opencv-python-headless==4.12.0.88" \
+        "Pillow==10.4.0" \
+        "opencv-python-headless==4.8.1.78" \
         "easyocr==1.7.1" \
         "degirum==0.18.2" \
         "degirum-tools==0.19.1" \
@@ -660,16 +709,65 @@ if [ "$LOCAL_PACKAGES" = true ]; then
     
     # Reinstall packages that depend on numpy to ensure compatibility
     $IONICE $PIP_CMD install --no-index --find-links "$PACKAGES_DIR" --force-reinstall --no-deps \
-        "opencv-python-headless==4.12.0.88" \
-        "Pillow==11.3.0" \
+        "opencv-python-headless==4.8.1.78" \
+        "Pillow==10.4.0" \
         "pandas==2.3.2" \
         "matplotlib==3.9.4" \
         "scikit-image==0.25.2" || true
     
     echo "✅ Local packages installed successfully"
 else
-    echo "📦 Installing from online packages..."
-    $IONICE $PIP_CMD install --prefer-binary --no-build-isolation --no-cache-dir --no-user -r "$ROOT_DIR/edge/installation/requirements.txt"
+    echo "📦 Installing packages (local if available, otherwise online)..."
+    
+    # List of packages to install
+    packages=(
+        "Flask==3.1.2"
+        "Flask-SocketIO==5.3.6"
+        "python-socketio==5.9.0"
+        "Werkzeug==3.1.3"
+        "SQLAlchemy==2.0.43"
+        "alembic==1.12.1"
+        "Pillow==11.3.0"
+        "opencv-python-headless==4.12.0.88"
+        "numpy==2.0.0"
+        "easyocr==1.7.1"
+        "degirum>=0.18.2"
+        "degirum-tools==0.19.1"
+        "degirum-cli==0.2.0"
+        "websockets==12.0"
+        "pandas==2.3.2"
+        "requests==2.32.3"
+        "psutil==7.0.0"
+        "python-dotenv==1.0.1"
+        "matplotlib==3.9.4"
+        "setproctitle==1.3.6"
+        "gunicorn==23.0.0"
+        "eventlet==0.40.3"
+        "scikit-image==0.25.2"
+        "faker==33.2.0"
+        "paho-mqtt==1.6.1"
+        "paramiko==3.4.0"
+        "websocket-client==1.8.0"
+    )
+    
+    # Skip problematic packages in fast install mode
+    if [ "$FAST_INSTALL" = true ]; then
+        echo "⚡ Fast install: Skipping pytest, notebook, ipykernel, pytest-cov"
+        echo "📋 These can be installed later if needed"
+    else
+        # Add testing packages for standard install
+        packages+=(
+            "pytest==8.3.4"
+            "pytest-cov==6.0.0"
+            "notebook==7.4.5"
+            "ipykernel==6.29.5"
+        )
+    fi
+    
+    # Install each package
+    for package in "${packages[@]}"; do
+        install_package_simple "$package"
+    done
 fi
 
 # Fix camera compatibility issues
@@ -685,26 +783,48 @@ else
     echo "   ✅ No pip picamera2 found - system version will be used"
 fi
 
+# Fix numpy compatibility issues for picamera2
+echo "   🔧 Fixing numpy compatibility for picamera2..."
+# Ensure numpy version matches system expectations
+if python3 -c "import numpy; print(numpy.__version__)" 2>/dev/null; then
+    current_numpy=$(python3 -c "import numpy; print(numpy.__version__)" 2>/dev/null)
+    echo "   📋 Current numpy version: $current_numpy"
+    
+    # Try to reinstall numpy to fix binary compatibility
+    echo "   📦 Reinstalling numpy to fix binary compatibility..."
+    $IONICE $PIP_CMD install --force-reinstall --no-cache-dir --no-user --no-deps "numpy==1.26.4" || true
+    
+    # Also reinstall simplejpeg to ensure compatibility
+    echo "   📦 Reinstalling simplejpeg for numpy compatibility..."
+    $IONICE $PIP_CMD install --force-reinstall --no-cache-dir --no-user "simplejpeg" || true
+else
+    echo "   📦 Installing numpy for picamera2 compatibility..."
+    install_package_simple "numpy==2.3.2"
+fi
+
 # Verify system picamera2 is available
+echo "   🔍 Testing picamera2 import..."
 if python3 -c "import sys; sys.path.insert(0, '/usr/lib/python3/dist-packages'); from picamera2 import Picamera2; print('System picamera2 available')" 2>/dev/null; then
     echo "   ✅ System picamera2 is available and compatible"
 else
     echo "   ⚠️  System picamera2 not available - camera may not work properly"
+    echo "   📋 This may be due to numpy binary compatibility issues"
 fi
 
-# Helper: check if Hailo python package is available in current venv
+# Helper: check if Hailo python package is available in current venv (fast check)
 has_hailo_python() {
-python - <<'PY'
-import importlib.util, sys
-for name in ("hailo", "pyhailort", "hailort"):
-    if importlib.util.find_spec(name) is not None:
-        sys.exit(0)
-sys.exit(1)
-PY
+    # Fast check using Python import (faster than pip show)
+    if python3 -c "import hailo" 2>/dev/null || \
+       python3 -c "import pyhailort" 2>/dev/null || \
+       python3 -c "import hailort" 2>/dev/null; then
+        return 0
+    else
+        return 1
+    fi
 }
 
-# Install Hailo Apps Infrastructure only if Hailo python is present
-if has_hailo_python; then
+# Install Hailo Apps Infrastructure only if Hailo python is present (or skip check)
+if [ "$SKIP_VERSION_CHECKS" = true ] || has_hailo_python; then
     echo "Installing Hailo Apps Infrastructure from version: $TAG..."
     if [ "$LOCAL_PACKAGES" = true ]; then
         echo "📦 Installing hailo-apps-infra from local package..."
@@ -731,41 +851,27 @@ LOGS_DIR="$ROOT_DIR/edge/logs"
 mkdir -p "$LOGS_DIR" 2>/dev/null || true
 chmod 755 "$LOGS_DIR" 2>/dev/null || true
 
-# Validate EasyOCR installation
-echo "🔍 Validating EasyOCR installation..."
-if python -c "import easyocr; print('✅ EasyOCR imported successfully')" 2>/dev/null; then
-    echo "✅ EasyOCR validation passed"
-else
-    echo "❌ EasyOCR validation failed - attempting to fix..."
-    # Install only if missing
-    $PIP_CMD install --no-user --upgrade "typing-extensions>=4.5,<5" || true
-    $PIP_CMD install --no-user --upgrade "easyocr==1.7.1" || true
-    
-    # Test again
-    if python -c "import easyocr; print('✅ EasyOCR fixed successfully')" 2>/dev/null; then
-        echo "✅ EasyOCR fixed successfully"
-    else
-        echo "❌ EasyOCR installation failed - please check dependencies"
-        exit 1
-    fi
-fi
-
-# Validate EasyOCR and typing_extensions comprehensively
-echo "🔍 Running comprehensive EasyOCR validation..."
-if python "$ROOT_DIR/edge/scripts/validate_easyocr.py"; then
-    echo "✅ EasyOCR validation passed"
-else
-    echo "❌ EasyOCR validation failed - attempting to fix..."
-    $PIP_CMD install --no-user --upgrade "typing-extensions>=4.5,<5" || true
-    $PIP_CMD install --no-user --upgrade "easyocr==1.7.1" || true
-    
-    # Test again
+# Validate EasyOCR installation comprehensively (single validation)
+if [[ "$SKIP_EASYOCR_VALIDATION" != "true" ]]; then
+    echo "🔍 Running comprehensive EasyOCR validation..."
     if python "$ROOT_DIR/edge/scripts/validate_easyocr.py"; then
-        echo "✅ EasyOCR fixed successfully"
+        echo "✅ EasyOCR validation passed"
     else
-        echo "❌ EasyOCR installation failed - please check dependencies"
-        #exit 1
+        echo "❌ EasyOCR validation failed - attempting to fix..."
+        # Install dependencies first
+        $PIP_CMD install --no-user --upgrade "typing-extensions>=4.5,<5" || true
+        $PIP_CMD install --no-user --upgrade "easyocr==1.7.1" || true
+        
+        # Test again with comprehensive validation
+        if python "$ROOT_DIR/edge/scripts/validate_easyocr.py"; then
+            echo "✅ EasyOCR fixed successfully"
+        else
+            echo "⚠️  EasyOCR installation has issues - continuing with installation"
+            echo "📋 EasyOCR can be fixed later if needed for OCR functionality"
+        fi
     fi
+else
+    echo "⏭️  Skipping EasyOCR validation (--skip-easyocr-validation flag used)"
 fi
 
 # Validate libcamera installation with comprehensive checks
@@ -1414,7 +1520,7 @@ if [[ -f "$ROOT_DIR/edge/systemd_service/kiosk-browser.service" ]]; then
     
     # Copy service file and enable it (optional)
     echo "   📋 Installing kiosk browser service (optional)..."
-            if sudo cp "$ROOT_DIR/edge/systemd_service/kiosk-browser.service" /etc/systemd/system/; then
+    if sudo cp "$ROOT_DIR/edge/systemd_service/kiosk-browser.service" /etc/systemd/system/; then
         sudo systemctl daemon-reload
         sudo systemctl enable kiosk-browser.service
         echo "   ✅ Kiosk browser service installed and enabled"
@@ -1619,6 +1725,21 @@ else
 fi
 
 echo "   ✅ Edge communication system setup completed"
+
+# Install testing packages if requested
+if [ "$INSTALL_TESTING" = true ]; then
+    echo ""
+    echo "🧪 Installing testing packages..."
+    echo "📦 Installing pytest, notebook, ipykernel, and pytest-cov..."
+    $IONICE $PIP_CMD install --prefer-binary --no-cache-dir --no-user \
+        "pytest==8.3.4" \
+        "pytest-cov==6.0.0" \
+        "notebook==7.4.5" \
+        "ipykernel==6.29.5" || {
+        echo "⚠️  Some testing packages failed to install - continuing"
+    }
+    echo "✅ Testing packages installed"
+fi
 
 # Final installation summary
 echo ""

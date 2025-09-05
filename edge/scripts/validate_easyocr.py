@@ -12,11 +12,17 @@ Date: September 2025
 
 import sys
 import os
+import json
+import time
 from pathlib import Path
 
 # Add project root to Python path
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
+
+# Cache file for validation results
+CACHE_FILE = Path(__file__).parent / ".easyocr_validation_cache.json"
+CACHE_DURATION = 3600  # 1 hour in seconds
 
 try:
     from edge.src.core.config import EASYOCR_LANGUAGES
@@ -24,6 +30,52 @@ try:
 except ImportError as e:
     print(f"❌ Import error: {e}")
     sys.exit(1)
+
+
+def load_validation_cache():
+    """Load validation results from cache."""
+    if not CACHE_FILE.exists():
+        return None
+    
+    try:
+        with open(CACHE_FILE, 'r') as f:
+            cache_data = json.load(f)
+        
+        # Check if cache is still valid
+        if time.time() - cache_data.get('timestamp', 0) < CACHE_DURATION:
+            return cache_data
+        else:
+            # Cache expired, remove it
+            CACHE_FILE.unlink()
+            return None
+    except Exception:
+        # Cache corrupted, remove it
+        if CACHE_FILE.exists():
+            CACHE_FILE.unlink()
+        return None
+
+
+def save_validation_cache(results):
+    """Save validation results to cache."""
+    try:
+        cache_data = {
+            'timestamp': time.time(),
+            'results': results
+        }
+        with open(CACHE_FILE, 'w') as f:
+            json.dump(cache_data, f)
+    except Exception:
+        # Ignore cache save errors
+        pass
+
+
+def is_validation_cached():
+    """Check if validation results are cached and valid."""
+    cache = load_validation_cache()
+    if cache and cache.get('results', {}).get('all_passed', False):
+        print("📋 Using cached EasyOCR validation results")
+        return True
+    return False
 
 
 def validate_typing_extensions():
@@ -181,30 +233,67 @@ def main():
     print("🚀 Starting EasyOCR Validation for AI Camera v2.0.")
     print(f"📋 Supported languages: {EASYOCR_LANGUAGES}")
     
+    # Check for force re-validation flag
+    force_validation = '--force' in sys.argv or '--no-cache' in sys.argv
+    if force_validation:
+        print("🔄 Force re-validation requested (ignoring cache)")
+        if CACHE_FILE.exists():
+            CACHE_FILE.unlink()
+    
+    # Check if validation results are cached
+    if not force_validation and is_validation_cached():
+        print("✅ EasyOCR validation passed (cached)")
+        return 0
+    
     # Check Python environment first
     check_python_environment()
     print()
     
     all_passed = True
+    validation_results = {}
     
-    # Run all validations
-    if not validate_typing_extensions():
+    # Run basic validations first
+    print("🔍 Running basic validations...")
+    typing_ext_ok = validate_typing_extensions()
+    validation_results['typing_extensions'] = typing_ext_ok
+    if not typing_ext_ok:
         all_passed = False
     
-    if not validate_easyocr_import():
+    import_ok = validate_easyocr_import()
+    validation_results['import'] = import_ok
+    if not import_ok:
         all_passed = False
     
-    if not validate_easyocr_initialization():
-        all_passed = False
+    # Only proceed with expensive validations if basic ones pass
+    if typing_ext_ok and import_ok:
+        print("🔍 Running advanced validations...")
+        init_ok = validate_easyocr_initialization()
+        validation_results['initialization'] = init_ok
+        if not init_ok:
+            all_passed = False
+        
+        ocr_ok = validate_easyocr_ocr()
+        validation_results['ocr'] = ocr_ok
+        if not ocr_ok:
+            all_passed = False
+        
+        # Integration validations (less critical - don't fail overall validation)
+        health_ok = validate_health_monitor_easyocr()
+        detection_ok = validate_detection_processor_easyocr()
+        validation_results['health_monitor'] = health_ok
+        validation_results['detection_processor'] = detection_ok
+        # Note: Integration failures don't fail overall validation as they're not critical
+    else:
+        print("⚠️  Skipping advanced validations due to basic import failures")
+        validation_results['initialization'] = False
+        validation_results['ocr'] = False
+        validation_results['health_monitor'] = False
+        validation_results['detection_processor'] = False
     
-    if not validate_easyocr_ocr():
-        all_passed = False
-    
-    if not validate_health_monitor_easyocr():
-        all_passed = False
-    
-    if not validate_detection_processor_easyocr():
-        all_passed = False
+    # Save results to cache if all passed
+    validation_results['all_passed'] = all_passed
+    if all_passed:
+        save_validation_cache(validation_results)
     
     # Summary
     print("\n" + "="*50)

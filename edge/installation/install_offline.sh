@@ -143,9 +143,9 @@ SQLAlchemy==2.0.43
 alembic==1.12.1
 
 # Image Processing
-Pillow==11.3.0
-opencv-python-headless==4.12.0.88
-numpy==2.3.2
+Pillow==10.4.0
+opencv-python-headless==4.8.1.78
+numpy==1.26.4
 
 # Core Dependencies
 typing-extensions==4.12.2
