@@ -1,0 +1,26 @@
+{
+  "server_connectivity": {
+    "status": "FAIL",
+    "timestamp": "2025-09-04T05:59:11.706801"
+  },
+  "device_registration": {
+    "status": "FAIL",
+    "timestamp": "2025-09-04T05:59:13.708760"
+  },
+  "mqtt_communication": {
+    "status": "PASS",
+    "timestamp": "2025-09-04T05:59:16.710594"
+  },
+  "sftp_transfer": {
+    "status": "PASS",
+    "timestamp": "2025-09-04T05:59:19.152444"
+  },
+  "websocket_communication": {
+    "status": "PASS",
+    "timestamp": "2025-09-04T05:59:21.154295"
+  },
+  "image_storage": {
+    "status": "FAIL",
+    "timestamp": "2025-09-04T05:59:23.155981"
+  }
+}

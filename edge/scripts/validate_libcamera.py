@@ -2,7 +2,7 @@
 """
 Libcamera Validation Script for AI Camera v2.0
 
-This script validates that libcamera is properly installed and accessible
+This script validates that libcamera and rpicam are properly installed and accessible
 in the virtual environment for camera control and configuration.
 
 Author: AI Camera Team
@@ -12,6 +12,8 @@ Date: September 2025
 
 import sys
 import os
+import subprocess
+import platform
 from pathlib import Path
 
 # Add project root to Python path
@@ -216,21 +218,187 @@ def check_camera_controls():
         return False
 
 
+def check_system_architecture():
+    """Check system architecture and Raspberry Pi compatibility."""
+    print("🔍 Checking system architecture...")
+    
+    # Get system information
+    arch = platform.machine()
+    system = platform.system()
+    release = platform.release()
+    
+    print(f"📋 System: {system} {release}")
+    print(f"📋 Architecture: {arch}")
+    
+    # Check if this is a Raspberry Pi
+    is_raspberry_pi = False
+    try:
+        with open('/proc/cpuinfo', 'r') as f:
+            cpuinfo = f.read()
+            if 'BCM' in cpuinfo or 'Raspberry Pi' in cpuinfo:
+                is_raspberry_pi = True
+                print("✅ Raspberry Pi detected")
+            else:
+                print("⚠️  Not a Raspberry Pi - some camera features may be limited")
+    except Exception as e:
+        print(f"⚠️  Could not detect Raspberry Pi: {e}")
+    
+    # Check for Raspberry Pi specific files
+    rpi_files = [
+        '/boot/config.txt',
+        '/boot/cmdline.txt',
+        '/proc/device-tree/model'
+    ]
+    
+    rpi_files_found = 0
+    for file_path in rpi_files:
+        if os.path.exists(file_path):
+            rpi_files_found += 1
+    
+    if rpi_files_found >= 2:
+        print("✅ Raspberry Pi system files detected")
+        is_raspberry_pi = True
+    else:
+        print("⚠️  Limited Raspberry Pi system files found")
+    
+    return is_raspberry_pi
+
+
+def check_rpicam_tools():
+    """Check if rpicam tools are available and working."""
+    print("🔍 Checking rpicam tools...")
+    
+    rpicam_tools = [
+        'rpicam-hello',
+        'rpicam-still', 
+        'rpicam-vid',
+        'rpicam-raw',
+        'rpicam-jpeg',
+        'rpicam-detect'
+    ]
+    
+    available_tools = []
+    for tool in rpicam_tools:
+        try:
+            result = subprocess.run([tool, '--help'], capture_output=True, text=True, timeout=5)
+            if result.returncode == 0 or 'usage:' in result.stdout.lower():
+                available_tools.append(tool)
+                print(f"✅ {tool} available")
+            else:
+                print(f"❌ {tool} not working properly")
+        except (subprocess.TimeoutExpired, FileNotFoundError, subprocess.CalledProcessError):
+            print(f"❌ {tool} not found or not working")
+    
+    if available_tools:
+        print(f"📊 rpicam tools available: {len(available_tools)}/{len(rpicam_tools)}")
+        
+        # Test rpicam-hello if available
+        if 'rpicam-hello' in available_tools:
+            try:
+                print("🔍 Testing rpicam-hello camera detection...")
+                result = subprocess.run(['rpicam-hello', '--list-cameras'], 
+                                      capture_output=True, text=True, timeout=10)
+                if result.returncode == 0:
+                    if 'Available cameras' in result.stdout:
+                        print("✅ rpicam-hello can detect cameras")
+                        # Extract camera count
+                        lines = result.stdout.split('\n')
+                        camera_count = 0
+                        for line in lines:
+                            if 'camera' in line.lower() and any(char.isdigit() for char in line):
+                                camera_count += 1
+                        if camera_count > 0:
+                            print(f"📷 Detected {camera_count} camera(s)")
+                        else:
+                            print("⚠️  No cameras detected by rpicam-hello")
+                    else:
+                        print("⚠️  rpicam-hello output unclear")
+                else:
+                    print(f"⚠️  rpicam-hello failed: {result.stderr}")
+            except Exception as e:
+                print(f"⚠️  rpicam-hello test failed: {e}")
+        
+        return True
+    else:
+        print("❌ No rpicam tools available")
+        return False
+
+
+def check_libcamera_version():
+    """Check libcamera version and compare with latest."""
+    print("🔍 Checking libcamera version...")
+    
+    try:
+        # Check system libcamera version
+        result = subprocess.run(['libcamera-hello', '--version'], 
+                              capture_output=True, text=True, timeout=5)
+        if result.returncode == 0:
+            version_info = result.stdout.strip()
+            print(f"✅ libcamera-hello version: {version_info}")
+            
+            # Extract version number
+            import re
+            version_match = re.search(r'(\d+\.\d+\.\d+)', version_info)
+            if version_match:
+                version = version_match.group(1)
+                print(f"📋 Detected version: {version}")
+                
+                # Compare with known versions
+                if version >= "0.5.0":
+                    print("✅ Using recent libcamera version (0.5.0+)")
+                elif version >= "0.4.0":
+                    print("⚠️  Using older libcamera version (0.4.x) - consider upgrading")
+                else:
+                    print("❌ Using very old libcamera version - upgrade recommended")
+                
+                return version
+            else:
+                print("⚠️  Could not parse version number")
+                return None
+        else:
+            print("❌ libcamera-hello not available for version check")
+            return None
+    except Exception as e:
+        print(f"⚠️  Version check failed: {e}")
+        return None
+
+
 def check_installation_methods():
     """Check different installation methods for libcamera."""
     print("🔍 Checking libcamera installation methods...")
     
     # Check apt packages
     try:
-        import subprocess
+        packages = {
+            'python3-libcamera': 'Python libcamera bindings',
+            'libcamera-tools': 'libcamera command line tools',
+            'libcamera-dev': 'libcamera development files',
+            'libcamera-apps': 'libcamera applications',
+            'rpicam-apps': 'Raspberry Pi camera applications'
+        }
         
-        packages = ['python3-libcamera', 'libcamera-tools']
-        for package in packages:
+        installed_packages = []
+        for package, description in packages.items():
             result = subprocess.run(['dpkg', '-l', package], capture_output=True, text=True)
             if result.returncode == 0 and 'ii' in result.stdout:
-                print(f"✅ {package} installed via apt")
+                print(f"✅ {package} installed ({description})")
+                installed_packages.append(package)
             else:
-                print(f"❌ {package} not installed via apt")
+                print(f"❌ {package} not installed ({description})")
+        
+        print(f"📊 Installed packages: {len(installed_packages)}/{len(packages)}")
+        
+        # Check repository sources
+        print("🔍 Checking package repository sources...")
+        try:
+            result = subprocess.run(['grep', '-r', 'raspberrypi.org', '/etc/apt/sources.list*'], 
+                                  capture_output=True, text=True)
+            if result.returncode == 0 and result.stdout.strip():
+                print("✅ Raspberry Pi repository configured")
+            else:
+                print("⚠️  Raspberry Pi repository not configured - may have older libcamera")
+        except Exception as e:
+            print(f"⚠️  Could not check repository sources: {e}")
                 
     except Exception as e:
         print(f"⚠️  Could not check apt packages: {e}")
@@ -238,43 +406,128 @@ def check_installation_methods():
 
 def main():
     """Main validation function."""
-    print("🚀 Starting Libcamera Validation for AI Camera v1.3...")
-    print("="*60)
+    print("🚀 Starting Libcamera & rpicam Validation for AI Camera v2.0...")
+    print("="*70)
     
     all_passed = True
+    validation_results = {}
     
-    # Run all checks
-    if not check_system_libcamera():
-        all_passed = False
+    # System architecture check
+    print("\n📋 SYSTEM ARCHITECTURE CHECK")
+    print("-" * 40)
+    is_raspberry_pi = check_system_architecture()
+    validation_results['system_architecture'] = is_raspberry_pi
     
-    if not check_virtual_env_libcamera():
-        all_passed = False
+    # Version check
+    print("\n📋 VERSION CHECK")
+    print("-" * 40)
+    version = check_libcamera_version()
+    validation_results['libcamera_version'] = version
     
-    if not check_picamera2_libcamera():
-        all_passed = False
-    
-    if not check_camera_hardware():
-        all_passed = False
-    
-    if not check_camera_controls():
-        all_passed = False
-    
+    # Installation methods check
+    print("\n📋 INSTALLATION METHODS CHECK")
+    print("-" * 40)
     check_installation_methods()
     
+    # System libcamera check
+    print("\n📋 SYSTEM LIBCAMERA CHECK")
+    print("-" * 40)
+    system_libcamera_ok = check_system_libcamera()
+    validation_results['system_libcamera'] = system_libcamera_ok
+    if not system_libcamera_ok:
+        all_passed = False
+    
+    # Virtual environment libcamera check
+    print("\n📋 VIRTUAL ENVIRONMENT LIBCAMERA CHECK")
+    print("-" * 40)
+    venv_libcamera_ok = check_virtual_env_libcamera()
+    validation_results['venv_libcamera'] = venv_libcamera_ok
+    if not venv_libcamera_ok:
+        all_passed = False
+    
+    # Picamera2 integration check
+    print("\n📋 PICAMERA2 INTEGRATION CHECK")
+    print("-" * 40)
+    picamera2_ok = check_picamera2_libcamera()
+    validation_results['picamera2'] = picamera2_ok
+    if not picamera2_ok:
+        all_passed = False
+    
+    # Camera hardware check
+    print("\n📋 CAMERA HARDWARE CHECK")
+    print("-" * 40)
+    hardware_ok = check_camera_hardware()
+    validation_results['camera_hardware'] = hardware_ok
+    if not hardware_ok:
+        all_passed = False
+    
+    # Camera controls check
+    print("\n📋 CAMERA CONTROLS CHECK")
+    print("-" * 40)
+    controls_ok = check_camera_controls()
+    validation_results['camera_controls'] = controls_ok
+    if not controls_ok:
+        all_passed = False
+    
+    # rpicam tools check (only on Raspberry Pi)
+    if is_raspberry_pi:
+        print("\n📋 RPICAM TOOLS CHECK")
+        print("-" * 40)
+        rpicam_ok = check_rpicam_tools()
+        validation_results['rpicam_tools'] = rpicam_ok
+        if not rpicam_ok:
+            all_passed = False
+    else:
+        print("\n📋 RPICAM TOOLS CHECK")
+        print("-" * 40)
+        print("⚠️  Skipping rpicam tools check - not a Raspberry Pi system")
+        validation_results['rpicam_tools'] = None
+    
     # Summary
-    print("\n" + "="*60)
+    print("\n" + "="*70)
+    print("📊 VALIDATION SUMMARY")
+    print("="*70)
+    
+    for check, result in validation_results.items():
+        if result is True:
+            print(f"✅ {check.replace('_', ' ').title()}: PASSED")
+        elif result is False:
+            print(f"❌ {check.replace('_', ' ').title()}: FAILED")
+        elif result is None:
+            print(f"⚠️  {check.replace('_', ' ').title()}: SKIPPED")
+        else:
+            print(f"📋 {check.replace('_', ' ').title()}: {result}")
+    
     if all_passed:
-        print("✅ All libcamera validations passed!")
-        print("🎉 Libcamera is properly installed and ready for camera control")
+        print("\n🎉 All libcamera validations passed!")
+        print("✅ Libcamera and rpicam are properly installed and ready for camera control")
+        if is_raspberry_pi:
+            print("🚀 Raspberry Pi camera system is fully operational")
+        else:
+            print("⚠️  Running on non-Raspberry Pi system - some features may be limited")
         return 0
     else:
-        print("❌ Some libcamera validations failed")
-        print("🔧 Please check the following:")
-        print("   1. Install libcamera: sudo apt-get install python3-libcamera")
-        print("   2. Ensure virtual environment has system site-packages access")
-        print("   3. Check camera hardware connections")
-        print("   4. Verify camera device permissions")
-        print("   5. Run: python edge/scripts/validate_libcamera.py")
+        print("\n❌ Some libcamera validations failed")
+        print("🔧 Troubleshooting steps:")
+        
+        if not validation_results.get('system_libcamera', False):
+            print("   1. Install libcamera: sudo apt-get install python3-libcamera libcamera-tools")
+        
+        if not validation_results.get('venv_libcamera', False):
+            print("   2. Ensure virtual environment has system site-packages access")
+            print("      Recreate venv: python3 -m venv --system-site-packages venv")
+        
+        if not validation_results.get('camera_hardware', False):
+            print("   3. Check camera hardware connections")
+            print("   4. Verify camera device permissions: sudo chmod 666 /dev/video*")
+        
+        if is_raspberry_pi and not validation_results.get('rpicam_tools', False):
+            print("   5. Install rpicam tools: sudo apt-get install rpicam-apps")
+            print("   6. Add Raspberry Pi repository for latest packages")
+        
+        print("   7. Run validation again: python edge/scripts/validate_libcamera.py")
+        print("   8. Check system logs: dmesg | grep -i camera")
+        
         return 1
 
 

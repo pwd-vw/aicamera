@@ -20,6 +20,9 @@ set -e  # Exit immediately if a command exits with a non-zero status
 # Parse command line arguments
 LOCAL_PACKAGES=false
 PACKAGES_DIR="/home/camuser/aicamera/edge/installation/local_packages"
+TARGET_SYSTEM="auto"  # auto, raspberry-pi, generic
+FORCE_RPICAM=false
+EDGE_ONLY=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -31,20 +34,37 @@ while [[ $# -gt 0 ]]; do
             PACKAGES_DIR="$2"
             shift 2
             ;;
+        --target-system)
+            TARGET_SYSTEM="$2"
+            shift 2
+            ;;
+        --force-rpicam)
+            FORCE_RPICAM=true
+            shift
+            ;;
+        --edge-only)
+            EDGE_ONLY=true
+            shift
+            ;;
         -h|--help)
             echo "AI Camera v2.0.0 Installation Script"
             echo ""
             echo "Usage: $0 [OPTIONS]"
             echo ""
             echo "Options:"
-            echo "  --local-packages    Use locally downloaded packages (offline installation)"
-            echo "  --packages-dir DIR  Specify local packages directory (default: $PACKAGES_DIR)"
-            echo "  -h, --help         Show this help message"
+            echo "  --local-packages        Use locally downloaded packages (offline installation)"
+            echo "  --packages-dir DIR      Specify local packages directory (default: $PACKAGES_DIR)"
+            echo "  --target-system TYPE    Target system type: auto, raspberry-pi, generic"
+            echo "  --force-rpicam          Force rpicam installation even on non-Raspberry Pi"
+            echo "  --edge-only             Install only edge components (skip server components)"
+            echo "  -h, --help             Show this help message"
             echo ""
             echo "Examples:"
-            echo "  $0                           # Standard installation with online packages"
-            echo "  $0 --local-packages          # Offline installation with local packages"
-            echo "  $0 --local-packages --packages-dir /path/to/packages"
+            echo "  $0                                    # Standard installation with online packages"
+            echo "  $0 --local-packages                  # Offline installation with local packages"
+            echo "  $0 --target-system raspberry-pi      # Force Raspberry Pi installation"
+            echo "  $0 --edge-only                       # Edge-only installation"
+            echo "  $0 --force-rpicam                    # Force rpicam on any system"
             exit 0
             ;;
         *)
@@ -60,9 +80,164 @@ echo "📋 System: $(uname -a)"
 echo "📋 Python: $(python3 --version)"
 echo "📋 Working Directory: $(pwd)"
 echo "📦 Installation Mode: $([ "$LOCAL_PACKAGES" = true ] && echo "Local Packages (Offline)" || echo "Online Packages")"
+echo "🎯 Target System: $TARGET_SYSTEM"
+echo "🔧 Edge Only Mode: $EDGE_ONLY"
 if [ "$LOCAL_PACKAGES" = true ]; then
     echo "📁 Local Packages Directory: $PACKAGES_DIR"
 fi
+
+# System detection function
+detect_system() {
+    echo "🔍 Detecting target system..."
+    
+    local is_raspberry_pi=false
+    local system_type="generic"
+    
+    # Check CPU info for Raspberry Pi
+    if grep -q "BCM\|Raspberry Pi" /proc/cpuinfo 2>/dev/null; then
+        is_raspberry_pi=true
+        system_type="raspberry-pi"
+        echo "✅ Raspberry Pi detected"
+    else
+        echo "⚠️  Not a Raspberry Pi system"
+    fi
+    
+    # Check for Raspberry Pi specific files
+    local rpi_files=("/boot/config.txt" "/boot/cmdline.txt" "/proc/device-tree/model")
+    local rpi_files_found=0
+    
+    for file in "${rpi_files[@]}"; do
+        if [[ -f "$file" ]]; then
+            rpi_files_found=$((rpi_files_found + 1))
+        fi
+    done
+    
+    if [[ $rpi_files_found -ge 2 ]]; then
+        is_raspberry_pi=true
+        system_type="raspberry-pi"
+        echo "✅ Raspberry Pi system files detected"
+    fi
+    
+    # Override with command line argument
+    if [[ "$TARGET_SYSTEM" != "auto" ]]; then
+        system_type="$TARGET_SYSTEM"
+        if [[ "$TARGET_SYSTEM" == "raspberry-pi" ]]; then
+            is_raspberry_pi=true
+        else
+            is_raspberry_pi=false
+        fi
+        echo "🎯 Target system overridden to: $system_type"
+    fi
+    
+    echo "📋 Detected system type: $system_type"
+    echo "📋 Raspberry Pi compatible: $is_raspberry_pi"
+    
+    # Export for use in other functions
+    export DETECTED_SYSTEM_TYPE="$system_type"
+    export IS_RASPBERRY_PI="$is_raspberry_pi"
+}
+
+# Run system detection
+detect_system
+
+# Camera software installation functions
+install_raspberry_pi_camera_software() {
+    echo "🍓 Installing Raspberry Pi camera software..."
+    
+    # Add Raspberry Pi repository for latest libcamera and rpicam
+    echo "🔧 Configuring Raspberry Pi repository..."
+    if ! grep -q "archive.raspberrypi.org" /etc/apt/sources.list.d/raspberrypi.list 2>/dev/null; then
+        echo "📦 Adding Raspberry Pi repository..."
+        echo "deb http://archive.raspberrypi.org/debian/ bookworm main" | sudo tee /etc/apt/sources.list.d/raspberrypi.list >/dev/null
+        echo "deb-src http://archive.raspberrypi.org/debian/ bookworm main" | sudo tee -a /etc/apt/sources.list.d/raspberrypi.list >/dev/null
+        
+        # Add Raspberry Pi GPG key
+        echo "🔑 Adding Raspberry Pi GPG key..."
+        curl -fsSL https://archive.raspberrypi.org/debian/raspberrypi-archive-keyring.gpg | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/raspberrypi-archive-keyring.gpg
+        
+        # Update package lists
+        echo "🔄 Updating package lists with Raspberry Pi repository..."
+        sudo apt-get update -y
+        echo "✅ Raspberry Pi repository configured"
+    else
+        echo "✅ Raspberry Pi repository already configured"
+        sudo apt-get update -y
+    fi
+    
+    # Install latest libcamera and rpicam packages
+    echo "📦 Installing latest libcamera and rpicam packages..."
+    sudo apt-get install -y \
+        libcamera-tools \
+        libcamera-dev \
+        libcamera-doc \
+        python3-libcamera \
+        libcamera-apps \
+        rpicam-apps \
+        rpicam-hello \
+        rpicam-still \
+        rpicam-vid \
+        rpicam-raw \
+        rpicam-jpeg \
+        rpicam-detect \
+        rpicam-sycn || {
+        echo "⚠️  Some rpicam packages failed to install - continuing with available packages"
+    }
+    
+    # Verify rpicam installation
+    echo "🔍 Verifying rpicam installation..."
+    if command -v rpicam-hello >/dev/null 2>&1; then
+        echo "✅ rpicam-hello available"
+        rpicam-hello --version 2>/dev/null || echo "   Version info not available"
+    else
+        echo "⚠️  rpicam-hello not found"
+    fi
+    
+    if command -v libcamera-hello >/dev/null 2>&1; then
+        echo "✅ libcamera-hello available"
+        libcamera-hello --version 2>/dev/null || echo "   Version info not available"
+    else
+        echo "⚠️  libcamera-hello not found"
+    fi
+    
+    echo "✅ Raspberry Pi camera software installed"
+}
+
+install_generic_camera_software() {
+    echo "🖥️  Installing generic camera software..."
+    
+    # Install libcamera from system repositories
+    echo "📦 Installing libcamera packages..."
+    sudo apt-get install -y \
+        python3-libcamera \
+        libcamera-tools \
+        libcamera-dev \
+        libcamera-doc \
+        libcamera-apps || {
+        echo "⚠️  Some libcamera packages failed to install - continuing with available packages"
+    }
+    
+    # Install additional camera tools
+    echo "📦 Installing additional camera tools..."
+    sudo apt-get install -y \
+        v4l-utils \
+        uvcdynctrl \
+        guvcview \
+        cheese || {
+        echo "⚠️  Some camera tools failed to install - continuing"
+    }
+    
+    echo "✅ Generic camera software installed"
+}
+
+install_camera_software() {
+    echo "📷 Installing camera software for $DETECTED_SYSTEM_TYPE..."
+    
+    if [[ "$IS_RASPBERRY_PI" == "true" ]] || [[ "$FORCE_RPICAM" == "true" ]]; then
+        install_raspberry_pi_camera_software
+    else
+        install_generic_camera_software
+    fi
+}
 
 # Update system packages first (recommended for fresh installations)
 echo "🔄 Updating system packages..."
@@ -71,22 +246,26 @@ sudo apt-get update -y
 sudo apt-get upgrade -y
 echo "✅ System packages updated"
 
-# Setup SSH for GitHub Actions deployment
-echo "🔑 Setting up SSH for GitHub Actions deployment..."
-echo "📋 Creating SSH directory and configuring authorized keys..."
+# Setup SSH for GitHub Actions deployment (skip in edge-only mode)
+if [[ "$EDGE_ONLY" != "true" ]]; then
+    echo "🔑 Setting up SSH for GitHub Actions deployment..."
+    echo "📋 Creating SSH directory and configuring authorized keys..."
 
-# Create .ssh directory if it doesn't exist
-mkdir -p ~/.ssh
-chmod 700 ~/.ssh
+    # Create .ssh directory if it doesn't exist
+    mkdir -p ~/.ssh
+    chmod 700 ~/.ssh
 
-# Add GitHub Actions deployment key to authorized_keys
-echo "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQCeL4SoHelb+9aDlO1/wrqw/C+VGA5DMlRJ+U8mbNpn+8ueczEgApme8PJC6te4lt4LSOkLyKSgLLOts3fQpKPabtFER4ssgyHXrn8G2v1ObTtzwtYIpE5qTWJJiGXs63zMXrJW08D5cTLtTqxoVBmV8NhT2IEuejOWhf6BHH4xZahx2AGprWNvc7gSJCxRkScPNjTtlj2kj85rNlwCgzJJV3052NSyLg8Th4CdYqcn43J2EwBDjIIfMuySE1dFav2nnhScgu/JF9HouYggnfxbOblasmCVWNK1ADsZmEgnAP9G/Y559MQLcwF0wbef9Np23KIOet0clOHqmzH8ZziUKeItyx8SR82KhuCbvVTfiiAxPsfQoR5cQ+0WaTXCs5ulLQseRY9utno+Tq2NpDaG6SezkB5UOk8H9eYxOc/Ob4wDVrA4A87PXFo7s4CqD3fCRznA7gr6GmR9qE9WXbfuz2uWjcr+VNFpaZxV4UF1WenuHxMKRwfRqLyn2wRnJiXijJ4sQ4MTYPGewqeqa3XCQySGbiPmxzdsUpfROWSk52H459hmXh1SoPYnuSo1Pk3fkxAk9pwWaIo5+gPAt6Vmv6ANeTOX+BP3hTfJ73gAILc/3qx08lLQT6bcDRh/JMp3oyjgTjUZVV4jAvUPrXoDb/2w/zKRjeH518lswvRLnw== aicamera-deployment@github.com" >> ~/.ssh/authorized_keys
+    # Add GitHub Actions deployment key to authorized_keys
+    echo "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQCeL4SoHelb+9aDlO1/wrqw/C+VGA5DMlRJ+U8mbNpn+8ueczEgApme8PJC6te4lt4LSOkLyKSgLLOts3fQpKPabtFER4ssgyHXrn8G2v1ObTtzwtYIpE5qTWJJiGXs63zMXrJW08D5cTLtTqxoVBmV8NhT2IEuejOWhf6BHH4xZahx2AGprWNvc7gSJCxRkScPNjTtlj2kj85rNlwCgzJJV3052NSyLg8Th4CdYqcn43J2EwBDjIIfMuySE1dFav2nnhScgu/JF9HouYggnfxbOblasmCVWNK1ADsZmEgnAP9G/Y559MQLcwF0wbef9Np23KIOet0clOHqmzH8ZziUKeItyx8SR82KhuCbvVTfiiAxPsfQoR5cQ+0WaTXCs5ulLQseRY9utno+Tq2NpDaG6SezkB5UOk8H9eYxOc/Ob4wDVrA4A87PXFo7s4CqD3fCRznA7gr6GmR9qE9WXbfuz2uWjcr+VNFpaZxV4UF1WenuHxMKRwfRqLyn2wRnJiXijJ4sQ4MTYPGewqeqa3XCQySGbiPmxzdsUpfROWSk52H459hmXh1SoPYnuSo1Pk3fkxAk9pwWaIo5+gPAt6Vmv6ANeTOX+BP3hTfJ73gAILc/3qx08lLQT6bcDRh/JMp3oyjgTjUZVV4jAvUPrXoDb/2w/zKRjeH518lswvRLnw== aicamera-deployment@github.com" >> ~/.ssh/authorized_keys
 
-# Set proper permissions for SSH files
-chmod 600 ~/.ssh/authorized_keys
-chmod 700 ~/.ssh
+    # Set proper permissions for SSH files
+    chmod 600 ~/.ssh/authorized_keys
+    chmod 700 ~/.ssh
 
-echo "✅ SSH setup completed for GitHub Actions deployment"
+    echo "✅ SSH setup completed for GitHub Actions deployment"
+else
+    echo "⚠️  Skipping SSH setup (edge-only mode)"
+fi
 
 # Camera cleanup and preparation (CRITICAL - prevents "Device or resource busy" errors)
 echo "📷 Preparing camera system for installation..."
@@ -237,11 +416,8 @@ echo "Installing additional system dependencies..."
 export DEBIAN_FRONTEND=noninteractive
 sudo apt-get install -y libcap-dev rapidjson-dev
 
-# Camera stack required by picamera2 (Python module libcamera comes from system packages)
-echo "Installing libcamera stack for Picamera2..."
-sudo apt-get install -y python3-libcamera libcamera-tools || true
-sudo apt-get update -y
-sudo apt-get install -y libcamera-apps || true
+# Install camera software based on detected system
+install_camera_software
 
 # Ensure libcamera is accessible in virtual environment
 echo "Ensuring libcamera is accessible in virtual environment..."
@@ -592,20 +768,37 @@ else
     fi
 fi
 
-# Validate libcamera installation
+# Validate libcamera installation with comprehensive checks
 echo "🔍 Running comprehensive libcamera validation..."
 if python "$ROOT_DIR/edge/scripts/validate_libcamera.py"; then
     echo "✅ libcamera validation passed"
 else
     echo "❌ libcamera validation failed - attempting to fix..."
-    # Try to fix libcamera installation
+    
+    # Try to fix libcamera installation with latest packages
+    echo "🔧 Attempting to fix libcamera installation..."
     sudo apt-get update -y
-    sudo apt-get install -y python3-libcamera libcamera-tools || true
+    
+    # Reinstall libcamera packages with latest versions
+    sudo apt-get install -y --reinstall \
+        libcamera-tools \
+        libcamera-dev \
+        python3-libcamera \
+        libcamera-apps \
+        rpicam-apps || true
     
     # Check for camera hardware issues
     echo "🔍 Checking camera hardware compatibility..."
-    # Note: libcamera-still validation removed - not needed for core functionality
-    echo "   ✅ Camera hardware check skipped"
+    if ls /dev/video* >/dev/null 2>&1; then
+        echo "   ✅ Camera devices found: $(ls /dev/video* | wc -l) devices"
+        for device in /dev/video*; do
+            if [[ -e "$device" ]]; then
+                echo "   📷 $device: $(ls -la "$device" | awk '{print $1, $3, $4}')"
+            fi
+        done
+    else
+        echo "   ⚠️  No camera devices found - this may be normal for headless systems"
+    fi
     
     # Check for specific camera pipeline issues
     echo "🔍 Checking camera pipeline configuration..."
@@ -614,6 +807,17 @@ else
     else
         echo "   ⚠️  Camera pipeline configuration missing"
         echo "   📋 This may cause camera initialization issues"
+        echo "   📋 Installing additional libcamera packages..."
+        sudo apt-get install -y libcamera-tools libcamera-dev || true
+    fi
+    
+    # Check rpicam tools availability
+    echo "🔍 Checking rpicam tools availability..."
+    if command -v rpicam-hello >/dev/null 2>&1; then
+        echo "   ✅ rpicam-hello available"
+    else
+        echo "   ⚠️  rpicam-hello not found - installing rpicam-apps..."
+        sudo apt-get install -y rpicam-apps || true
     fi
     
     # Recreate virtual environment with system site-packages if needed
@@ -633,10 +837,10 @@ else
             "wheel>=0.40.0"
         
         $PIP_CMD install --prefer-binary --no-build-isolation --no-cache-dir -r "$ROOT_DIR/edge/installation/requirements.txt"
-        $PIP_CMD install --prefer-binary --no-build-isolation --no-cache-dir -r "$ROOT_DIR/edge/installation/requirements.txt"
     fi
     
-    # Test again
+    # Test again with updated validation
+    echo "🔍 Re-running libcamera validation after fixes..."
     if python "$ROOT_DIR/edge/scripts/validate_libcamera.py"; then
         echo "✅ libcamera fixed successfully"
     else
@@ -647,7 +851,9 @@ else
         echo "   - Missing camera drivers"
         echo "   - Incorrect camera pipeline configuration"
         echo "   - Hardware permission issues"
+        echo "   - Virtual environment not accessing system libcamera"
         echo "📋 The system will start in fallback mode - camera features will be disabled"
+        echo "📋 To manually test camera: rpicam-hello --list-cameras"
     fi
 fi
 
@@ -1305,7 +1511,7 @@ fi
 
 echo "   ✅ Boot logo setup completed (optional feature)"
 
-# Edge Communication system setup
+# Edge Communication system setup (always run for edge devices)
 echo ""
 echo "🔌 Setting up Edge Communication System..."
 echo "   ℹ️  This will install and configure MQTT, SFTP, and WebSocket communication"
@@ -1416,33 +1622,65 @@ echo "   ✅ Edge communication system setup completed"
 
 # Final installation summary
 echo ""
-echo "🎉 AI Camera Edge Installation Complete!"
-echo "=========================================="
-echo ""
-echo "📋 Installation Summary:"
-echo "   ✅ System dependencies installed"
-echo "   ✅ Python environment configured"
-echo "   ✅ AI Camera application installed"
-echo "   ✅ Camera hardware configured"
-echo "   ✅ Kiosk browser service installed (optional)"
-echo "   ✅ Boot logo configured (optional)"
-echo "   ✅ Edge communication system configured"
-echo ""
-echo "🚀 Next Steps:"
-echo "   1. Configure edge environment: nano $ROOT_DIR/edge/installation/.env.production"
-echo "   2. Start edge application: cd $ROOT_DIR && ./start_edge.sh"
-echo "   3. Monitor communication: mosquitto_sub -h localhost -t 'aicamera/edge/#'"
-echo "   4. Check logs: tail -f $ROOT_DIR/edge/logs/edge.log"
-echo ""
-echo "📚 Documentation:"
-echo "   - Main docs: $ROOT_DIR/docs/shared/COMMUNICATION_SYSTEM_IMPLEMENTATION.md"
-echo "   - Edge setup: $ROOT_DIR/scripts/setup_edge_communication_system.sh"
-echo "   - Test scripts: $ROOT_DIR/scripts/test_*.py"
-echo ""
-echo "🔧 Troubleshooting:"
-echo "   - Check service status: sudo systemctl status mosquitto"
-echo "   - Test communication: python3 $ROOT_DIR/scripts/test_edge_services_direct.py"
-echo "   - View setup logs: journalctl -u edge-communication-setup.service"
-echo ""
-echo "🎯 The edge device is now ready for AI Camera operations!"
-echo "   Happy detecting! 🚗📸"
+if [[ "$EDGE_ONLY" == "true" ]]; then
+    echo "🎉 AI Camera Edge Device Installation Complete!"
+    echo "=============================================="
+    echo ""
+    echo "📋 Installation Summary:"
+    echo "   ✅ System dependencies installed"
+    echo "   ✅ Camera software installed ($DETECTED_SYSTEM_TYPE)"
+    echo "   ✅ Python environment configured"
+    echo "   ✅ AI Camera edge application installed"
+    echo "   ✅ Edge communication system configured"
+    echo ""
+    echo "🚀 Next Steps:"
+    echo "   1. Configure edge environment: nano $ROOT_DIR/edge/installation/.env.production"
+    echo "   2. Start edge service: sudo systemctl start aicamera_lpr.service"
+    echo "   3. Check service status: sudo systemctl status aicamera_lpr.service"
+    echo "   4. Monitor logs: sudo journalctl -u aicamera_lpr.service -f"
+    echo ""
+    echo "🔧 Camera Testing:"
+    if [[ "$IS_RASPBERRY_PI" == "true" ]]; then
+        echo "   - Test rpicam: rpicam-hello --list-cameras"
+        echo "   - Test capture: rpicam-still -o test.jpg"
+    else
+        echo "   - Test camera: v4l2-ctl --list-devices"
+        echo "   - Test capture: cheese"
+    fi
+    echo "   - Validate installation: python $ROOT_DIR/edge/scripts/validate_libcamera.py"
+    echo ""
+    echo "🎯 The edge device is now ready for AI Camera operations!"
+    echo "   Happy detecting! 🚗📸"
+else
+    echo "🎉 AI Camera Full Installation Complete!"
+    echo "======================================="
+    echo ""
+    echo "📋 Installation Summary:"
+    echo "   ✅ System dependencies installed"
+    echo "   ✅ Camera software installed ($DETECTED_SYSTEM_TYPE)"
+    echo "   ✅ Python environment configured"
+    echo "   ✅ AI Camera application installed"
+    echo "   ✅ SSH deployment configured"
+    echo "   ✅ Kiosk browser service installed (optional)"
+    echo "   ✅ Boot logo configured (optional)"
+    echo "   ✅ Edge communication system configured"
+    echo ""
+    echo "🚀 Next Steps:"
+    echo "   1. Configure environment: nano $ROOT_DIR/edge/installation/.env.production"
+    echo "   2. Start edge application: cd $ROOT_DIR && ./start_edge.sh"
+    echo "   3. Monitor communication: mosquitto_sub -h localhost -t 'aicamera/edge/#'"
+    echo "   4. Check logs: tail -f $ROOT_DIR/edge/logs/edge.log"
+    echo ""
+    echo "📚 Documentation:"
+    echo "   - Main docs: $ROOT_DIR/docs/shared/COMMUNICATION_SYSTEM_IMPLEMENTATION.md"
+    echo "   - Edge setup: $ROOT_DIR/scripts/setup_edge_communication_system.sh"
+    echo "   - Test scripts: $ROOT_DIR/scripts/test_*.py"
+    echo ""
+    echo "🔧 Troubleshooting:"
+    echo "   - Check service status: sudo systemctl status mosquitto"
+    echo "   - Test communication: python3 $ROOT_DIR/scripts/test_edge_services_direct.py"
+    echo "   - View setup logs: journalctl -u edge-communication-setup.service"
+    echo ""
+    echo "🎯 The system is now ready for AI Camera operations!"
+    echo "   Happy detecting! 🚗📸"
+fi
