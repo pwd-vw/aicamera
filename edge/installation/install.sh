@@ -232,10 +232,10 @@ TAG="25.3.1"
 # Parse command-line arguments
 while [[ "$#" -gt 0 ]]; do
     case $1 in
-        --pyhailort) PYHAILORT_WHL="$2"; shift ;;
-        --pytappas) PYTAPPAS_WHL="$2"; shift ;;
+        --pyhailort) PYHAILORT_WHL="$2"; shift 2 ;;
+        --pytappas) PYTAPPAS_WHL="$2"; shift 2 ;;
         --all) DOWNLOAD_RESOURCES_FLAG="--all" ;;
-        --tag) TAG="$2"; shift ;;   # New parameter to specify tag
+        --tag) TAG="$2"; shift 2 ;;   # New parameter to specify tag
         *) echo "Unknown parameter passed: $1"; exit 1 ;;
     esac
     shift
