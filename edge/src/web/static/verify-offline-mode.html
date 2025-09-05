@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Camera v2.0 - Offline Mode Verification</title>
+    
+    <!-- Test local CSS resources -->
+    <link href="libs/google-fonts/fonts-local.css" rel="stylesheet">
+    <link href="libs/bootstrap/bootstrap.min.css" rel="stylesheet">
+    <link href="libs/font-awesome/all.min.css" rel="stylesheet">
+    <link href="css/base.css" rel="stylesheet">
+    
+    <style>
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .warning { background-color: #fff3cd; border-color: #ffeaa7; }
+        .test-icon { font-size: 24px; margin-right: 10px; }
+    </style>
+</head>
+<body>
+    <div class="container mt-4">
+        <h1><i class="fas fa-wifi-slash test-icon"></i>AI Camera v2.0 - Offline Mode Verification</h1>
+        <p class="lead">This page verifies that all CSS and JavaScript resources work without internet connectivity.</p>
+        
+        <div id="test-results">
+            <div class="test-section">
+                <h3><i class="fas fa-cog test-icon"></i>Loading Tests...</h3>
+                <p>Running offline resource verification...</p>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h3><i class="fas fa-font test-icon"></i>Font Tests</h3>
+            <p style="font-family: 'Inter', sans-serif; font-weight: 300;">Inter Light (300) - Local Google Font</p>
+            <p style="font-family: 'Inter', sans-serif; font-weight: 400;">Inter Regular (400) - Local Google Font</p>
+            <p style="font-family: 'Inter', sans-serif; font-weight: 600;">Inter SemiBold (600) - Local Google Font</p>
+            <p style="font-family: 'Montserrat', sans-serif; font-weight: 500;">Montserrat Medium (500) - Local Google Font</p>
+            <p style="font-family: 'JetBrains Mono', monospace;">JetBrains Mono - Local Google Font</p>
+        </div>
+        
+        <div class="test-section">
+            <h3><i class="fas fa-icons test-icon"></i>Font Awesome Icon Tests</h3>
+            <p><i class="fas fa-camera"></i> Camera Icon (Solid)</p>
+            <p><i class="far fa-eye"></i> Eye Icon (Regular)</p>
+            <p><i class="fab fa-github"></i> GitHub Icon (Brand)</p>
+            <p><i class="fas fa-wifi"></i> WiFi Icon (Solid)</p>
+            <p><i class="fas fa-database"></i> Database Icon (Solid)</p>
+        </div>
+        
+        <div class="test-section">
+            <h3><i class="fas fa-palette test-icon"></i>Bootstrap Component Tests</h3>
+            <button class="btn btn-primary">Primary Button</button>
+            <button class="btn btn-success">Success Button</button>
+            <button class="btn btn-warning">Warning Button</button>
+            <button class="btn btn-danger">Danger Button</button>
+            <div class="alert alert-info mt-2">Info Alert - Bootstrap Styling</div>
+        </div>
+        
+        <div class="test-section">
+            <h3><i class="fas fa-chart-bar test-icon"></i>JavaScript Library Tests</h3>
+            <p>Socket.IO Status: <span id="socketio-status">Testing...</span></p>
+            <p>Chart.js Status: <span id="chartjs-status">Testing...</span></p>
+        </div>
+    </div>
+    
+    <!-- Test local JavaScript resources -->
+    <script src="libs/socket.io/socket.io.js"></script>
+    <script src="libs/chart.js/chart.min.js"></script>
+    <script src="libs/bootstrap/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        // Test results container
+        const resultsContainer = document.getElementById('test-results');
+        
+        // Test results
+        const tests = [];
+        
+        // Test Socket.IO
+        function testSocketIO() {
+            try {
+                if (typeof io !== 'undefined') {
+                    tests.push({ name: 'Socket.IO', status: 'success', message: 'Socket.IO library loaded successfully' });
+                } else {
+                    tests.push({ name: 'Socket.IO', status: 'error', message: 'Socket.IO library failed to load' });
+                }
+            } catch (e) {
+                tests.push({ name: 'Socket.IO', status: 'error', message: 'Socket.IO test failed: ' + e.message });
+            }
+            document.getElementById('socketio-status').textContent = tests[tests.length-1].status === 'success' ? '✅ Loaded' : '❌ Failed';
+        }
+        
+        // Test Chart.js
+        function testChartJS() {
+            try {
+                if (typeof Chart !== 'undefined') {
+                    tests.push({ name: 'Chart.js', status: 'success', message: 'Chart.js library loaded successfully' });
+                } else {
+                    tests.push({ name: 'Chart.js', status: 'error', message: 'Chart.js library failed to load' });
+                }
+            } catch (e) {
+                tests.push({ name: 'Chart.js', status: 'error', message: 'Chart.js test failed: ' + e.message });
+            }
+            document.getElementById('chartjs-status').textContent = tests[tests.length-1].status === 'success' ? '✅ Loaded' : '❌ Failed';
+        }
+        
+        // Test Bootstrap
+        function testBootstrap() {
+            try {
+                if (typeof bootstrap !== 'undefined') {
+                    tests.push({ name: 'Bootstrap', status: 'success', message: 'Bootstrap library loaded successfully' });
+                } else {
+                    tests.push({ name: 'Bootstrap', status: 'error', message: 'Bootstrap library failed to load' });
+                }
+            } catch (e) {
+                tests.push({ name: 'Bootstrap', status: 'error', message: 'Bootstrap test failed: ' + e.message });
+            }
+        }
+        
+        // Test CSS resources
+        function testCSSResources() {
+            const cssTests = [
+                { name: 'Google Fonts', selector: 'link[href*="fonts-local.css"]' },
+                { name: 'Bootstrap CSS', selector: 'link[href*="bootstrap.min.css"]' },
+                { name: 'Font Awesome CSS', selector: 'link[href*="all.min.css"]' },
+                { name: 'Base CSS', selector: 'link[href*="base.css"]' }
+            ];
+            
+            cssTests.forEach(test => {
+                const element = document.querySelector(test.selector);
+                if (element) {
+                    tests.push({ name: test.name, status: 'success', message: test.name + ' CSS loaded successfully' });
+                } else {
+                    tests.push({ name: test.name, status: 'error', message: test.name + ' CSS not found' });
+                }
+            });
+        }
+        
+        // Display test results
+        function displayResults() {
+            let html = '<h3><i class="fas fa-clipboard-check test-icon"></i>Test Results</h3>';
+            
+            tests.forEach(test => {
+                const icon = test.status === 'success' ? 'fa-check-circle' : 
+                           test.status === 'warning' ? 'fa-exclamation-triangle' : 'fa-times-circle';
+                const color = test.status === 'success' ? 'success' : 
+                             test.status === 'warning' ? 'warning' : 'error';
+                
+                html += `<div class="test-section ${color}">
+                    <h4><i class="fas ${icon} test-icon"></i>${test.name}</h4>
+                    <p>${test.message}</p>
+                </div>`;
+            });
+            
+            resultsContainer.innerHTML = html;
+        }
+        
+        // Run all tests
+        function runTests() {
+            testCSSResources();
+            testSocketIO();
+            testChartJS();
+            testBootstrap();
+            displayResults();
+        }
+        
+        // Run tests when page loads
+        window.addEventListener('load', runTests);
+    </script>
+</body>
+</html>
