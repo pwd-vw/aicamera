@@ -97,91 +97,19 @@ pip install --upgrade pip setuptools wheel
 echo "📦 Installing core dependencies first..."
 pip install --upgrade "setuptools>=68.0.0" "wheel>=0.40.0" "pip>=23.0.0"
 
-# Create simulation-specific requirements file
-echo "📝 Creating simulation requirements file..."
-cat > edge/installation/requirements_simulation.txt << 'EOF'
-# AI Camera Simulation Dependencies
-# Core Framework (without hardware dependencies)
-Flask>=3.1.1
-Flask-SocketIO==5.3.6
-python-socketio==5.9.0
-Werkzeug>=3.0.6
+# Use unified requirements file for simulation
+echo "📝 Using unified requirements file for simulation..."
 
-# Database
-SQLAlchemy==2.0.23
-alembic==1.12.1
-
-# Image Processing (simulation mode - no camera)
-Pillow>=10.3.0
-numpy>=1.26.0
-
-# WebSocket
-websockets==11.0.3
-
-# Database and Data Processing
-pandas>=2.1.0
-
-# HTTP Requests
-requests>=2.32.4
-
-# System Monitoring and Utilities
-psutil==7.0.0
-python-dotenv==1.0.0
-matplotlib>=3.8.0
-setproctitle==1.3.2
-
-# Development and Testing
-pytest>=7.4.3
-pytest-cov>=4.1.0
-
-# WSGI Server
-gunicorn
-
-# Additional Dependencies
-eventlet
-
-# Simulation Dependencies
-faker>=20.0.0  # For generating fake data
-EOF
-
-# Install simulation requirements with better error handling
-echo "📦 Installing simulation dependencies..."
-echo "📋 Installing packages one by one to avoid conflicts..."
-
-# Install packages in order of dependency
-packages=(
-    "numpy>=1.26.0"
-    "Pillow>=10.3.0"
-    "Flask>=3.1.1"
-    "Flask-SocketIO==5.3.6"
-    "python-socketio==5.9.0"
-    "Werkzeug>=3.0.6"
-    "SQLAlchemy==2.0.23"
-    "alembic==1.12.1"
-    "websockets==11.0.3"
-    "pandas>=2.1.0"
-    "requests>=2.32.4"
-    "psutil==7.0.0"
-    "python-dotenv==1.0.0"
-    "matplotlib>=3.8.0"
-    "setproctitle==1.3.2"
-    "pytest>=7.4.3"
-    "pytest-cov>=4.1.0"
-    "gunicorn"
-    "eventlet"
-    "faker>=20.0.0"
-)
-
-for package in "${packages[@]}"; do
-    echo "📦 Installing: $package"
-    if ! pip install --no-cache-dir "$package"; then
-        echo "⚠️ Failed to install $package, trying with --force-reinstall..."
-        pip install --no-cache-dir --force-reinstall "$package" || {
-            echo "❌ Failed to install $package"
-            echo "Continuing with other packages..."
-        }
-    fi
-done
+# Install unified requirements for simulation
+echo "📦 Installing unified requirements for simulation..."
+if [[ -f "edge/installation/requirements.txt" ]]; then
+    pip install --no-cache-dir -r edge/installation/requirements.txt
+    echo "✅ Unified requirements installed successfully"
+else
+    echo "❌ Unified requirements file not found: edge/installation/requirements.txt"
+    echo "📋 Please ensure the main installation has been run first"
+    exit 1
+fi
 
 echo "✅ Python dependencies installed"
 

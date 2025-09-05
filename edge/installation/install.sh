@@ -164,7 +164,7 @@ echo "Preparing environment and virtual environment..."
 # Resolve repository root and canonical venv directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/../.." >/dev/null 2>&1 && pwd)"
-VENV_DIR="$ROOT_DIR/edge/venv_hailo"
+VENV_DIR="$ROOT_DIR/edge/installation/venv_hailo"
 echo "Using canonical virtualenv path: $VENV_DIR"
 
 # Do not modify or remove any existing virtualenvs; we'll reuse if present
@@ -355,12 +355,8 @@ else
     echo "✅ numpy and Pillow already available"
 fi
 
-# Install edge specific requirements with proper dependency resolution
-echo "Installing edge requirements..."
-$IONICE $PIP_CMD install --prefer-binary --no-build-isolation --no-cache-dir --no-user -r edge/installation/requirements.txt
-
-# Install root requirements (for compatibility)
-echo "Installing root requirements..."
+# Install unified requirements with proper dependency resolution
+echo "Installing unified requirements..."
 $IONICE $PIP_CMD install --prefer-binary --no-build-isolation --no-cache-dir --no-user -r edge/installation/requirements.txt
 
 # Helper: check if Hailo python package is available in current venv

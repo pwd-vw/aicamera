@@ -21,7 +21,7 @@ ExecStartPre=/bin/bash -c 'timeout 60 bash -c "until systemctl is-active --quiet
 ExecStartPre=/bin/bash -c 'echo "Waiting for web service to respond..."'
 ExecStartPre=/bin/bash -c 'timeout 120 bash -c "until curl -s -f http://localhost/ >/dev/null 2>&1; do sleep 5; done"'
 ExecStartPre=/bin/bash -c 'echo "Web service is ready!"'
-ExecStart=/bin/bash -c 'echo "Starting kiosk browser..." && sleep 5 && chromium-browser --user-data-dir=/tmp/chromium-kiosk --disable-web-security --disable-features=VizDisplayCompositor --no-first-run --no-default-browser-check --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-renderer-backgrounding --disable-features=TranslateUI --disable-ipc-flooding-protection --disable-dev-shm-usage --disable-gpu --no-sandbox --autoplay-policy=no-user-gesture-required --disable-session-crashed-bubble --disable-infobars --disable-notifications --new-window --enable-fullscreen-api --allow-running-insecure-content --app=http://localhost/'
+ExecStart=/bin/bash -c 'echo "Starting kiosk browser..." && sleep 5 && chromium-browser --user-data-dir=/tmp/chromium-kiosk --app=http://localhost/ --no-first-run --no-default-browser-check --disable-infobars --disable-notifications'
 
 # Restart policy - restart if browser exits
 Restart=always

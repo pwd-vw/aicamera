@@ -156,9 +156,9 @@ fi
 # Step 6: Remove Python virtual environment
 echo ""
 echo "Step 6: Removing Python virtual environment..."
-if [[ -d "venv_hailo" ]]; then
+if [[ -d "installation/venv_hailo" ]]; then
     echo "   Removing virtual environment..."
-    rm -rf venv_hailo
+    rm -rf installation/venv_hailo
     echo "   ✅ Removed virtual environment"
 else
     echo "   ⚪ Virtual environment not found"
@@ -174,9 +174,9 @@ if [[ "$remove_packages" == "yes" ]]; then
     echo "   📋 Only removing packages from virtual environment (if it exists)"
     
     # Try to remove packages from virtual environment if it exists
-    if [[ -d "venv_hailo" ]]; then
+    if [[ -d "installation/venv_hailo" ]]; then
         echo "   Virtual environment still exists, removing packages..."
-        venv_hailo/bin/pip list | grep -E "(opencv|flask|gunicorn|degirum|picamera)" | awk '{print $1}' | xargs -r venv_hailo/bin/pip uninstall -y
+        installation/venv_hailo/bin/pip list | grep -E "(opencv|flask|gunicorn|degirum|picamera)" | awk '{print $1}' | xargs -r installation/venv_hailo/bin/pip uninstall -y
         echo "   ✅ Removed AI Camera related packages from virtual environment"
     else
         echo "   ⚪ Virtual environment already removed, skipping package removal"

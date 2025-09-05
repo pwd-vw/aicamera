@@ -107,47 +107,33 @@ setup_python_environment() {
     # Upgrade pip
     pip install --upgrade pip
     
-    # Install core requirements if requirements.txt exists
-    if [ -f "requirements.txt" ]; then
+    # Install unified requirements if available
+    if [ -f "installation/requirements.txt" ]; then
+        print_info "Installing unified requirements..."
+        pip install -r installation/requirements.txt
+    elif [ -f "requirements.txt" ]; then
         print_info "Installing core requirements..."
         pip install -r requirements.txt
     else
-        print_warning "requirements.txt not found - creating basic requirements"
-        cat > requirements.txt << 'REQEOF'
-# AI Camera Edge Core Requirements
-flask>=3.1.1
-flask-socketio==5.3.6
-python-socketio==5.9.0
-werkzeug>=0.6
-picamera2==0.3.12
-sqlalchemy==2.0.23
-alembic==1.12.1
-pillow>=10.3.0
-opencv-python==4.8.1.78
-numpy==1.24.3
-paramiko
-paho-mqtt
-requests
-websocket-client
-REQEOF
-        pip install -r requirements.txt
+        print_warning "No requirements file found - installing basic communication packages"
+        pip install paho-mqtt paramiko requests websocket-client
     fi
     
-    # Install communication-specific packages
-    print_info "Installing communication dependencies..."
+    # Verify communication packages are available
+    print_info "Verifying communication dependencies..."
     local comm_packages=(
-        "paho-mqtt"
+        "paho.mqtt.client"
         "paramiko"
-        "pillow"
+        "PIL"
         "requests"
-        "websocket-client"
+        "websocket"
     )
     
-    for package in "${comm_packages[@]}"; do
-        if ! check_python_module "${package//-/_}"; then
-            pip install "$package"
+    for module in "${comm_packages[@]}"; do
+        if check_python_module "$module"; then
+            print_info "$module already available"
         else
-            print_info "$package already available"
+            print_warning "$module not available - may need manual installation"
         fi
     done
     
@@ -628,7 +614,7 @@ main() {
     echo ""
     echo "🎉 Edge Communication System Setup Complete!"
     echo "============================================"
-    print_status "Python Environment: ./edge/venv_hailo"
+    print_status "Python Environment: ./edge/installation/venv_hailo"
     print_status "Communication Services: ./edge/src/services/"
     print_status "Configuration: ./edge/.env.production"
     print_status "Startup Script: ./edge/start_edge.sh"

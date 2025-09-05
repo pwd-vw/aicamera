@@ -23,7 +23,7 @@ check_venv() {
     if [[ -z "$VIRTUAL_ENV" ]]; then
         echo "❌ Virtual environment not activated"
         echo "📋 Activating virtual environment..."
-        source venv_hailo/bin/activate
+        source installation/venv_hailo/bin/activate
         echo "✅ Virtual environment activated: $VIRTUAL_ENV"
     else
         echo "✅ Virtual environment active: $VIRTUAL_ENV"
@@ -94,9 +94,9 @@ fix_camera() {
         if ! python -c "import libcamera; print('libcamera available')" 2>/dev/null; then
             echo "   ⚠️  Recreating virtual environment with system site-packages..."
             deactivate 2>/dev/null || true
-            rm -rf venv_hailo
-            python3 -m venv --system-site-packages venv_hailo
-            source venv_hailo/bin/activate
+            rm -rf installation/venv_hailo
+            python3 -m venv --system-site-packages installation/venv_hailo
+            source installation/venv_hailo/bin/activate
             
             # Reinstall dependencies
             pip install --prefer-binary --no-build-isolation --no-cache-dir \
