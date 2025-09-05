@@ -702,6 +702,25 @@ if [[ -f "edge/nginx.conf" ]]; then
     sudo mkdir -p /var/log/nginx
     sudo chown www-data:www-data /var/log/nginx 2>/dev/null || true
     
+    # Fix static file permissions for CSS/JS serving
+    echo "   🔧 Fixing static file permissions for CSS/JS serving..."
+    echo "   📋 Setting proper permissions for static files to prevent 403 errors..."
+    
+    # Set permissions for home directory traversal (required for nginx to access static files)
+    sudo chmod 755 /home/camuser 2>/dev/null || true
+    sudo chmod 755 /home/camuser/aicamera 2>/dev/null || true
+    
+    # Set permissions for static files directory
+    sudo chmod -R 755 /home/camuser/aicamera/edge/src/web/static/ 2>/dev/null || true
+    
+    # Ensure www-data can read static files
+    sudo chown -R camuser:www-data /home/camuser/aicamera/edge/src/web/static/ 2>/dev/null || true
+    sudo chmod -R 644 /home/camuser/aicamera/edge/src/web/static/*.css 2>/dev/null || true
+    sudo chmod -R 644 /home/camuser/aicamera/edge/src/web/static/*.js 2>/dev/null || true
+    sudo chmod -R 644 /home/camuser/aicamera/edge/src/web/static/*.html 2>/dev/null || true
+    
+    echo "   ✅ Static file permissions configured"
+    
     # Fix main nginx.conf user directive if running as non-root
     if [[ "$(id -u)" != "0" ]]; then
         echo "   Adjusting nginx configuration for non-root user..."
@@ -730,6 +749,25 @@ if [[ -f "edge/nginx.conf" ]]; then
                 echo "   ✅ Nginx configuration still valid after fixes"
                 sudo systemctl reload nginx
                 echo "   ✅ Nginx reloaded with fixes"
+                
+                # Validate static file serving
+                echo "   🔍 Validating static file serving..."
+                sleep 2  # Wait for nginx to reload
+                
+                # Test CSS file access
+                if curl -s -f -I http://localhost/static/css/base.css >/dev/null 2>&1; then
+                    echo "   ✅ CSS files are accessible"
+                else
+                    echo "   ⚠️  CSS files may not be accessible - check permissions"
+                fi
+                
+                # Test JavaScript file access
+                if curl -s -f -I http://localhost/static/js/base.js >/dev/null 2>&1; then
+                    echo "   ✅ JavaScript files are accessible"
+                else
+                    echo "   ⚠️  JavaScript files may not be accessible - check permissions"
+                fi
+                
             else
                 echo "   ⚠️  Nginx configuration invalid after fixes - manual check required"
             fi
@@ -796,6 +834,40 @@ if [[ -f "edge/systemd_service/aicamera_lpr.service" ]]; then
                     sleep 3
                 fi
             done
+            
+            # Validate dashboard CSS and JavaScript loading
+            if [[ "$web_accessible" == "true" ]]; then
+                echo "🔍 Validating dashboard CSS and JavaScript loading..."
+                
+                # Test main dashboard page
+                if curl -s -f http://localhost/ >/dev/null 2>&1; then
+                    echo "✅ Main dashboard page is accessible"
+                    
+                    # Test CSS file loading
+                    if curl -s -f -I http://localhost/static/css/base.css >/dev/null 2>&1; then
+                        echo "✅ Dashboard CSS files are loading correctly"
+                    else
+                        echo "⚠️  Dashboard CSS files may not be loading - check static file permissions"
+                    fi
+                    
+                    # Test JavaScript file loading
+                    if curl -s -f -I http://localhost/static/js/base.js >/dev/null 2>&1; then
+                        echo "✅ Dashboard JavaScript files are loading correctly"
+                    else
+                        echo "⚠️  Dashboard JavaScript files may not be loading - check static file permissions"
+                    fi
+                    
+                    # Test Bootstrap and Font Awesome loading
+                    if curl -s -f -I http://localhost/static/libs/bootstrap/bootstrap.min.css >/dev/null 2>&1; then
+                        echo "✅ Bootstrap CSS is loading correctly"
+                    else
+                        echo "⚠️  Bootstrap CSS may not be loading - check static file permissions"
+                    fi
+                    
+                else
+                    echo "⚠️  Main dashboard page may not be accessible"
+                fi
+            fi
             
             if [[ "$web_accessible" == "false" ]]; then
                 echo "⚠️  Web interface validation failed after $max_retries attempts"
@@ -898,6 +970,15 @@ echo "📋 Service Status: sudo systemctl status aicamera_lpr.service"
 echo "📋 Service Logs: sudo journalctl -u aicamera_lpr.service -f"
 echo "🌐 Web Interface: http://localhost"
 echo "🔍 Validation: python edge/scripts/validate_installation.py"
+echo ""
+echo "🔧 Dashboard Display Troubleshooting:"
+echo "   If dashboard CSS/JS is not loading properly:"
+echo "   1. Check static file permissions: ls -la /home/camuser/aicamera/edge/src/web/static/"
+echo "   2. Test CSS access: curl -I http://localhost/static/css/base.css"
+echo "   3. Test JS access: curl -I http://localhost/static/js/base.js"
+echo "   4. Check nginx logs: sudo tail -f /var/log/nginx/error.log"
+echo "   5. Fix permissions: sudo chmod -R 755 /home/camuser/aicamera/edge/src/web/static/"
+echo "   6. Reload nginx: sudo systemctl reload nginx"
 
 # Optional: Setup kiosk browser service for boot startup (non-critical)
 echo ""
