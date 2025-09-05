@@ -104,8 +104,107 @@ echo "✅ Local packages verification completed"
 
 echo ""
 
-# Step 4: Perform offline installation
-echo "📦 Step 3: Performing offline installation..."
+# Step 4: Install system packages first (if script exists)
+echo "📦 Step 3: Installing system packages..."
+if [ -f "$PACKAGES_DIR/install_system_packages_offline.sh" ]; then
+    echo "🔧 Installing system packages for offline setup..."
+    chmod +x "$PACKAGES_DIR/install_system_packages_offline.sh"
+    "$PACKAGES_DIR/install_system_packages_offline.sh"
+    
+    if [ $? -eq 0 ]; then
+        echo "✅ System packages installed successfully"
+    else
+        echo "⚠️  System package installation had issues - continuing with Python installation"
+    fi
+else
+    echo "⚠️  System package installation script not found"
+    echo "📋 Please ensure system packages are installed manually:"
+    echo "   sudo apt-get install python3-opencv python3-dev build-essential nginx"
+fi
+
+# Step 5: Update local requirements file to match downloaded packages
+echo ""
+echo "📦 Step 4: Updating local requirements file..."
+echo "🔧 Ensuring local requirements match downloaded ARM64 wheels..."
+
+# Create updated requirements file with correct versions
+cat > "$PACKAGES_DIR/requirements_local.txt" << 'EOF'
+# AI Camera v2.0.0 Local Dependencies
+# All packages downloaded locally for offline installation
+
+# Core Framework
+Flask==3.1.2
+Flask-SocketIO==5.3.6
+python-socketio==5.9.0
+Werkzeug==3.1.3
+
+# Database
+SQLAlchemy==2.0.43
+alembic==1.12.1
+
+# Image Processing
+Pillow==11.3.0
+opencv-python-headless==4.12.0.88
+numpy==2.3.2
+
+# Core Dependencies
+typing-extensions==4.12.2
+setuptools==75.6.0
+wheel==0.45.1
+
+# AI and OCR
+easyocr==1.7.1
+degirum==0.18.2
+degirum-tools==0.19.1
+degirum-cli==0.2.0
+
+# WebSocket
+websockets==12.0
+
+# Database and Data Processing
+pandas==2.3.2
+
+# HTTP Requests
+requests==2.32.3
+
+# System Monitoring and Utilities
+psutil==7.0.0
+python-dotenv==1.0.1
+matplotlib==3.9.4
+setproctitle==1.3.6
+
+# Development and Testing
+notebook==7.4.5
+ipykernel==6.29.5
+pytest==8.3.4
+pytest-cov==6.0.0
+
+# WSGI Server
+gunicorn==23.0.0
+
+# Additional Dependencies
+eventlet==0.40.3
+
+# Experiment Dependencies
+scikit-image==0.25.2
+
+# Simulation Dependencies
+faker==33.2.0
+
+# Communication Dependencies
+paho-mqtt==1.6.1
+paramiko==3.4.0
+websocket-client==1.8.0
+
+# Local GitHub packages
+hailo-apps-infra==0.2.0
+EOF
+
+echo "✅ Local requirements file updated with ARM64 wheel versions"
+
+# Step 6: Perform offline installation
+echo ""
+echo "📦 Step 5: Performing offline installation..."
 echo "🔧 Running installation with local packages..."
 
 chmod +x "$INSTALL_SCRIPT"
