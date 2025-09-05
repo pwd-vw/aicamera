@@ -17,10 +17,52 @@ handle_error() {
 trap handle_error ERR
 set -e  # Exit immediately if a command exits with a non-zero status
 
+# Parse command line arguments
+LOCAL_PACKAGES=false
+PACKAGES_DIR="/home/camuser/aicamera/edge/installation/local_packages"
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --local-packages)
+            LOCAL_PACKAGES=true
+            shift
+            ;;
+        --packages-dir)
+            PACKAGES_DIR="$2"
+            shift 2
+            ;;
+        -h|--help)
+            echo "AI Camera v2.0.0 Installation Script"
+            echo ""
+            echo "Usage: $0 [OPTIONS]"
+            echo ""
+            echo "Options:"
+            echo "  --local-packages    Use locally downloaded packages (offline installation)"
+            echo "  --packages-dir DIR  Specify local packages directory (default: $PACKAGES_DIR)"
+            echo "  -h, --help         Show this help message"
+            echo ""
+            echo "Examples:"
+            echo "  $0                           # Standard installation with online packages"
+            echo "  $0 --local-packages          # Offline installation with local packages"
+            echo "  $0 --local-packages --packages-dir /path/to/packages"
+            exit 0
+            ;;
+        *)
+            echo "Unknown option: $1"
+            echo "Use --help for usage information"
+            exit 1
+            ;;
+    esac
+done
+
 echo "🚀 Starting AI Camera v2.0.0 Installation..."
 echo "📋 System: $(uname -a)"
 echo "📋 Python: $(python3 --version)"
 echo "📋 Working Directory: $(pwd)"
+echo "📦 Installation Mode: $([ "$LOCAL_PACKAGES" = true ] && echo "Local Packages (Offline)" || echo "Online Packages")"
+if [ "$LOCAL_PACKAGES" = true ]; then
+    echo "📁 Local Packages Directory: $PACKAGES_DIR"
+fi
 
 # Update system packages first (recommended for fresh installations)
 echo "🔄 Updating system packages..."
@@ -357,7 +399,34 @@ fi
 
 # Install unified requirements with proper dependency resolution
 echo "Installing unified requirements..."
-$IONICE $PIP_CMD install --prefer-binary --no-build-isolation --no-cache-dir --no-user -r edge/installation/requirements.txt
+if [ "$LOCAL_PACKAGES" = true ]; then
+    echo "📦 Installing from local packages (offline mode)..."
+    
+    # Check if local packages directory exists
+    if [ ! -d "$PACKAGES_DIR" ]; then
+        echo "❌ Local packages directory not found: $PACKAGES_DIR"
+        echo "📋 Please run ./download_packages.sh first to download packages locally"
+        exit 1
+    fi
+    
+    # Check if local requirements file exists
+    if [ ! -f "$PACKAGES_DIR/requirements_local.txt" ]; then
+        echo "❌ Local requirements file not found: $PACKAGES_DIR/requirements_local.txt"
+        echo "📋 Please run ./download_packages.sh first to create local requirements"
+        exit 1
+    fi
+    
+    echo "📁 Using local packages from: $PACKAGES_DIR"
+    echo "📋 Installing from local requirements file..."
+    
+    # Install from local packages directory
+    $IONICE $PIP_CMD install --no-index --find-links "$PACKAGES_DIR" --no-deps -r "$PACKAGES_DIR/requirements_local.txt"
+    
+    echo "✅ Local packages installed successfully"
+else
+    echo "📦 Installing from online packages..."
+    $IONICE $PIP_CMD install --prefer-binary --no-build-isolation --no-cache-dir --no-user -r edge/installation/requirements.txt
+fi
 
 # Fix camera compatibility issues
 echo "🔧 Fixing camera compatibility issues..."
@@ -393,7 +462,19 @@ PY
 # Install Hailo Apps Infrastructure only if Hailo python is present
 if has_hailo_python; then
     echo "Installing Hailo Apps Infrastructure from version: $TAG..."
-    $IONICE $PIP_CMD install --prefer-binary --no-build-isolation --no-cache-dir --no-user "git+https://github.com/hailo-ai/hailo-apps-infra.git@$TAG"
+    if [ "$LOCAL_PACKAGES" = true ]; then
+        echo "📦 Installing hailo-apps-infra from local package..."
+        # Check if local hailo-apps-infra wheel exists
+        if [ -f "$PACKAGES_DIR/hailo_apps_infra"*.whl ]; then
+            $IONICE $PIP_CMD install --no-index --find-links "$PACKAGES_DIR" "$PACKAGES_DIR/hailo_apps_infra"*.whl
+            echo "✅ hailo-apps-infra installed from local package"
+        else
+            echo "⚠️  Local hailo-apps-infra package not found, skipping..."
+        fi
+    else
+        echo "📦 Installing hailo-apps-infra from GitHub..."
+        $IONICE $PIP_CMD install --prefer-binary --no-build-isolation --no-cache-dir --no-user "git+https://github.com/hailo-ai/hailo-apps-infra.git@$TAG"
+    fi
 else
     echo "⚠️  Hailo python package not found in the active venv. Skipping hailo-apps-infra install."
     echo "   Action required:"
