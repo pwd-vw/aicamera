@@ -437,10 +437,20 @@ class CameraHandler:
                     return False
 
                 try:
+                    # Try system picamera2 first (compatible with libcamera 0.5.1)
+                    import sys
+                    sys.path.insert(0, '/usr/lib/python3/dist-packages')
                     from picamera2 import Picamera2
+                    self.logger.info("Using system picamera2 for compatibility with libcamera 0.5.1")
                 except Exception as e:
-                    self.logger.warning(f"Picamera2 not available: {e}. Running without camera.")
-                    return False
+                    self.logger.warning(f"System picamera2 not available: {e}")
+                    try:
+                        # Fallback to pip version
+                        from picamera2 import Picamera2
+                        self.logger.info("Using pip picamera2 (may have compatibility issues)")
+                    except Exception as e2:
+                        self.logger.warning(f"Picamera2 not available: {e2}. Running without camera.")
+                        return False
 
                 # Create Picamera2 instance
                 self.picam2 = Picamera2()
@@ -466,11 +476,24 @@ class CameraHandler:
                 )
                 
                 # Configure camera (this sets up the camera but doesn't start it)
-                self.picam2.configure(config)
+                try:
+                    self.picam2.configure(config)
+                except Exception as e:
+                    self.logger.warning(f"Standard configuration failed: {e}")
+                    # Try fallback configuration without lores stream
+                    self.logger.info("Attempting fallback configuration without lores stream...")
+                    fallback_config = self.picam2.create_video_configuration(
+                        main=main_config
+                    )
+                    self.picam2.configure(fallback_config)
                 
                 # Get initial configuration after configure() (normalize to dict)
-                raw_cfg = self.picam2.camera_configuration()
-                self.current_config = self._normalize_camera_config(raw_cfg)
+                try:
+                    raw_cfg = self.picam2.camera_configuration()
+                    self.current_config = self._normalize_camera_config(raw_cfg)
+                except Exception as e:
+                    self.logger.warning(f"Failed to get camera configuration: {e}")
+                    self.current_config = {"config": "fallback", "error": str(e)}
                 
                 # Camera is now configured but not started
                 self.initialized = True

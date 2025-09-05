@@ -359,6 +359,26 @@ fi
 echo "Installing unified requirements..."
 $IONICE $PIP_CMD install --prefer-binary --no-build-isolation --no-cache-dir --no-user -r edge/installation/requirements.txt
 
+# Fix camera compatibility issues
+echo "🔧 Fixing camera compatibility issues..."
+echo "   📋 Ensuring system picamera2 is used for compatibility with libcamera 0.5.1..."
+
+# Uninstall pip picamera2 if installed (incompatible with system libcamera 0.5.1)
+if $PIP_CMD show picamera2 >/dev/null 2>&1; then
+    echo "   📋 Uninstalling incompatible pip picamera2 version..."
+    $PIP_CMD uninstall picamera2 -y
+    echo "   ✅ Removed pip picamera2 - will use system version"
+else
+    echo "   ✅ No pip picamera2 found - system version will be used"
+fi
+
+# Verify system picamera2 is available
+if python3 -c "import sys; sys.path.insert(0, '/usr/lib/python3/dist-packages'); from picamera2 import Picamera2; print('System picamera2 available')" 2>/dev/null; then
+    echo "   ✅ System picamera2 is available and compatible"
+else
+    echo "   ⚠️  System picamera2 not available - camera may not work properly"
+fi
+
 # Helper: check if Hailo python package is available in current venv
 has_hailo_python() {
 python - <<'PY'
@@ -963,6 +983,28 @@ if python edge/scripts/validate_installation.py; then
 else
     echo "⚠️  Installation validation found issues"
     echo "📋 Please review the validation output above"
+fi
+
+# Validate camera initialization
+echo "🔍 Validating camera initialization..."
+echo "   📋 Testing camera initialization with system picamera2..."
+if python -c "
+import sys
+sys.path.insert(0, 'edge/src')
+try:
+    from edge.src.components.camera_handler import CameraHandler
+    camera = CameraHandler()
+    result = camera.initialize_camera()
+    if result:
+        print('✅ Camera initialization successful')
+    else:
+        print('⚠️  Camera initialization failed - check camera hardware and permissions')
+except Exception as e:
+    print(f'⚠️  Camera initialization error: {e}')
+" 2>/dev/null; then
+    echo "   ✅ Camera validation completed"
+else
+    echo "   ⚠️  Camera validation failed - camera may not work properly"
 fi
 
 echo ""
