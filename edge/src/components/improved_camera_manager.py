@@ -38,14 +38,25 @@ def check_picamera2_availability():
         LIBCAMERA_AVAILABLE = False
     
     try:
+        # Try system picamera2 first (compatible with libcamera 0.5.1)
+        import sys
+        sys.path.insert(0, '/usr/lib/python3/dist-packages')
         from picamera2 import Picamera2
         from picamera2.encoders import JpegEncoder
         from picamera2.outputs import FileOutput
         PICAMERA2_AVAILABLE = True
-        logger.debug("picamera2 available")
+        logger.debug("system picamera2 available")
     except ImportError:
-        logger.warning("picamera2 not available")
-        PICAMERA2_AVAILABLE = False
+        try:
+            # Fallback to pip version
+            from picamera2 import Picamera2
+            from picamera2.encoders import JpegEncoder
+            from picamera2.outputs import FileOutput
+            PICAMERA2_AVAILABLE = True
+            logger.debug("pip picamera2 available")
+        except ImportError:
+            logger.warning("picamera2 not available")
+            PICAMERA2_AVAILABLE = False
     
     return PICAMERA2_AVAILABLE and LIBCAMERA_AVAILABLE
 
@@ -57,6 +68,9 @@ DEFAULT_CONTRAST = 1.0
 DEFAULT_SATURATION = 1.0
 DEFAULT_SHARPNESS = 1.0
 DEFAULT_AWB_MODE = 'auto'
+
+# Define BASE_DIR for camera state file
+#BASE_DIR = Path(__file__).parent.parent.parent  # Points to /home/camuser/aicamera/edge
 
 logger = logging.getLogger(__name__)
 
@@ -202,8 +216,15 @@ class ImprovedCameraManager:
                 # Clean up any existing instance
                 self._cleanup_camera_internal()
                 
-                # Import picamera2 only when needed
-                from picamera2 import Picamera2
+                # Import picamera2 only when needed - try system version first
+                try:
+                    import sys
+                    sys.path.insert(0, '/usr/lib/python3/dist-packages')
+                    from picamera2 import Picamera2
+                    logger.info("Using system picamera2 for compatibility")
+                except ImportError:
+                    from picamera2 import Picamera2
+                    logger.info("Using pip picamera2")
                 
                 # Create new camera instance
                 logger.info("Creating new Picamera2 instance...")

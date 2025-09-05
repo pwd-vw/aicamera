@@ -2,27 +2,27 @@
 # This file consolidates all requirements for production, simulation, and development
 
 # Core Framework
-Flask>=3.1.1
+Flask==3.1.2
 Flask-SocketIO==5.3.6
 python-socketio==5.9.0
-Werkzeug>=3.0.6
+Werkzeug==3.1.3
 
 # Camera and Image Processing
-picamera2==0.3.12
+# picamera2==0.3.12  # Use system version (0.3.28) for compatibility with libcamera 0.5.1
 
 # Database
-SQLAlchemy==2.0.23
+SQLAlchemy==2.0.43
 alembic==1.12.1
 
 # Image Processing
-Pillow>=10.4.0
-opencv-python==4.8.1.78
-numpy>=1.24.3,<2.0.0
+Pillow==11.3.0
+opencv-python-headless==4.12.0.88
+numpy==2.0.0
 
 # Core Dependencies (install first)
-typing-extensions>=4.5,<5
-setuptools>=65.0.0
-wheel>=0.40.0
+typing-extensions==4.12.2
+setuptools==75.6.0
+wheel==0.45.1
 
 # AI and OCR
 easyocr==1.7.1
@@ -31,42 +31,45 @@ degirum-tools==0.19.1
 degirum-cli==0.2.0
 
 # WebSocket
-websockets==11.0.3
+websockets==12.0
 
 # Database and Data Processing
-pandas>=2.0.3
+pandas==2.3.2
 
 # HTTP Requests
-requests>=2.32.4
+requests==2.32.3
 
 # System Monitoring and Utilities
 psutil==7.0.0
-python-dotenv==1.0.0
-matplotlib>=3.7.2
-setproctitle==1.3.2
+python-dotenv==1.0.1
+
+matplotlib==3.9.4
+setproctitle==1.3.6
 
 # Development and Testing
-notebook>=7.2.2
-ipykernel==6.25.2
-pytest>=7.4.3
-pytest-cov>=4.1.0
+notebook==7.4.5
+ipykernel==6.29.5
+pytest==8.3.4
+pytest-cov==6.0.0
 
 # WSGI Server
-gunicorn
+gunicorn==23.0.0
 
 # Additional Dependencies
-eventlet
+eventlet==0.40.3
 
 # Experiment Dependencies
-scikit-image==0.21.0  # For image processing and blur detection
+scikit-image==0.25.2  # For image processing and blur detection
 
 # Simulation Dependencies (optional - for development/testing)
-faker>=20.0.0  # For generating fake data
+faker==33.2.0  # For generating fake data
+# requests already included above
+# python-socketio already included above
 
 # Communication Dependencies
-paho-mqtt  # MQTT client
-paramiko   # SFTP client
-websocket-client  # WebSocket client
+paho-mqtt==1.6.1  # MQTT client
+paramiko==3.4.0   # SFTP client
+websocket-client==1.8.0  # WebSocket client
 
 # Additional Notes:
 # - libcamera is a system package: sudo apt-get install python3-libcamera

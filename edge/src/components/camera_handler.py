@@ -1132,9 +1132,6 @@ class CameraHandler:
                         self.average_fps = self._frame_count_since_update / time_diff
                         self._frame_count_since_update = 0
                         self._last_fps_update = current_time
-                    else:
-                        self._frame_count_since_update = 0
-                        self._last_fps_update = current_time
             else:
                 self._last_fps_update = current_time
                 self._frame_count_since_update = 0
@@ -1149,27 +1146,376 @@ class CameraHandler:
                     # Keep only last 100 timestamps to prevent memory growth
                     if len(self._frame_timestamps) > 100:
                         self._frame_timestamps = self._frame_timestamps[-100:]
-            
-            # Update last frame time for interval calculations
-            if hasattr(self, '_last_frame_time'):
-                frame_interval = current_time - self._last_frame_time
-                if frame_interval > 0:
-                    fps = 1.0 / frame_interval
-                    if hasattr(self, '_fps_samples'):
-                        self._fps_samples.append(fps)
-                        # Keep only recent samples
-                        if len(self._fps_samples) > getattr(self, '_max_fps_samples', 10):
-                            self._fps_samples.pop(0)
                         
-                        # Calculate average FPS from samples
-                        if self._fps_samples:
-                            self.average_fps = sum(self._fps_samples) / len(self._fps_samples)
-            
-            self._last_frame_time = current_time
-            
         except Exception as e:
-            self.logger.warning(f"Frame stats update failed: {e}")
-  
+            self.logger.error(f"Error updating frame stats: {e}")
+    
+    def _frame_capture_loop(self):
+        """
+        Continuous frame capture loop for both main and lores streams.
+        Captures frames and metadata in a single thread to avoid concurrent access.
+        """
+        self.logger.info("Starting frame capture loop")
+        
+        # Initialize frame timestamp tracking
+        self._frame_timestamps = []
+        self._last_capture_time = time.time()
+        
+        while self._capture_running:
+            try:
+                # Capture main frame and metadata
+                main_frame_data = self._capture_main_frame_with_metadata()
+                if main_frame_data:
+                    with self._frame_buffer_lock:
+                        self._main_frame_buffer = main_frame_data['frame']
+                        self._metadata_buffer = main_frame_data['metadata']
+                        self._last_capture_time = time.time()
+                        
+                        # Track frame timestamps for performance metrics
+                        if main_frame_data['metadata'] and 'sensor_timestamp' in main_frame_data['metadata']:
+                            self._frame_timestamps.append(main_frame_data['metadata']['sensor_timestamp'])
+                            # Keep only last 100 timestamps to prevent memory growth
+                            if len(self._frame_timestamps) > 100:
+                                self._frame_timestamps = self._frame_timestamps[-100:]
+                
+                # Capture lores frame
+                lores_frame = self._capture_lores_frame()
+                if lores_frame is not None:
+                    with self._frame_buffer_lock:
+                        self._lores_frame_buffer = lores_frame
+                
+                # Update frame count and FPS
+                self.frame_count += 1
+                self._update_fps()
+                
+                # Sleep to control capture rate
+                time.sleep(self._capture_interval)
+                
+            except Exception as e:
+                self.logger.error(f"Error in frame capture loop: {e}")
+                time.sleep(0.1)  # Brief pause on error
+        
+        self.logger.info("Frame capture loop stopped")
+    
+    def get_main_frame(self) -> Optional[np.ndarray]:
+        """
+        Get the latest main stream frame from buffer.
+        Thread-safe access to main stream for detection processing.
+        
+        Returns:
+            Optional[np.ndarray]: Latest main frame or None
+        """
+        with self._frame_buffer_lock:
+            if self._main_frame_buffer is not None:
+                return self._main_frame_buffer.copy()
+        return None
+    
+    def get_lores_frame(self) -> Optional[np.ndarray]:
+        """
+        Get the latest lores stream frame from buffer.
+        Thread-safe access to lores stream for web interface.
+        
+        Returns:
+            Optional[np.ndarray]: Latest lores frame or None
+        """
+        with self._frame_buffer_lock:
+            if self._lores_frame_buffer is not None:
+                return self._lores_frame_buffer.copy()
+        return None
+    
+    def get_cached_metadata(self) -> Dict[str, Any]:
+        """
+        Get the latest metadata from buffer.
+        Thread-safe access to metadata for status reporting.
+        
+        Returns:
+            Dict[str, Any]: Latest metadata
+        """
+        with self._frame_buffer_lock:
+            return self._metadata_buffer.copy()
+    
+    def is_frame_buffer_ready(self) -> bool:
+        """
+        Check if frame buffers have data.
+        
+        Returns:
+            bool: True if buffers have frames, False otherwise
+        """
+        with self._frame_buffer_lock:
+            return self._main_frame_buffer is not None and self._lores_frame_buffer is not None
+    
+    def try_connect_camera(self) -> bool:
+        """
+        Try to connect to camera if it becomes available.
+        
+        Returns:
+            bool: True if connection successful, False otherwise
+        """
+        if self.connection_retry_count >= self.max_retry_attempts:
+            self.logger.warning(f"Max retry attempts ({self.max_retry_attempts}) reached")
+            return False
+        
+        self.connection_retry_count += 1
+        self.logger.info(f"Attempting camera connection (attempt {self.connection_retry_count}/{self.max_retry_attempts})")
+        
+        # Check if camera is now available
+        self.camera_status = check_camera_availability()
+        
+        if self.camera_status['camera_ready']:
+            self.logger.info("Camera is now available - attempting to initialize")
+            return self.initialize_camera()
+        else:
+            self.logger.info(f"Camera not ready yet - will retry in {self.retry_delay} seconds")
+            return False
+    
+    def get_camera_status(self) -> Dict[str, Any]:
+        """
+        Get current camera status and availability.
+        
+        Returns:
+            Dict: Camera status information
+        """
+        return {
+            'initialized': self.initialized,
+            'streaming': self.streaming,
+            'camera_ready': self.camera_status['camera_ready'],
+            'hardware_available': self.camera_status['hardware_available'],
+            'software_available': self.camera_status['software_available'],
+            'picamera2_available': self.camera_status['picamera2_available'],
+            'libcamera_available': self.camera_status['libcamera_available'],
+            'connection_retry_count': self.connection_retry_count,
+            'max_retry_attempts': self.max_retry_attempts,
+            'details': self.camera_status['details']
+        }
+    
+    def initialize_camera(self) -> bool:
+        """
+        Initialize the camera with default configuration.
+        Based on v1_2 successful implementation with Singleton protection and safe access.
+        
+        Returns:
+            bool: True if initialization successful, False otherwise
+        """
+        def _initialize_camera_internal():
+                if self.initialized:
+                    self.logger.warning("Camera already initialized (Singleton protection)")
+                    return True
+                
+                # Clean up any existing camera instances first
+                self._cleanup_existing_picamera2()
+                
+                # If camera exists, deactivate and re-initialize
+                if self.picam2:
+                    self.logger.info("Deactivating existing camera instance for re-initialization...")
+                    try:
+                        if self.picam2.started:
+                            self.picam2.stop()
+                        self.picam2.close()
+                    except:
+                        pass
+                    self.picam2 = None
+                    self.initialized = False
+                    time.sleep(1.0)  # Give more time to release resources
+                
+                self.logger.info("Initializing camera...")
+
+                # Check camera availability first
+                self.camera_status = check_camera_availability()
+                self.logger.info(f"Camera availability status: {self.camera_status}")
+                
+                # If camera is not ready, try to initialize in fallback mode
+                if not self.camera_status['camera_ready']:
+                    self.logger.warning("Camera not ready - hardware or software not available")
+                    self.logger.info("Camera handler will run in fallback mode - ready for dynamic connection")
+                    
+                    # Initialize in fallback mode - ready but not connected
+                    self.initialized = True
+                    self.picam2 = None
+                    self.camera_properties = {}
+                    self.sensor_modes = []
+                    self.current_config = {}
+                    
+                    self.logger.info("Camera handler initialized in fallback mode")
+                    return True
+
+                # Guard: ensure device present and modules available
+                if not (os.path.exists('/dev/video0') or os.path.exists('/dev/media0')):
+                    self.logger.warning("No camera device found (/dev/video0 or /dev/media0). Skipping camera initialization.")
+                    return False
+
+                try:
+                    # Try system picamera2 first (compatible with libcamera 0.5.1)
+                    import sys
+                    sys.path.insert(0, '/usr/lib/python3/dist-packages')
+                    from picamera2 import Picamera2
+                    self.logger.info("Using system picamera2 for compatibility with libcamera 0.5.1")
+                except Exception as e:
+                    self.logger.warning(f"System picamera2 not available: {e}")
+                    try:
+                        # Fallback to pip version
+                        from picamera2 import Picamera2
+                        self.logger.info("Using pip picamera2 (may have compatibility issues)")
+                    except Exception as e2:
+                        self.logger.warning(f"Picamera2 not available: {e2}. Running without camera.")
+                        return False
+
+                # Create Picamera2 instance
+                self.picam2 = Picamera2()
+                
+                # Get camera properties (available before configuration)
+                self.camera_properties = self.picam2.camera_properties
+                self.sensor_modes = self.picam2.sensor_modes
+                
+                self.logger.info(f"Camera properties: {self.camera_properties}")
+                self.logger.info(f"Available sensor modes: {len(self.sensor_modes)}")
+                
+                # Create video configuration optimized for ML detection
+                # According to Picamera2 manual, use proper stream configuration
+                from edge.src.core.config import MAIN_RESOLUTION, LORES_RESOLUTION
+                main_config = {"size": MAIN_RESOLUTION, "format": "RGB888"}
+                lores_config = {"size": LORES_RESOLUTION, "format": "RGB888"}  # Changed from XBGR8888 to RGB888 for consistency
+                
+                # Create configuration with proper stream setup
+                config = self.picam2.create_video_configuration(
+                    main=main_config, 
+                    lores=lores_config, 
+                    encode="lores"
+                )
+                
+                # Configure camera (this sets up the camera but doesn't start it)
+                try:
+                    self.picam2.configure(config)
+                except Exception as e:
+                    self.logger.warning(f"Standard configuration failed: {e}")
+                    # Try fallback configuration without lores stream
+                    self.logger.info("Attempting fallback configuration without lores stream...")
+                    fallback_config = self.picam2.create_video_configuration(
+                        main=main_config
+                    )
+                    self.picam2.configure(fallback_config)
+                
+                # Get initial configuration after configure() (normalize to dict)
+                try:
+                    raw_cfg = self.picam2.camera_configuration()
+                    self.current_config = self._normalize_camera_config(raw_cfg)
+                except Exception as e:
+                    self.logger.warning(f"Failed to get camera configuration: {e}")
+                    self.current_config = {"config": "fallback", "error": str(e)}
+                
+                # Camera is now configured but not started
+                self.initialized = True
+                self.logger.info("Camera configured successfully (not started yet)")
+                
+                return True
+                
+        return self.safe_camera_operation(_initialize_camera_internal)
+    
+    def start_camera(self) -> bool:
+        """
+        Start the camera streaming with Singleton protection and safe access.
+        
+        Returns:
+            bool: True if started successfully, False otherwise
+        """
+        def _start_camera_internal():
+                if not self.initialized:
+                    self.logger.error("Camera not initialized")
+                    return False
+                
+                if self.streaming:
+                    self.logger.warning("Camera already streaming (Singleton protection)")
+                    return True
+                
+                # Check if camera is being used by another process
+                self.logger.info("Checking camera availability...")
+                if self._is_camera_in_use():
+                    self.logger.warning("Camera is in use by another process, attempting to release...")
+                    import subprocess
+                    subprocess.run(['sudo', 'fuser', '-k', '/dev/media*'], capture_output=True)
+                    subprocess.run(['sudo', 'fuser', '-k', '/dev/video*'], capture_output=True)
+                    if not self._release_camera_resources():
+                        self.logger.warning("Failed to release camera resources, attempting hardware reset...")
+                        if not self._reset_camera_hardware():
+                            self.logger.error("Failed to reset camera hardware")
+                            return False
+                        else:
+                            self.logger.info("Camera hardware reset successful")
+                
+                # Cleanup previous camera instance if already started
+                if self.picam2 and getattr(self.picam2, 'started', False):
+                    self.logger.info("Camera already started, stopping before restart")
+                    try:
+                        self.picam2.stop()
+                        self.logger.info("Camera stopped successfully before restart")
+                    except Exception as e:
+                        self.logger.warning(f"Error stopping camera before restart: {e}")
+                    try:
+                        self.picam2.close()
+                        self.logger.info("Camera closed successfully before restart")
+                    except Exception as e:
+                        self.logger.warning(f"Error closing camera before restart: {e}")
+                    self.picam2 = None
+                    self.initialized = False
+                    time.sleep(1.0)  # Give more time to release resources
+                
+                self.logger.info("Starting camera...")
+                try:
+                    # According to Picamera2 manual, start() should be called after configure()
+                    self.logger.info(f"Picam2 object: {self.picam2}")
+                    self.logger.info(f"Picam2 started: {getattr(self.picam2, 'started', 'N/A')}")
+                    self.logger.info(f"Picam2 is_open: {getattr(self.picam2, 'is_open', 'N/A')}")
+                    
+                    # Check if camera is properly configured before starting
+                    if not self.picam2.camera_configuration():
+                        self.logger.error("Camera not properly configured")
+                        return False
+                    
+                    self.logger.info(f"About to call picam2.start() - picam2 object: {self.picam2}")
+                    self.logger.info(f"Picam2 state before start: started={getattr(self.picam2, 'started', 'N/A')}, is_open={getattr(self.picam2, 'is_open', 'N/A')}")
+                    
+                    # Start the camera according to Picamera2 manual
+                    self.picam2.start()
+                    self.logger.info("Picamera2 start() completed successfully")
+                    
+                    # Verify camera is started
+                    if not self.picam2.started:
+                        self.logger.error("Camera start() called but not actually started")
+                        return False
+                    
+                    self.streaming = True
+                    self.logger.info("Streaming flag set to True")
+                    
+                    # Wait for camera to stabilize (based on v1_2)
+                    time.sleep(0.5)
+                    
+                    # Apply basic camera controls (based on v1_2 approach)
+                    try:
+                        self.picam2.set_controls({
+                            "Brightness": 0.0,
+                            "Contrast": 1.0,
+                            "Saturation": 1.0,
+                            "Sharpness": 1.0
+                        })
+                        self.logger.info("Basic camera controls applied")
+                    except Exception as e:
+                        self.logger.warning(f"Failed to apply basic controls: {e}")
+                    
+                    self.logger.info("Camera started successfully")
+                    
+                    # Start frame capture thread for concurrent access
+                    if self._start_frame_capture_thread():
+                        self.logger.info("Frame capture thread started successfully")
+                    else:
+                        self.logger.warning("Failed to start frame capture thread")
+                    
+                    return True
+                    
+                except Exception as e:
+                    self.logger.error(f"Error starting camera: {e}")
+                    return False
+        
+        return self.safe_camera_operation(_start_camera_internal)
+    
     # Public Methods
     
     def autofocus_cycle(self) -> bool:

@@ -1,7 +1,0 @@
-# Requirements for Edge Device Simulator
-requests>=2.31.0
-python-socketio[client]>=5.8.0
-Pillow>=10.0.0
-argparse
-pathlib
-dataclasses

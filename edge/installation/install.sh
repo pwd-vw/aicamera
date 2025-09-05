@@ -17,10 +17,52 @@ handle_error() {
 trap handle_error ERR
 set -e  # Exit immediately if a command exits with a non-zero status
 
+# Parse command line arguments
+LOCAL_PACKAGES=false
+PACKAGES_DIR="/home/camuser/aicamera/edge/installation/local_packages"
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --local-packages)
+            LOCAL_PACKAGES=true
+            shift
+            ;;
+        --packages-dir)
+            PACKAGES_DIR="$2"
+            shift 2
+            ;;
+        -h|--help)
+            echo "AI Camera v2.0.0 Installation Script"
+            echo ""
+            echo "Usage: $0 [OPTIONS]"
+            echo ""
+            echo "Options:"
+            echo "  --local-packages    Use locally downloaded packages (offline installation)"
+            echo "  --packages-dir DIR  Specify local packages directory (default: $PACKAGES_DIR)"
+            echo "  -h, --help         Show this help message"
+            echo ""
+            echo "Examples:"
+            echo "  $0                           # Standard installation with online packages"
+            echo "  $0 --local-packages          # Offline installation with local packages"
+            echo "  $0 --local-packages --packages-dir /path/to/packages"
+            exit 0
+            ;;
+        *)
+            echo "Unknown option: $1"
+            echo "Use --help for usage information"
+            exit 1
+            ;;
+    esac
+done
+
 echo "🚀 Starting AI Camera v2.0.0 Installation..."
 echo "📋 System: $(uname -a)"
 echo "📋 Python: $(python3 --version)"
 echo "📋 Working Directory: $(pwd)"
+echo "📦 Installation Mode: $([ "$LOCAL_PACKAGES" = true ] && echo "Local Packages (Offline)" || echo "Online Packages")"
+if [ "$LOCAL_PACKAGES" = true ]; then
+    echo "📁 Local Packages Directory: $PACKAGES_DIR"
+fi
 
 # Update system packages first (recommended for fresh installations)
 echo "🔄 Updating system packages..."
@@ -186,8 +228,8 @@ else
 fi
 
 # Re-source Hailo environment after activating venv to ensure bindings are in this shell
-if [[ -f "edge/installation/setup_env.sh" ]]; then
-    source edge/installation/setup_env.sh || true
+if [[ -f "$ROOT_DIR/edge/installation/setup_env.sh" ]]; then
+    source "$ROOT_DIR/edge/installation/setup_env.sh" || true
 fi
 
 # Install additional system dependencies (if needed)
@@ -357,7 +399,122 @@ fi
 
 # Install unified requirements with proper dependency resolution
 echo "Installing unified requirements..."
-$IONICE $PIP_CMD install --prefer-binary --no-build-isolation --no-cache-dir --no-user -r edge/installation/requirements.txt
+if [ "$LOCAL_PACKAGES" = true ]; then
+    echo "📦 Installing from local packages (offline mode)..."
+    
+    # Check if local packages directory exists
+    if [ ! -d "$PACKAGES_DIR" ]; then
+        echo "❌ Local packages directory not found: $PACKAGES_DIR"
+        echo "📋 Please run ./download_packages.sh first to download packages locally"
+        exit 1
+    fi
+    
+    # Check if local requirements file exists
+    if [ ! -f "$PACKAGES_DIR/requirements_local.txt" ]; then
+        echo "❌ Local requirements file not found: $PACKAGES_DIR/requirements_local.txt"
+        echo "📋 Please run ./download_packages.sh first to create local requirements"
+        exit 1
+    fi
+    
+    echo "📁 Using local packages from: $PACKAGES_DIR"
+    echo "📋 Installing from local requirements file..."
+    
+    # Install numpy first to force version 2.3.2 (before hailo-apps-infra)
+    echo "📦 Installing numpy 2.3.2 first (forcing version)..."
+    $IONICE $PIP_CMD install --no-index --find-links "$PACKAGES_DIR" --force-reinstall \
+        "numpy==2.3.2" || true
+    
+    # Install core dependencies
+    echo "📦 Installing core dependencies..."
+    $IONICE $PIP_CMD install --no-index --find-links "$PACKAGES_DIR" --no-deps \
+        "typing-extensions>=4.5,<5" \
+        "setuptools>=65.0.0" \
+        "wheel>=0.40.0" || true
+    
+    # Install all other packages except hailo-apps-infra
+    echo "📦 Installing packages (excluding hailo-apps-infra)..."
+    $IONICE $PIP_CMD install --no-index --find-links "$PACKAGES_DIR" --no-deps \
+        "Flask==3.1.2" \
+        "Flask-SocketIO==5.3.6" \
+        "python-socketio==5.9.0" \
+        "Werkzeug==3.1.3" \
+        "SQLAlchemy==2.0.43" \
+        "alembic==1.12.1" \
+        "Pillow==11.3.0" \
+        "opencv-python-headless==4.12.0.88" \
+        "easyocr==1.7.1" \
+        "degirum==0.18.2" \
+        "degirum-tools==0.19.1" \
+        "degirum-cli==0.2.0" \
+        "websockets==12.0" \
+        "pandas==2.3.2" \
+        "requests==2.32.3" \
+        "psutil==7.0.0" \
+        "python-dotenv==1.0.1" \
+        "matplotlib==3.9.4" \
+        "setproctitle==1.3.6" \
+        "notebook==7.4.5" \
+        "ipykernel==6.29.5" \
+        "pytest==8.3.4" \
+        "pytest-cov==6.0.0" \
+        "gunicorn==23.0.0" \
+        "eventlet==0.40.3" \
+        "scikit-image==0.25.2" \
+        "faker==33.2.0" \
+        "paho-mqtt==1.6.1" \
+        "paramiko==3.4.0" \
+        "websocket-client==1.8.0" || true
+    
+    # Install hailo-apps-infra with --no-deps to skip its numpy dependency check
+    echo "📦 Installing hailo-apps-infra (skipping dependency checks)..."
+    if [ -f "$PACKAGES_DIR/hailo_apps_infra"*.whl ]; then
+        $IONICE $PIP_CMD install --no-index --find-links "$PACKAGES_DIR" --no-deps "$PACKAGES_DIR/hailo_apps_infra"*.whl || true
+        echo "✅ hailo-apps-infra installed (dependency checks skipped)"
+    else
+        echo "⚠️  Local hailo-apps-infra package not found, skipping..."
+    fi
+    
+    # Fix numpy binary compatibility issues
+    echo "🔧 Fixing numpy binary compatibility issues..."
+    echo "📦 Reinstalling numpy and related packages to fix binary compatibility..."
+    
+    # Force reinstall numpy and related packages to ensure binary compatibility
+    $IONICE $PIP_CMD install --no-index --find-links "$PACKAGES_DIR" --force-reinstall --no-deps \
+        "numpy==2.3.2" || true
+    
+    # Reinstall packages that depend on numpy to ensure compatibility
+    $IONICE $PIP_CMD install --no-index --find-links "$PACKAGES_DIR" --force-reinstall --no-deps \
+        "opencv-python-headless==4.12.0.88" \
+        "Pillow==11.3.0" \
+        "pandas==2.3.2" \
+        "matplotlib==3.9.4" \
+        "scikit-image==0.25.2" || true
+    
+    echo "✅ Local packages installed successfully"
+else
+    echo "📦 Installing from online packages..."
+    $IONICE $PIP_CMD install --prefer-binary --no-build-isolation --no-cache-dir --no-user -r "$ROOT_DIR/edge/installation/requirements.txt"
+fi
+
+# Fix camera compatibility issues
+echo "🔧 Fixing camera compatibility issues..."
+echo "   📋 Ensuring system picamera2 is used for compatibility with libcamera 0.5.1..."
+
+# Uninstall pip picamera2 if installed (incompatible with system libcamera 0.5.1)
+if $PIP_CMD show picamera2 >/dev/null 2>&1; then
+    echo "   📋 Uninstalling incompatible pip picamera2 version..."
+    $PIP_CMD uninstall picamera2 -y
+    echo "   ✅ Removed pip picamera2 - will use system version"
+else
+    echo "   ✅ No pip picamera2 found - system version will be used"
+fi
+
+# Verify system picamera2 is available
+if python3 -c "import sys; sys.path.insert(0, '/usr/lib/python3/dist-packages'); from picamera2 import Picamera2; print('System picamera2 available')" 2>/dev/null; then
+    echo "   ✅ System picamera2 is available and compatible"
+else
+    echo "   ⚠️  System picamera2 not available - camera may not work properly"
+fi
 
 # Helper: check if Hailo python package is available in current venv
 has_hailo_python() {
@@ -373,7 +530,19 @@ PY
 # Install Hailo Apps Infrastructure only if Hailo python is present
 if has_hailo_python; then
     echo "Installing Hailo Apps Infrastructure from version: $TAG..."
-    $IONICE $PIP_CMD install --prefer-binary --no-build-isolation --no-cache-dir --no-user "git+https://github.com/hailo-ai/hailo-apps-infra.git@$TAG"
+    if [ "$LOCAL_PACKAGES" = true ]; then
+        echo "📦 Installing hailo-apps-infra from local package..."
+        # Check if local hailo-apps-infra wheel exists
+        if [ -f "$PACKAGES_DIR/hailo_apps_infra"*.whl ]; then
+            $IONICE $PIP_CMD install --no-index --find-links "$PACKAGES_DIR" --no-deps "$PACKAGES_DIR/hailo_apps_infra"*.whl
+            echo "✅ hailo-apps-infra installed from local package (dependency checks skipped)"
+        else
+            echo "⚠️  Local hailo-apps-infra package not found, skipping..."
+        fi
+    else
+        echo "📦 Installing hailo-apps-infra from GitHub..."
+        $IONICE $PIP_CMD install --prefer-binary --no-build-isolation --no-cache-dir --no-user "git+https://github.com/hailo-ai/hailo-apps-infra.git@$TAG"
+    fi
 else
     echo "⚠️  Hailo python package not found in the active venv. Skipping hailo-apps-infra install."
     echo "   Action required:"
@@ -407,7 +576,7 @@ fi
 
 # Validate EasyOCR and typing_extensions comprehensively
 echo "🔍 Running comprehensive EasyOCR validation..."
-if python edge/scripts/validate_easyocr.py; then
+if python "$ROOT_DIR/edge/scripts/validate_easyocr.py"; then
     echo "✅ EasyOCR validation passed"
 else
     echo "❌ EasyOCR validation failed - attempting to fix..."
@@ -415,7 +584,7 @@ else
     $PIP_CMD install --no-user --upgrade "easyocr==1.7.1" || true
     
     # Test again
-    if python edge/scripts/validate_easyocr.py; then
+    if python "$ROOT_DIR/edge/scripts/validate_easyocr.py"; then
         echo "✅ EasyOCR fixed successfully"
     else
         echo "❌ EasyOCR installation failed - please check dependencies"
@@ -425,7 +594,7 @@ fi
 
 # Validate libcamera installation
 echo "🔍 Running comprehensive libcamera validation..."
-if python edge/scripts/validate_libcamera.py; then
+if python "$ROOT_DIR/edge/scripts/validate_libcamera.py"; then
     echo "✅ libcamera validation passed"
 else
     echo "❌ libcamera validation failed - attempting to fix..."
@@ -463,12 +632,12 @@ else
             "setuptools>=65.0.0" \
             "wheel>=0.40.0"
         
-        $PIP_CMD install --prefer-binary --no-build-isolation --no-cache-dir -r edge/installation/requirements.txt
-        $PIP_CMD install --prefer-binary --no-build-isolation --no-cache-dir -r edge/installation/requirements.txt
+        $PIP_CMD install --prefer-binary --no-build-isolation --no-cache-dir -r "$ROOT_DIR/edge/installation/requirements.txt"
+        $PIP_CMD install --prefer-binary --no-build-isolation --no-cache-dir -r "$ROOT_DIR/edge/installation/requirements.txt"
     fi
     
     # Test again
-    if python edge/scripts/validate_libcamera.py; then
+    if python "$ROOT_DIR/edge/scripts/validate_libcamera.py"; then
         echo "✅ libcamera fixed successfully"
     else
         echo "❌ libcamera installation failed - camera functionality will be limited"
@@ -490,9 +659,9 @@ else
     echo "❌ degirum validation failed - attempting to fix..."
     
     # Try to source Hailo environment and reinstall
-    if [[ -f "setup_env.sh" ]]; then
+    if [[ -f "$ROOT_DIR/edge/installation/setup_env.sh" ]]; then
         echo "📋 Sourcing Hailo environment..."
-        source setup_env.sh || true
+        source "$ROOT_DIR/edge/installation/setup_env.sh" || true
     fi
     
     # Try to reinstall degirum
@@ -513,18 +682,18 @@ fi
 
 # Production setup - Create necessary directories and files
 echo "Setting up production environment..."
-mkdir -p edge/logs
-mkdir -p resources/models
-mkdir -p edge/src
-mkdir -p edge/db
-mkdir -p edge/captured_images
+mkdir -p "$ROOT_DIR/edge/logs"
+mkdir -p "$ROOT_DIR/resources/models"
+mkdir -p "$ROOT_DIR/edge/src"
+mkdir -p "$ROOT_DIR/edge/db"
+mkdir -p "$ROOT_DIR/edge/captured_images"
 
 # Set proper permissions for production
-chmod 755 edge/logs
-chmod 755 resources
-chmod 755 edge
-chmod 755 edge/db
-chmod 755 edge/captured_images
+chmod 755 "$ROOT_DIR/edge/logs"
+chmod 755 "$ROOT_DIR/resources"
+chmod 755 "$ROOT_DIR/edge"
+chmod 755 "$ROOT_DIR/edge/db"
+chmod 755 "$ROOT_DIR/edge/captured_images"
 
 # Set proper project ownership and permissions for development
 echo "Setting up project ownership and permissions for development..."
@@ -553,9 +722,9 @@ chmod 775 /home/camuser/aicamera/edge/src/web/static/js/ 2>/dev/null || true
 chmod 755 /home/camuser/aicamera/edge/captured_images/ 2>/dev/null || true
 
 # Create basic WSGI file if it doesn't exist
-if [[ ! -f "edge/src/wsgi.py" ]]; then
+if [[ ! -f "$ROOT_DIR/edge/src/wsgi.py" ]]; then
     echo "Creating basic WSGI file..."
-    cat > edge/src/wsgi.py << 'EOF'
+    cat > "$ROOT_DIR/edge/src/wsgi.py" << 'EOF'
 from flask import Flask
 
 app = Flask(__name__)
@@ -574,34 +743,34 @@ EOF
 fi
 
 # Create __init__.py files for Python packages
-touch edge/__init__.py
-touch edge/src/__init__.py
+touch "$ROOT_DIR/edge/__init__.py"
+touch "$ROOT_DIR/edge/src/__init__.py"
 
 # Setup environment configuration
 echo "Setting up environment configuration..."
-if [[ ! -f "edge/installation/.env.production" ]]; then
-    if [[ -f "edge/installation/env.production.template" ]]; then
-        cp edge/installation/env.production.template edge/installation/.env.production
+if [[ ! -f "$ROOT_DIR/edge/installation/.env.production" ]]; then
+    if [[ -f "$ROOT_DIR/edge/installation/env.production.template" ]]; then
+        cp "$ROOT_DIR/edge/installation/env.production.template" "$ROOT_DIR/edge/installation/.env.production"
         echo "✅ Created .env.production file from template"
-        echo "📝 Please edit edge/installation/.env.production file to customize your installation:"
+        echo "📝 Please edit $ROOT_DIR/edge/installation/.env.production file to customize your installation:"
         echo "   - Set AICAMERA_ID and CHECKPOINT_ID for unique identification"
         echo "   - Configure GPS coordinates (LOCATION_LAT, LOCATION_LON)"
         echo "   - Choose appropriate Hailo models for your device"
         echo "   - Set camera and detection parameters"
     else
-        echo "⚠️  edge/installation/env.production.template not found - please create .env.production file manually"
+        echo "⚠️  $ROOT_DIR/edge/installation/env.production.template not found - please create .env.production file manually"
     fi
 else
-    echo "✅ .env.production file already exists in edge/installation/"
+    echo "✅ .env.production file already exists in $ROOT_DIR/edge/installation/"
 fi
 
 # Load .env.production and prompt for key identifiers if needed
-if [[ -f "edge/installation/.env.production" ]]; then
+if [[ -f "$ROOT_DIR/edge/installation/.env.production" ]]; then
     echo "🔎 Verifying required identifiers in .env.production (AICAMERA_ID, CHECKPOINT_ID, CAMERA_LOCATION)..."
 
     # Export variables from .env.production into current shell
     set -a
-    source edge/installation/.env.production || true
+    source "$ROOT_DIR/edge/installation/.env.production" || true
     set +a
 
     # Helper to update or insert env var
@@ -611,10 +780,10 @@ if [[ -f "edge/installation/.env.production" ]]; then
         local replace_value="$value"
         # Escape '&' for sed replacement safety
         replace_value="${replace_value//&/\\&}"
-        if grep -q "^${key}=" edge/installation/.env.production; then
-            sed -i "s|^${key}=.*|${key}=${replace_value}|" edge/installation/.env.production
+        if grep -q "^${key}=" "$ROOT_DIR/edge/installation/.env.production"; then
+            sed -i "s|^${key}=.*|${key}=${replace_value}|" "$ROOT_DIR/edge/installation/.env.production"
         else
-            echo "${key}=${replace_value}" >> edge/installation/.env.production
+            echo "${key}=${replace_value}" >> "$ROOT_DIR/edge/installation/.env.production"
         fi
     }
 
@@ -644,7 +813,7 @@ if [[ -f "edge/installation/.env.production" ]]; then
 
     # Reload to ensure environment reflects latest values
     set -a
-    source edge/installation/.env.production || true
+    source "$ROOT_DIR/edge/installation/.env.production" || true
     set +a
 fi
 
@@ -655,14 +824,14 @@ echo "🔧 Initializing and validating database (no migrations)..."
 export PYTHONPATH="$ROOT_DIR:$PYTHONPATH"
 
 # Initialize schema to current version (idempotent)
-if python edge/scripts/init_database.py; then
+if python "$ROOT_DIR/edge/scripts/init_database.py"; then
     echo "✅ Database initialized (current schema)"
 else
     echo "⚠️  Database initialization reported an issue; continuing to validation"
 fi
 
 # Validate using DatabaseManager and schema checks
-if python edge/scripts/validate_database.py; then
+if python "$ROOT_DIR/edge/scripts/validate_database.py"; then
     echo "✅ Database validation passed"
 else
     echo "⚠️  Database validation reported issues. Proceeding without migrations."
@@ -679,14 +848,14 @@ else
     echo "   nginx already installed"
 fi
 
-if [[ -f "edge/nginx.conf" ]]; then
+if [[ -f "$ROOT_DIR/edge/nginx.conf" ]]; then
     echo "   Applying nginx site configuration..."
     # Backup default if exists
     if [[ -f "/etc/nginx/sites-available/default" ]]; then
         sudo cp /etc/nginx/sites-available/default /etc/nginx/sites-available/default.backup || true
     fi
     # Copy our config and enable it
-    sudo cp edge/nginx.conf /etc/nginx/sites-available/aicamera
+    sudo cp "$ROOT_DIR/edge/nginx.conf" /etc/nginx/sites-available/aicamera
     sudo ln -sf /etc/nginx/sites-available/aicamera /etc/nginx/sites-enabled/aicamera
     # Remove default site if present
     sudo rm -f /etc/nginx/sites-enabled/default || true
@@ -698,9 +867,39 @@ if [[ -f "edge/nginx.conf" ]]; then
     sudo chown www-data:www-data /run/nginx 2>/dev/null || true
     sudo chmod 755 /run/nginx
     
+    # Fix nginx PID file permissions
+    echo "   Fixing nginx PID file permissions..."
+    sudo mkdir -p /var/run/nginx
+    sudo chown www-data:www-data /var/run/nginx 2>/dev/null || true
+    sudo chmod 755 /var/run/nginx
+    
+    # Create nginx PID file with proper permissions
+    sudo touch /var/run/nginx.pid
+    sudo chown www-data:www-data /var/run/nginx.pid 2>/dev/null || true
+    sudo chmod 644 /var/run/nginx.pid
+    
     # Ensure nginx can write to its log directory
     sudo mkdir -p /var/log/nginx
     sudo chown www-data:www-data /var/log/nginx 2>/dev/null || true
+    
+    # Fix static file permissions for CSS/JS serving
+    echo "   🔧 Fixing static file permissions for CSS/JS serving..."
+    echo "   📋 Setting proper permissions for static files to prevent 403 errors..."
+    
+    # Set permissions for home directory traversal (required for nginx to access static files)
+    sudo chmod 755 /home/camuser 2>/dev/null || true
+    sudo chmod 755 /home/camuser/aicamera 2>/dev/null || true
+    
+    # Set permissions for static files directory
+    sudo chmod -R 755 /home/camuser/aicamera/edge/src/web/static/ 2>/dev/null || true
+    
+    # Ensure www-data can read static files
+    sudo chown -R camuser:www-data /home/camuser/aicamera/edge/src/web/static/ 2>/dev/null || true
+    sudo chmod -R 644 /home/camuser/aicamera/edge/src/web/static/*.css 2>/dev/null || true
+    sudo chmod -R 644 /home/camuser/aicamera/edge/src/web/static/*.js 2>/dev/null || true
+    sudo chmod -R 644 /home/camuser/aicamera/edge/src/web/static/*.html 2>/dev/null || true
+    
+    echo "   ✅ Static file permissions configured"
     
     # Fix main nginx.conf user directive if running as non-root
     if [[ "$(id -u)" != "0" ]]; then
@@ -730,6 +929,25 @@ if [[ -f "edge/nginx.conf" ]]; then
                 echo "   ✅ Nginx configuration still valid after fixes"
                 sudo systemctl reload nginx
                 echo "   ✅ Nginx reloaded with fixes"
+                
+                # Validate static file serving
+                echo "   🔍 Validating static file serving..."
+                sleep 2  # Wait for nginx to reload
+                
+                # Test CSS file access
+                if curl -s -f -I http://localhost/static/css/base.css >/dev/null 2>&1; then
+                    echo "   ✅ CSS files are accessible"
+                else
+                    echo "   ⚠️  CSS files may not be accessible - check permissions"
+                fi
+                
+                # Test JavaScript file access
+                if curl -s -f -I http://localhost/static/js/base.js >/dev/null 2>&1; then
+                    echo "   ✅ JavaScript files are accessible"
+                else
+                    echo "   ⚠️  JavaScript files may not be accessible - check permissions"
+                fi
+                
             else
                 echo "   ⚠️  Nginx configuration invalid after fixes - manual check required"
             fi
@@ -755,15 +973,15 @@ if [[ -f "edge/nginx.conf" ]]; then
         fi
     fi
 else
-    echo "   ❌ edge/nginx.conf not found in project root"
+    echo "   ❌ $ROOT_DIR/edge/nginx.conf not found in project root"
     echo "   Ensure a valid nginx.conf exists that proxies to unix:/tmp/aicamera.sock"
     exit 1
 fi
 
 # Setup and start systemd service
 echo "Setting up systemd service..."
-if [[ -f "edge/systemd_service/aicamera_lpr.service" ]]; then
-    sudo cp edge/systemd_service/aicamera_lpr.service /etc/systemd/system/
+if [[ -f "$ROOT_DIR/edge/systemd_service/aicamera_lpr.service" ]]; then
+    sudo cp "$ROOT_DIR/edge/systemd_service/aicamera_lpr.service" /etc/systemd/system/
     sudo systemctl daemon-reload
     sudo systemctl enable aicamera_lpr.service
     
@@ -797,6 +1015,40 @@ if [[ -f "edge/systemd_service/aicamera_lpr.service" ]]; then
                 fi
             done
             
+            # Validate dashboard CSS and JavaScript loading
+            if [[ "$web_accessible" == "true" ]]; then
+                echo "🔍 Validating dashboard CSS and JavaScript loading..."
+                
+                # Test main dashboard page
+                if curl -s -f http://localhost/ >/dev/null 2>&1; then
+                    echo "✅ Main dashboard page is accessible"
+                    
+                    # Test CSS file loading
+                    if curl -s -f -I http://localhost/static/css/base.css >/dev/null 2>&1; then
+                        echo "✅ Dashboard CSS files are loading correctly"
+                    else
+                        echo "⚠️  Dashboard CSS files may not be loading - check static file permissions"
+                    fi
+                    
+                    # Test JavaScript file loading
+                    if curl -s -f -I http://localhost/static/js/base.js >/dev/null 2>&1; then
+                        echo "✅ Dashboard JavaScript files are loading correctly"
+                    else
+                        echo "⚠️  Dashboard JavaScript files may not be loading - check static file permissions"
+                    fi
+                    
+                    # Test Bootstrap and Font Awesome loading
+                    if curl -s -f -I http://localhost/static/libs/bootstrap/bootstrap.min.css >/dev/null 2>&1; then
+                        echo "✅ Bootstrap CSS is loading correctly"
+                    else
+                        echo "⚠️  Bootstrap CSS may not be loading - check static file permissions"
+                    fi
+                    
+                else
+                    echo "⚠️  Main dashboard page may not be accessible"
+                fi
+            fi
+            
             if [[ "$web_accessible" == "false" ]]; then
                 echo "⚠️  Web interface validation failed after $max_retries attempts"
                 echo "📋 Checking service logs for issues..."
@@ -805,11 +1057,13 @@ if [[ -f "edge/systemd_service/aicamera_lpr.service" ]]; then
                 echo "📋 You can check manually: curl http://localhost/health"
             fi
             
-            # Try to open browser automatically (if GUI is available)
+            # Try to open browser automatically (if GUI is available) - non-blocking
             if command -v xdg-open &> /dev/null && [[ -n "$DISPLAY" ]]; then
-                echo "Opening browser to check service..."
+                echo "🌐 Opening browser to check service (non-blocking)..."
                 sleep 2
-                xdg-open http://localhost/health 2>/dev/null || echo "Browser opened manually: http://localhost/health"
+                # Run xdg-open in background to prevent script from hanging
+                (xdg-open http://localhost/health 2>/dev/null &) || echo "Browser opened manually: http://localhost/health"
+                echo "🌐 Service is running at: http://localhost/health"
             else
                 echo "🌐 Service is running at: http://localhost/health"
                 echo "📊 Check service status with: sudo systemctl status aicamera_lpr.service"
@@ -825,7 +1079,7 @@ if [[ -f "edge/systemd_service/aicamera_lpr.service" ]]; then
         exit 1
     fi
 else
-    echo "❌ Service file not found: edge/systemd_service/aicamera_lpr.service"
+    echo "❌ Service file not found: $ROOT_DIR/edge/systemd_service/aicamera_lpr.service"
     exit 1
 fi
 
@@ -886,18 +1140,49 @@ fi
 # Run validation
 echo ""
 echo "🔍 Running installation validation..."
-if python edge/scripts/validate_installation.py; then
+if python "$ROOT_DIR/edge/scripts/validate_installation.py"; then
     echo "✅ Installation validation completed"
 else
     echo "⚠️  Installation validation found issues"
     echo "📋 Please review the validation output above"
 fi
 
+# Validate camera initialization
+echo "🔍 Validating camera initialization..."
+echo "   📋 Testing camera initialization with system picamera2..."
+if python -c "
+import sys
+sys.path.insert(0, '$ROOT_DIR/edge/src')
+try:
+    from edge.src.components.camera_handler import CameraHandler
+    camera = CameraHandler()
+    result = camera.initialize_camera()
+    if result:
+        print('✅ Camera initialization successful')
+    else:
+        print('⚠️  Camera initialization failed - check camera hardware and permissions')
+except Exception as e:
+    print(f'⚠️  Camera initialization error: {e}')
+" 2>/dev/null; then
+    echo "   ✅ Camera validation completed"
+else
+    echo "   ⚠️  Camera validation failed - camera may not work properly"
+fi
+
 echo ""
 echo "📋 Service Status: sudo systemctl status aicamera_lpr.service"
 echo "📋 Service Logs: sudo journalctl -u aicamera_lpr.service -f"
 echo "🌐 Web Interface: http://localhost"
-echo "🔍 Validation: python edge/scripts/validate_installation.py"
+echo "🔍 Validation: python $ROOT_DIR/edge/scripts/validate_installation.py"
+echo ""
+echo "🔧 Dashboard Display Troubleshooting:"
+echo "   If dashboard CSS/JS is not loading properly:"
+echo "   1. Check static file permissions: ls -la /home/camuser/aicamera/edge/src/web/static/"
+echo "   2. Test CSS access: curl -I http://localhost/static/css/base.css"
+echo "   3. Test JS access: curl -I http://localhost/static/js/base.js"
+echo "   4. Check nginx logs: sudo tail -f /var/log/nginx/error.log"
+echo "   5. Fix permissions: sudo chmod -R 755 /home/camuser/aicamera/edge/src/web/static/"
+echo "   6. Reload nginx: sudo systemctl reload nginx"
 
 # Optional: Setup kiosk browser service for boot startup (non-critical)
 echo ""
@@ -905,7 +1190,7 @@ echo "🖥️  Setting up optional kiosk browser service for boot startup..."
 echo "   ℹ️  This is an optional feature - main installation will continue regardless of kiosk setup status"
 echo "   ℹ️  Kiosk browser will start automatically on system boot (if enabled)"
 
-if [[ -f "edge/systemd_service/kiosk-browser.service" ]]; then
+if [[ -f "$ROOT_DIR/edge/systemd_service/kiosk-browser.service" ]]; then
     # Install chromium-browser if not present (optional)
     if ! command -v chromium-browser >/dev/null 2>&1; then
         echo "   📦 Installing chromium-browser (optional)..."
@@ -923,7 +1208,7 @@ if [[ -f "edge/systemd_service/kiosk-browser.service" ]]; then
     
     # Copy service file and enable it (optional)
     echo "   📋 Installing kiosk browser service (optional)..."
-            if sudo cp edge/systemd_service/kiosk-browser.service /etc/systemd/system/; then
+            if sudo cp "$ROOT_DIR/edge/systemd_service/kiosk-browser.service" /etc/systemd/system/; then
         sudo systemctl daemon-reload
         sudo systemctl enable kiosk-browser.service
         echo "   ✅ Kiosk browser service installed and enabled"
@@ -937,8 +1222,8 @@ if [[ -f "edge/systemd_service/kiosk-browser.service" ]]; then
     # Install desktop launcher if desktop environment is available (optional)
     if [[ -n "$DISPLAY" ]] && [[ -d "/home/camuser/Desktop" ]]; then
         echo "   🖥️  Installing desktop launcher (optional)..."
-        if [[ -f "edge/installation/aicamera-browser.desktop" ]]; then
-            if cp edge/installation/aicamera-browser.desktop /home/camuser/Desktop/; then
+        if [[ -f "$ROOT_DIR/edge/installation/aicamera-browser.desktop" ]]; then
+            if cp "$ROOT_DIR/edge/installation/aicamera-browser.desktop" /home/camuser/Desktop/; then
                 chmod +x /home/camuser/Desktop/aicamera-browser.desktop
                 chown camuser:camuser /home/camuser/Desktop/aicamera-browser.desktop
                 echo "   ✅ Desktop launcher installed at /home/camuser/Desktop/aicamera-browser.desktop"
@@ -946,7 +1231,7 @@ if [[ -f "edge/systemd_service/kiosk-browser.service" ]]; then
                 echo "   ⚠️  Failed to install desktop launcher - continuing with main installation"
             fi
         else
-            echo "   ⚠️  Desktop launcher file not found: edge/installation/aicamera-browser.desktop"
+            echo "   ⚠️  Desktop launcher file not found: $ROOT_DIR/edge/installation/aicamera-browser.desktop"
         fi
     else
         echo "   ℹ️  Desktop environment not detected, skipping desktop launcher"
@@ -963,7 +1248,7 @@ if [[ -f "edge/systemd_service/kiosk-browser.service" ]]; then
         echo "   📋 Service will start automatically on next system boot when GUI is available"
     fi
 else
-    echo "   ℹ️  Kiosk browser service file not found: systemd_service/kiosk-browser.service"
+    echo "   ℹ️  Kiosk browser service file not found: $ROOT_DIR/edge/systemd_service/kiosk-browser.service"
     echo "   ℹ️  Kiosk browser is an optional feature - main installation continues"
 fi
 
@@ -975,8 +1260,8 @@ echo "🎨 Setting up AI Camera boot logo..."
 echo "   ℹ️  This will replace the Raspberry Pi logo with AI Camera logo during boot"
 echo "   ℹ️  This is an optional feature - main installation will continue regardless of logo setup status"
 
-if [[ -f "assets/aicamera_logo.png" ]]; then
-echo "   📷 Found AI Camera logo: assets/aicamera_logo.png"
+if [[ -f "$ROOT_DIR/assets/aicamera_logo.png" ]]; then
+echo "   📷 Found AI Camera logo: $ROOT_DIR/assets/aicamera_logo.png"
     
     # Check if Plymouth is available
     if command -v plymouth >/dev/null 2>&1; then
@@ -993,7 +1278,7 @@ echo "   📷 Found AI Camera logo: assets/aicamera_logo.png"
         
         # Install AI Camera logo
         echo "   🎨 Installing AI Camera logo..."
-        sudo cp assets/aicamera_logo.png /usr/share/plymouth/themes/pix/splash.png
+        sudo cp "$ROOT_DIR/assets/aicamera_logo.png" /usr/share/plymouth/themes/pix/splash.png
         echo "   ✅ AI Camera logo installed"
         
         # Set Plymouth theme
@@ -1014,7 +1299,7 @@ echo "   📷 Found AI Camera logo: assets/aicamera_logo.png"
         echo "   ℹ️  Main installation will continue - you can install Plymouth manually later"
     fi
 else
-    echo "   ⚠️  AI Camera logo not found: assets/aicamera_logo.png"
+    echo "   ⚠️  AI Camera logo not found: $ROOT_DIR/assets/aicamera_logo.png"
     echo "   ℹ️  Boot logo setup skipped - main installation continues"
 fi
 
@@ -1058,30 +1343,30 @@ if [[ -f "$ROOT_DIR/scripts/setup_edge_communication_system.sh" ]]; then
         cd "$SCRIPT_DIR"
         
         # Verify the configuration was created
-        if [[ -f ".env.production" ]]; then
-            echo "   ✅ Edge configuration file created: .env.production"
-            echo "   📋 Configuration file location: $(pwd)/.env.production"
+        if [[ -f "$ROOT_DIR/edge/installation/.env.production" ]]; then
+            echo "   ✅ Edge configuration file created: $ROOT_DIR/edge/installation/.env.production"
+            echo "   📋 Configuration file location: $ROOT_DIR/edge/installation/.env.production"
             
             # Show configuration file info
             echo "   📊 Configuration file details:"
-            echo "      - Size: $(du -h .env.production | cut -f1)"
-            echo "      - Lines: $(wc -l < .env.production)"
-            echo "      - Last modified: $(stat -c %y .env.production)"
+            echo "      - Size: $(du -h "$ROOT_DIR/edge/installation/.env.production" | cut -f1)"
+            echo "      - Lines: $(wc -l < "$ROOT_DIR/edge/installation/.env.production")"
+            echo "      - Last modified: $(stat -c %y "$ROOT_DIR/edge/installation/.env.production")"
         else
             echo "   ⚠️  Edge configuration file not found - check setup script output"
         fi
         
         # Check if edge services were created
-        if [[ -f "../src/services/mqtt_client.py" ]] && \
-           [[ -f "../src/services/sftp_transfer.py" ]] && \
-           [[ -f "../src/services/websocket_client.py" ]]; then
+        if [[ -f "$ROOT_DIR/edge/src/services/mqtt_client.py" ]] && \
+           [[ -f "$ROOT_DIR/edge/src/services/sftp_transfer.py" ]] && \
+           [[ -f "$ROOT_DIR/edge/src/services/websocket_client.py" ]]; then
             echo "   ✅ Edge communication services created"
             
             # Show service files info
             echo "   📊 Service files created:"
             for service in mqtt_client.py sftp_transfer.py websocket_client.py; do
-                if [[ -f "../src/services/$service" ]]; then
-                    echo "      - $service: $(du -h "../src/services/$service" | cut -f1)"
+                if [[ -f "$ROOT_DIR/edge/src/services/$service" ]]; then
+                    echo "      - $service: $(du -h "$ROOT_DIR/edge/src/services/$service" | cut -f1)"
                 fi
             done
         else
@@ -1089,20 +1374,20 @@ if [[ -f "$ROOT_DIR/scripts/setup_edge_communication_system.sh" ]]; then
         fi
         
         # Check if startup script was created
-        if [[ -f "../start_edge.sh" ]]; then
-            echo "   ✅ Edge startup script created: ../start_edge.sh"
-            echo "   📋 To start edge application: cd .. && ./start_edge.sh"
+        if [[ -f "$ROOT_DIR/start_edge.sh" ]]; then
+            echo "   ✅ Edge startup script created: $ROOT_DIR/start_edge.sh"
+            echo "   📋 To start edge application: cd $ROOT_DIR && ./start_edge.sh"
             
             # Make startup script executable
-            chmod +x ../start_edge.sh
+            chmod +x "$ROOT_DIR/start_edge.sh"
             echo "   ✅ Startup script made executable"
         else
             echo "   ⚠️  Edge startup script not found - check setup script output"
         fi
         
         # Check if logs directory was created
-        if [[ -d "../logs" ]]; then
-            echo "   ✅ Logs directory created: ../logs"
+        if [[ -d "$ROOT_DIR/edge/logs" ]]; then
+            echo "   ✅ Logs directory created: $ROOT_DIR/edge/logs"
         else
             echo "   ℹ️  Logs directory not found - will be created when edge starts"
         fi
@@ -1114,14 +1399,14 @@ if [[ -f "$ROOT_DIR/scripts/setup_edge_communication_system.sh" ]]; then
         echo "   📋 Common troubleshooting steps:"
         echo "      - Check system package availability: sudo apt update"
         echo "      - Verify Python environment: python3 --version"
-        echo "      - Check permissions: ls -la scripts/setup_edge_communication_system.sh"
+        echo "      - Check permissions: ls -la $ROOT_DIR/scripts/setup_edge_communication_system.sh"
         
         # Return to installation directory even if setup failed
-        cd edge/installation/
+        cd "$ROOT_DIR/edge/installation/"
     fi
     
 else
-    echo "   ⚠️  Edge communication setup script not found: ../../scripts/setup_edge_communication_system.sh"
+    echo "   ⚠️  Edge communication setup script not found: $ROOT_DIR/scripts/setup_edge_communication_system.sh"
     echo "   📋 Please ensure the setup script exists in the scripts/ directory"
     echo "   📋 You can run the setup manually from the project root directory"
     echo "   📋 Expected location: $ROOT_DIR/scripts/setup_edge_communication_system.sh"
@@ -1144,19 +1429,19 @@ echo "   ✅ Boot logo configured (optional)"
 echo "   ✅ Edge communication system configured"
 echo ""
 echo "🚀 Next Steps:"
-echo "   1. Configure edge environment: nano .env.production"
-echo "   2. Start edge application: cd .. && ./start_edge.sh"
+echo "   1. Configure edge environment: nano $ROOT_DIR/edge/installation/.env.production"
+echo "   2. Start edge application: cd $ROOT_DIR && ./start_edge.sh"
 echo "   3. Monitor communication: mosquitto_sub -h localhost -t 'aicamera/edge/#'"
-echo "   4. Check logs: tail -f ../logs/edge.log"
+echo "   4. Check logs: tail -f $ROOT_DIR/edge/logs/edge.log"
 echo ""
 echo "📚 Documentation:"
-echo "   - Main docs: ../../docs/shared/COMMUNICATION_SYSTEM_IMPLEMENTATION.md"
-echo "   - Edge setup: ../../scripts/setup_edge_communication_system.sh"
-echo "   - Test scripts: ../../scripts/test_*.py"
+echo "   - Main docs: $ROOT_DIR/docs/shared/COMMUNICATION_SYSTEM_IMPLEMENTATION.md"
+echo "   - Edge setup: $ROOT_DIR/scripts/setup_edge_communication_system.sh"
+echo "   - Test scripts: $ROOT_DIR/scripts/test_*.py"
 echo ""
 echo "🔧 Troubleshooting:"
 echo "   - Check service status: sudo systemctl status mosquitto"
-echo "   - Test communication: python3 ../../scripts/test_edge_services_direct.py"
+echo "   - Test communication: python3 $ROOT_DIR/scripts/test_edge_services_direct.py"
 echo "   - View setup logs: journalctl -u edge-communication-setup.service"
 echo ""
 echo "🎯 The edge device is now ready for AI Camera operations!"

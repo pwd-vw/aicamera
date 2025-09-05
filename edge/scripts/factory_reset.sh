@@ -1,10 +1,10 @@
 #!/bin/bash
-# Factory Reset Script for AI Camera v1.3
+# Factory Reset Script for AI Camera v2.0
 # This script completely removes the installation and prepares for fresh install
 
 set -e
 
-echo "FACTORY RESET - AI Camera v1.3"
+echo "FACTORY RESET - AI Camera v2.0"
 echo "=================================="
 echo "This script will completely remove the AI Camera installation."
 echo "All data, configurations, and services will be deleted."
