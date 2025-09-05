@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-EasyOCR Validation Script for AI Camera v1.3
+EasyOCR Validation Script for AI Camera v2.0
 
 This script validates that EasyOCR is properly installed and working
 with the correct dependencies, especially typing_extensions.
 
 Author: AI Camera Team
-Version: 1.3
-Date: August 2025
+Version: 2.0
+Date: September 2025
 """
 
 import sys
@@ -178,7 +178,7 @@ def check_python_environment():
 
 def main():
     """Main validation function."""
-    print("🚀 Starting EasyOCR Validation for AI Camera v1.3...")
+    print("🚀 Starting EasyOCR Validation for AI Camera v2.0.")
     print(f"📋 Supported languages: {EASYOCR_LANGUAGES}")
     
     # Check Python environment first

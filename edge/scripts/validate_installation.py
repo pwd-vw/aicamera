@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-Installation Validation Script for AI Camera v1.3
+Installation Validation Script for AI Camera v2.0
 
 This script validates that all components are properly installed and working
 after a fresh installation.
 
 Author: AI Camera Team
-Version: 1.3.9
-Date: August 2025
+Version: 2.0
+Date: September 2025
 """
 
 import sys

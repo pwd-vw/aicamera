@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-Database Validation Script for AI Camera v1.3
+Database Validation Script for AI Camera v2.0
 
 This script validates that the database is properly initialized and all
 required components are working correctly.
 
 Author: AI Camera Team
-Version: 1.3
-Date: August 2025
+Version: 2.0
+Date: September 2025
 """
 
 import sys
@@ -193,7 +193,7 @@ def validate_storage_monitor_database():
 
 def main():
     """Main validation function."""
-    print("🚀 Starting Database Validation for AI Camera v1.3...")
+    print("🚀 Starting Database Validation for AI Camera v2.0.")
     print(f"📋 Database path: {DATABASE_PATH}")
     
     all_passed = True

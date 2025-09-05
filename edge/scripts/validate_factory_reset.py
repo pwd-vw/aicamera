@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-Factory Reset Validation Script for AI Camera v1.3
+Factory Reset Validation Script for AI Camera v2.0
 
 This script validates the system state after factory reset and before reinstallation
 to ensure no dependency issues exist.
 
 Author: AI Camera Team
-Version: 1.3
-Date: August 2025
+Version: 2.0
+Date: September 2025
 """
 
 import os

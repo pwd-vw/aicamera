@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Configuration Validation Script for AI Camera v1.3
+Configuration Validation Script for AI Camera v2.0
 
 This script validates the environment configuration and system compatibility.
 It checks:
@@ -10,7 +10,8 @@ It checks:
 - System requirements
 
 Author: AI Camera Team
-Version: 1.3
+Version: 2.0
+Date: September 2025
 """
 
 import os
