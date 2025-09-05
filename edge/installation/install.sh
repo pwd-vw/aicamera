@@ -897,11 +897,13 @@ if [[ -f "edge/systemd_service/aicamera_lpr.service" ]]; then
                 echo "📋 You can check manually: curl http://localhost/health"
             fi
             
-            # Try to open browser automatically (if GUI is available)
+            # Try to open browser automatically (if GUI is available) - non-blocking
             if command -v xdg-open &> /dev/null && [[ -n "$DISPLAY" ]]; then
-                echo "Opening browser to check service..."
+                echo "🌐 Opening browser to check service (non-blocking)..."
                 sleep 2
-                xdg-open http://localhost/health 2>/dev/null || echo "Browser opened manually: http://localhost/health"
+                # Run xdg-open in background to prevent script from hanging
+                (xdg-open http://localhost/health 2>/dev/null &) || echo "Browser opened manually: http://localhost/health"
+                echo "🌐 Service is running at: http://localhost/health"
             else
                 echo "🌐 Service is running at: http://localhost/health"
                 echo "📊 Check service status with: sudo systemctl status aicamera_lpr.service"
