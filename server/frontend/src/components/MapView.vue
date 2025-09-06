@@ -1,169 +1,237 @@
 <template>
   <div class="map-container">
     <div class="map-header">
-      <h3>Camera Locations & Detections</h3>
+      <h3>Map View</h3>
       <div class="map-controls">
-        <button @click="refreshMap" :disabled="loading" class="btn-secondary">
-          {{ loading ? 'Loading...' : 'Refresh' }}
+        <button @click="refreshAll" :disabled="loading" class="btn-secondary">
+          {{ loading ? 'Loading…' : 'Refresh' }}
         </button>
-        <select v-model="selectedFilter" class="select">
-          <option value="all">All Cameras</option>
-          <option value="active">Active Only</option>
-          <option value="detections">With Detections</option>
+        <select v-model="selectedBase" class="select">
+          <option value="satellite">Satellite</option>
+          <option value="streets">Streets</option>
         </select>
+        <label class="control">
+          <input type="checkbox" v-model="showCameras" /> Cameras
+        </label>
+        <label class="control">
+          <input type="checkbox" v-model="showDetections" /> Detections
+        </label>
+        <select v-model="selectedTimeRange" class="select" :disabled="!showDetections">
+          <option value="1h">Last 1h</option>
+          <option value="6h">Last 6h</option>
+          <option value="24h">Last 24h</option>
+        </select>
+        <button @click="fitToData" class="btn-secondary">Fit</button>
       </div>
     </div>
-    
-    <div ref="mapContainer" class="map-content">
+
+    <div class="map-content">
       <div v-if="loading" class="loading-overlay">
         <div class="spinner"></div>
-        <p>Loading map data...</p>
+        <p>Loading map data…</p>
       </div>
-      
       <div v-else-if="error" class="error-message">
         <p>{{ error }}</p>
-        <button @click="refreshMap" class="btn-secondary">Retry</button>
+        <button @click="refreshAll" class="btn-secondary">Retry</button>
       </div>
-      
-      <div v-else-if="!cameras.length" class="empty-state">
-        <p>No cameras found</p>
-        <button @click="refreshMap" class="btn-secondary">Refresh</button>
-      </div>
-      
-      <div v-else class="map-placeholder">
-        <div class="map-grid">
-          <div 
-            v-for="camera in filteredCameras" 
-            :key="camera.id"
-            class="camera-marker"
-            :class="{ 
-              'active': camera.status === 'active',
-              'inactive': camera.status === 'inactive',
-              'error': camera.status === 'error'
-            }"
-            @click="selectCamera(camera)"
-          >
-            <div class="marker-icon">
-              <span class="icon">📹</span>
-            </div>
-            <div class="marker-info">
-              <strong>{{ camera.name }}</strong>
-              <span class="status">{{ camera.status }}</span>
-              <span v-if="(camera as any).detectionCount" class="detections">
-                {{ (camera as any).detectionCount || 0 }} detections
-              </span>
-            </div>
-          </div>
-        </div>
-        
-        <div v-if="selectedCamera" class="camera-details">
-          <h4>{{ selectedCamera.name }}</h4>
-          <div class="detail-grid">
-            <div class="detail-item">
-              <label>Status:</label>
-              <span :class="selectedCamera.status">{{ selectedCamera.status }}</span>
-            </div>
-            <div class="detail-item">
-              <label>Location:</label>
-              <span>{{ selectedCamera.locationAddress || 'No address' }}</span>
-            </div>
-            <div class="detail-item">
-              <label>Detections:</label>
-              <span>{{ (selectedCamera as any).detectionCount || 0 }}</span>
-            </div>
-            <div class="detail-item">
-              <label>Last Update:</label>
-              <span>{{ formatDate(selectedCamera.updatedAt) }}</span>
-            </div>
-          </div>
-          <div class="camera-actions">
-            <button @click="viewCameraDetails(selectedCamera)" class="btn-primary">
-              View Details
-            </button>
-            <button @click="viewDetections(selectedCamera)" class="btn-secondary">
-              View Detections
-            </button>
-          </div>
-        </div>
-      </div>
+      <div v-else ref="mapContainer" class="leaflet-host"></div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, onMounted, onBeforeUnmount, watch } from 'vue';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import { communicationService } from '../services';
-import type { Camera } from '../services';
+import type { Camera, Detection } from '../services';
 
 const mapContainer = ref<HTMLElement>();
+const map = ref<L.Map | null>(null);
 const loading = ref(false);
 const error = ref('');
+
+// Data
 const cameras = ref<Camera[]>([]);
-const selectedCamera = ref<Camera | null>(null);
-const selectedFilter = ref('all');
+const detections = ref<Detection[]>([]);
 
-const filteredCameras = computed(() => {
-  switch (selectedFilter.value) {
-    case 'active':
-      return cameras.value.filter(c => c.status === 'active');
-    case 'detections':
-      return cameras.value.filter(c => (c as any).detectionCount > 0);
-    default:
-      return cameras.value;
+// Controls
+const selectedBase = ref<'satellite' | 'streets'>('satellite');
+const selectedTimeRange = ref<'1h' | '6h' | '24h'>('6h');
+const showCameras = ref(true);
+const showDetections = ref(false);
+
+// Layers
+let baseSatellite: L.TileLayer | null = null;
+let baseStreets: L.TileLayer | null = null;
+const cameraLayer = L.layerGroup();
+const detectionLayer = L.layerGroup();
+
+function initMap() {
+  if (!mapContainer.value) return;
+
+  // Create map
+  map.value = L.map(mapContainer.value, {
+    center: [37.773972, -122.431297],
+    zoom: 11,
+    zoomControl: true,
+  });
+
+  // Base layers
+  baseSatellite = L.tileLayer(
+    'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    {
+      attribution: 'Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics',
+      maxZoom: 19,
+    }
+  ).addTo(map.value);
+
+  baseStreets = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors',
+    maxZoom: 19,
+  });
+
+  // Overlay layers
+  cameraLayer.addTo(map.value);
+  detectionLayer.addTo(map.value);
+}
+
+function clearLayers() {
+  cameraLayer.clearLayers();
+  detectionLayer.clearLayers();
+}
+
+function getTimeWindow() {
+  const end = new Date();
+  const start = new Date(end);
+  if (selectedTimeRange.value === '1h') start.setHours(end.getHours() - 1);
+  else if (selectedTimeRange.value === '6h') start.setHours(end.getHours() - 6);
+  else start.setHours(end.getHours() - 24);
+  return { start: start.toISOString(), end: end.toISOString() };
+}
+
+async function loadCameras() {
+  cameras.value = await communicationService.getCameras();
+}
+
+async function loadDetections() {
+  const { start, end } = getTimeWindow();
+  detections.value = await communicationService.getDetections({ startDate: start, endDate: end, limit: 500 });
+}
+
+function renderCameras() {
+  cameraLayer.clearLayers();
+  if (!showCameras.value) return;
+  for (const cam of cameras.value) {
+    if (cam.locationLat == null || cam.locationLng == null) continue;
+    const color = cam.status === 'active' ? '#10b981' : cam.status === 'error' ? '#ef4444' : '#6b7280';
+    const marker = L.circleMarker([cam.locationLat, cam.locationLng], {
+      radius: 7,
+      color,
+      weight: 2,
+      fillColor: color,
+      fillOpacity: 0.6,
+    }).bindPopup(
+      `<div><strong>${cam.name}</strong><br/>Status: ${cam.status}<br/>${cam.locationAddress || ''}</div>`
+    );
+    marker.addTo(cameraLayer);
   }
-});
+}
 
-const refreshMap = async () => {
+function renderDetections() {
+  detectionLayer.clearLayers();
+  if (!showDetections.value) return;
+  // Group by license plate to draw tracks
+  const plateToPoints = new Map<string, Array<{ lat: number; lng: number; t: string }>>();
+  for (const d of detections.value) {
+    if (d.locationLat == null || d.locationLng == null) continue;
+    const key = d.licensePlate || d.id;
+    if (!plateToPoints.has(key)) plateToPoints.set(key, []);
+    plateToPoints.get(key)!.push({ lat: d.locationLat, lng: d.locationLng, t: d.timestamp || d.createdAt });
+  }
+  plateToPoints.forEach(points => points.sort((a, b) => a.t.localeCompare(b.t)));
+
+  plateToPoints.forEach((points, plate) => {
+    // Points
+    points.forEach(p => {
+      L.circleMarker([p.lat, p.lng], {
+        radius: 4,
+        color: '#3b82f6',
+        weight: 1,
+        fillColor: '#3b82f6',
+        fillOpacity: 0.5,
+      }).addTo(detectionLayer);
+    });
+    // Track line when multiple points
+    if (points.length > 1) {
+      const latlngs = points.map(p => [p.lat, p.lng]) as [number, number][];
+      L.polyline(latlngs, { color: '#2563eb', weight: 2, opacity: 0.8 }).addTo(detectionLayer)
+        .bindPopup(`<div>Vehicle: ${plate}<br/>Positions: ${points.length}</div>`);
+    }
+  });
+}
+
+function applyBase() {
+  if (!map.value || !baseSatellite || !baseStreets) return;
+  if (selectedBase.value === 'satellite') {
+    map.value.addLayer(baseSatellite);
+    map.value.removeLayer(baseStreets);
+  } else {
+    map.value.addLayer(baseStreets);
+    map.value.removeLayer(baseSatellite);
+  }
+}
+
+function fitToData() {
+  if (!map.value) return;
+  const group = new L.FeatureGroup();
+  if (showCameras.value) group.addLayer(cameraLayer);
+  if (showDetections.value) group.addLayer(detectionLayer);
+  try {
+    const bounds = group.getBounds();
+    if (bounds.isValid()) map.value.fitBounds(bounds.pad(0.1));
+  } catch { /* ignore */ }
+}
+
+async function refreshAll() {
   loading.value = true;
   error.value = '';
-  
   try {
-    cameras.value = await communicationService.getCameras();
-    
-    // Get detection counts for each camera
-    for (const camera of cameras.value) {
-      try {
-        const detections = await communicationService.getDetections({ 
-          cameraId: camera.cameraId,
-          limit: 1 
-        });
-        (camera as any).detectionCount = detections.length;
-      } catch (err) {
-        (camera as any).detectionCount = 0;
-      }
-    }
-  } catch (err) {
-    error.value = 'Failed to load camera data';
-    console.error('Map refresh error:', err);
+    const tasks: Array<Promise<any>> = [];
+    tasks.push(loadCameras());
+    if (showDetections.value) tasks.push(loadDetections());
+    await Promise.all(tasks);
+    renderCameras();
+    renderDetections();
+    if (cameras.value.length || detections.value.length) fitToData();
+  } catch (e) {
+    console.error(e);
+    error.value = 'Failed to load map data';
   } finally {
     loading.value = false;
   }
-};
+}
 
-const selectCamera = (camera: Camera) => {
-  selectedCamera.value = camera;
-};
-
-const viewCameraDetails = (camera: Camera) => {
-  // Emit event or navigate to camera details
-  console.log('View camera details:', camera.id);
-};
-
-const viewDetections = (camera: Camera) => {
-  // Emit event or navigate to detections
-  console.log('View detections for camera:', camera.id);
-};
-
-const formatDate = (dateString: string) => {
-  return new Date(dateString).toLocaleString();
-};
-
-onMounted(() => {
-  refreshMap();
+onMounted(async () => {
+  initMap();
+  applyBase();
+  await refreshAll();
 });
 
-watch(selectedFilter, () => {
-  selectedCamera.value = null;
+onBeforeUnmount(() => {
+  if (map.value) {
+    map.value.remove();
+    map.value = null;
+  }
+});
+
+watch(selectedBase, applyBase);
+watch(showCameras, () => {
+  renderCameras();
+});
+watch([showDetections, selectedTimeRange], async () => {
+  if (showDetections.value) await loadDetections();
+  renderDetections();
 });
 </script>
 
@@ -188,11 +256,24 @@ watch(selectedFilter, () => {
 .map-controls {
   display: flex;
   gap: 0.5rem;
+  align-items: center;
+}
+
+.control {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.875rem;
 }
 
 .map-content {
   height: calc(100% - 70px);
   position: relative;
+}
+
+.leaflet-host {
+  position: absolute;
+  inset: 0;
 }
 
 .loading-overlay {
@@ -223,109 +304,13 @@ watch(selectedFilter, () => {
   100% { transform: rotate(360deg); }
 }
 
-.error-message, .empty-state {
+.error-message {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   height: 100%;
   text-align: center;
-}
-
-.map-placeholder {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
-.map-grid {
-  flex: 1;
-  padding: 1rem;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 1rem;
-  overflow-y: auto;
-}
-
-.camera-marker {
-  background: white;
-  border: 1px solid #e5e7eb;
-  border-radius: 0.5rem;
-  padding: 1rem;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.camera-marker:hover {
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-  transform: translateY(-2px);
-}
-
-.camera-marker.active {
-  border-color: #10b981;
-}
-
-.camera-marker.inactive {
-  border-color: #6b7280;
-  opacity: 0.7;
-}
-
-.camera-marker.error {
-  border-color: #ef4444;
-}
-
-.marker-icon {
-  font-size: 1.5rem;
-}
-
-.marker-info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.status {
-  font-size: 0.875rem;
-  color: #6b7280;
-}
-
-.detections {
-  font-size: 0.75rem;
-  color: #3b82f6;
-}
-
-.camera-details {
-  padding: 1rem;
-  background: white;
-  border-top: 1px solid #e5e7eb;
-}
-
-.detail-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 0.75rem;
-  margin: 1rem 0;
-}
-
-.detail-item {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.detail-item label {
-  font-size: 0.875rem;
-  color: #6b7280;
-  font-weight: 500;
-}
-
-.camera-actions {
-  display: flex;
-  gap: 0.5rem;
 }
 
 .btn-primary, .btn-secondary {
