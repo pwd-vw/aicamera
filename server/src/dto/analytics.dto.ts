@@ -144,10 +144,6 @@ export class AnalyticsExportDto {
   userId?: string;
 
   @IsOptional()
-  @IsString()
-  cameraId?: string;
-
-  @IsOptional()
   @IsDateString({}, { message: 'Start date must be a valid ISO date string' })
   startDate?: string;
 

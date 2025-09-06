@@ -1,9 +1,22 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import * as fs from 'fs';
+import helmet from 'helmet';
+import compression from 'compression';
+import morgan from 'morgan';
+import { createValidationPipe } from './config/validation.config';
+import { ValidationInterceptor } from './interceptors/validation.interceptor';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  
+  app.setGlobalPrefix('api/v1');
+  app.useGlobalPipes(createValidationPipe());
+  app.useGlobalInterceptors(new ValidationInterceptor());
+  
+  app.use(helmet());
+  app.use(compression());
+  app.use(morgan('combined'));
   
   // Enable CORS for frontend connections
   app.enableCors({
