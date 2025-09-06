@@ -3,6 +3,7 @@ export { apiService } from './api.service';
 export { websocketService } from './websocket.service';
 export { mqttService } from './mqtt.service';
 export { communicationService } from './communication.service';
+export { analyticsService, AnalyticsService } from './analytics.service';
 
 // Export types
 export type {
