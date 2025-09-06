@@ -21,7 +21,7 @@ async function setupAdmin() {
     console.log('Setting up initial admin user...');
 
     // Check if admin already exists
-    const existingAdmin = await prisma.user.findFirst({
+    const existingAdmin = await (prisma as any).user.findFirst({
       where: {
         OR: [
           { username: 'admin' },
@@ -51,7 +51,7 @@ async function setupAdmin() {
   } catch (error) {
     console.error('❌ Error creating admin user:', error);
   } finally {
-    await prisma.$disconnect();
+    await (prisma as any).$disconnect();
   }
 }
 

@@ -10,11 +10,11 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   }
 
   async onModuleInit() {
-    await this.$connect();
+    await (this as any).$connect();
   }
 
   async onModuleDestroy() {
-    await this.$disconnect();
+    await (this as any).$disconnect();
   }
 
   async cleanDatabase() {
@@ -22,7 +22,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
       throw new Error('Cannot clean database in production');
     }
     
-    const tablenames = await this.$queryRaw<Array<{ tablename: string }>>`
+    const tablenames = await (this as any).$queryRaw<Array<{ tablename: string }>>`
       SELECT tablename FROM pg_tables WHERE schemaname='public'
     `;
 
@@ -33,7 +33,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
       .join(', ');
 
     try {
-      await this.$executeRawUnsafe(`TRUNCATE TABLE ${tables} CASCADE;`);
+      await (this as any).$executeRawUnsafe(`TRUNCATE TABLE ${tables} CASCADE;`);
     } catch (error) {
       console.log({ error });
     }

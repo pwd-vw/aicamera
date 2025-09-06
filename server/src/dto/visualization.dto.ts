@@ -1,44 +1,33 @@
-import { IsString, IsOptional, IsNumber, IsBoolean, IsEnum, IsNotEmpty, Length, IsObject, Min, Max, IsArray } from 'class-validator';
+import { IsString, IsOptional, IsEnum, IsNotEmpty, Length, IsObject, IsNumber, Min, Max, IsBoolean, IsArray } from 'class-validator';
 import { VisualizationType } from '../../generated/prisma';
 
 export class CreateVisualizationDto {
   @IsString()
-  @IsNotEmpty({ message: 'Name is required' })
-  @Length(1, 255, { message: 'Name must be between 1 and 255 characters' })
+  @IsNotEmpty({ message: 'Visualization name is required' })
+  @Length(1, 100, { message: 'Name must be between 1 and 100 characters' })
   name: string;
 
   @IsOptional()
   @IsString()
-  @Length(0, 1000, { message: 'Description must not exceed 1000 characters' })
+  @Length(0, 500, { message: 'Description cannot exceed 500 characters' })
   description?: string;
 
-  @IsEnum(VisualizationType, { message: 'Type must be one of: chart, graph, table, metric, map' })
-  @IsNotEmpty({ message: 'Type is required' })
+  @IsEnum(VisualizationType)
   type: VisualizationType;
 
+  @IsOptional()
   @IsObject()
-  @IsNotEmpty({ message: 'Configuration is required' })
-  configuration: Record<string, any>;
+  configuration?: Record<string, any>;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty({ message: 'Data source is required' })
-  @Length(1, 100, { message: 'Data source must be between 1 and 100 characters' })
-  dataSource: string;
+  dataSource?: string;
 
   @IsOptional()
   @IsNumber()
-  @Min(30, { message: 'Refresh interval must be at least 30 seconds' })
-  @Max(86400, { message: 'Refresh interval cannot exceed 24 hours' })
+  @Min(10)
+  @Max(86400)
   refreshInterval?: number;
-
-  @IsOptional()
-  @IsBoolean()
-  isActive?: boolean;
-
-  @IsOptional()
-  @IsString()
-  @Length(1, 100, { message: 'Created by must be between 1 and 100 characters' })
-  createdBy?: string;
 }
 
 export class UpdateVisualizationDto {

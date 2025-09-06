@@ -242,7 +242,7 @@ export class MqttService extends EventEmitter implements OnModuleInit, OnModuleD
     });
   }
 
-  async subscribe(topic: string, qos: mqtt.QoS = 1): Promise<void> {
+  async subscribe(topic: string, qos: 0 | 1 | 2 = 1): Promise<void> {
     return new Promise((resolve, reject) => {
       if (!this.isConnected) {
         reject(new Error('MQTT client is not connected'));

@@ -23,6 +23,12 @@
   },
   "exclude": [
     "frontend/**/*",
+    "src/examples/**/*",
+    "src/communication/**/*",
+    "src/device-registration/**/*",
+    "src/controllers/**/*",
+    "src/services/**/*",
+    "scripts/**/*",
     "node_modules",
     "dist"
   ]
