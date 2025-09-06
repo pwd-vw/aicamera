@@ -93,39 +93,49 @@ class DetectionManager:
         Returns:
             bool: True if initialization successful, False otherwise
         """
+        self.logger.debug(f"🔧 [DETECTION_MANAGER] initialize called")
+        
         try:
-            self.logger.info("Initializing Detection Manager...")
+            self.logger.info("🔧 [DETECTION_MANAGER] Initializing Detection Manager...")
             
             # Initialize detection processor models
             if self.detection_processor:
+                self.logger.debug(f"🔧 [DETECTION_MANAGER] initialize: calling detection_processor.load_models()")
                 success = self.detection_processor.load_models()
+                self.logger.debug(f"🔧 [DETECTION_MANAGER] initialize: detection_processor.load_models() returned: {success}")
+                
                 if success:
-                    self.logger.info("Detection models loaded successfully")
+                    self.logger.info("🔧 [DETECTION_MANAGER] Detection models loaded successfully")
                     
                     # Initialize database if available
                     if self.database_manager:
+                        self.logger.debug(f"🔧 [DETECTION_MANAGER] initialize: calling database_manager.initialize()")
                         db_success = self.database_manager.initialize()
+                        self.logger.debug(f"🔧 [DETECTION_MANAGER] initialize: database_manager.initialize() returned: {db_success}")
+                        
                         if db_success:
-                            self.logger.info("Database initialized successfully")
+                            self.logger.info("🔧 [DETECTION_MANAGER] Database initialized successfully")
                         else:
-                            self.logger.warning("Database initialization failed")
+                            self.logger.warning("🔧 [DETECTION_MANAGER] Database initialization failed")
+                    else:
+                        self.logger.debug(f"🔧 [DETECTION_MANAGER] initialize: no database_manager available")
                     
                     # Auto-start detection if enabled
                     if self.auto_start_enabled:
-                        self.logger.info("🤖 Auto-start detection enabled - starting detection automatically")
+                        self.logger.info("🔧 [DETECTION_MANAGER] 🤖 Auto-start detection enabled - starting detection automatically")
                         return self._auto_start_detection()
                     else:
-                        self.logger.info("Auto-start detection disabled - ready for manual start")
+                        self.logger.info("🔧 [DETECTION_MANAGER] Auto-start detection disabled - ready for manual start")
                         return True
                 else:
-                    self.logger.error("Failed to load detection models")
+                    self.logger.error("🔧 [DETECTION_MANAGER] Failed to load detection models")
                     return False
             else:
-                self.logger.error("Detection processor not available")
+                self.logger.error("🔧 [DETECTION_MANAGER] Detection processor not available")
                 return False
                 
         except Exception as e:
-            self.logger.error(f"Error initializing detection manager: {e}")
+            self.logger.error(f"🔧 [DETECTION_MANAGER] Error initializing detection manager: {e}")
             return False
     
     def _auto_start_detection(self) -> bool:
@@ -269,27 +279,34 @@ class DetectionManager:
         Returns:
             Optional[Dict[str, Any]]: Detection results or None if processing failed
         """
+        self.logger.debug(f"🔧 [DETECTION_MANAGER] process_frame_from_camera called with camera_manager: {camera_manager is not None}")
+        
         try:
             if not camera_manager:
-                self.logger.warning("Camera manager not available")
+                self.logger.warning(f"🔧 [DETECTION_MANAGER] process_frame_from_camera failed: camera manager not available")
                 return None
             
             # Capture main frame from camera for detection processing
+            self.logger.debug(f"🔧 [DETECTION_MANAGER] process_frame_from_camera: calling camera_manager.capture_main_frame()")
             frame = camera_manager.capture_main_frame()
+            self.logger.debug(f"🔧 [DETECTION_MANAGER] process_frame_from_camera: camera_manager.capture_main_frame() returned frame type: {type(frame)}")
+            
             if frame is None:
-                self.logger.debug("No frame available from camera")
+                self.logger.debug(f"🔧 [DETECTION_MANAGER] process_frame_from_camera: no frame available from camera")
                 return None
             
             # Camera manager returns numpy array directly, not dict
             if isinstance(frame, np.ndarray):
-                return self.process_frame(frame)
+                self.logger.debug(f"🔧 [DETECTION_MANAGER] process_frame_from_camera: frame is numpy array with shape: {frame.shape}, calling process_frame()")
+                result = self.process_frame(frame)
+                self.logger.debug(f"🔧 [DETECTION_MANAGER] process_frame_from_camera: process_frame() returned: {result is not None}")
+                return result
             else:
-                self.logger.error(f"Invalid frame data format: expected numpy array, got {type(frame)}")
+                self.logger.error(f"🔧 [DETECTION_MANAGER] process_frame_from_camera failed: invalid frame data format: expected numpy array, got {type(frame)}")
                 return None
             
-            
         except Exception as e:
-            self.logger.error(f"Error processing frame from camera: {e}")
+            self.logger.error(f"🔧 [DETECTION_MANAGER] process_frame_from_camera error: {e}")
             self.detection_stats['failed_detections'] += 1
             return None
     
@@ -303,49 +320,67 @@ class DetectionManager:
         Returns:
             Optional[Dict[str, Any]]: Detection results or None if processing failed
         """
+        self.logger.debug(f"🔧 [DETECTION_MANAGER] process_frame called with frame shape: {frame.shape if frame is not None else 'None'}")
+        
         start_time = time.time()
         
         try:
             self.detection_stats['total_frames_processed'] += 1
+            self.logger.debug(f"🔧 [DETECTION_MANAGER] process_frame: total frames processed: {self.detection_stats['total_frames_processed']}")
             
             # Step 1: Validate and enhance frame
+            self.logger.debug(f"🔧 [DETECTION_MANAGER] process_frame: Step 1 - calling detection_processor.validate_and_enhance_frame()")
             enhanced_frame = self.detection_processor.validate_and_enhance_frame(frame)
             if enhanced_frame is None:
-                self.logger.debug("Frame validation failed")
+                self.logger.debug(f"🔧 [DETECTION_MANAGER] process_frame: Step 1 failed - frame validation failed")
                 return None
             
+            self.logger.debug(f"🔧 [DETECTION_MANAGER] process_frame: Step 1 completed - enhanced frame shape: {enhanced_frame.shape}")
+            
             # Step 2: Vehicle detection
+            self.logger.debug(f"🔧 [DETECTION_MANAGER] process_frame: Step 2 - calling detection_processor.detect_vehicles()")
             vehicle_boxes = self.detection_processor.detect_vehicles(enhanced_frame)
+            self.logger.debug(f"🔧 [DETECTION_MANAGER] process_frame: Step 2 completed - vehicles detected: {len(vehicle_boxes)}")
+            
             if not vehicle_boxes:
-                self.logger.debug("No vehicles detected - skipping to next frame")
+                self.logger.debug(f"🔧 [DETECTION_MANAGER] process_frame: no vehicles detected - skipping to next frame")
                 return None
             
             self.detection_stats['total_vehicles_detected'] += len(vehicle_boxes)
             
             # Step 3: License plate detection (only if vehicles found)
+            self.logger.debug(f"🔧 [DETECTION_MANAGER] process_frame: Step 3 - calling detection_processor.detect_license_plates()")
             plate_boxes = self.detection_processor.detect_license_plates(frame, vehicle_boxes)
+            self.logger.debug(f"🔧 [DETECTION_MANAGER] process_frame: Step 3 completed - plates detected: {len(plate_boxes)}")
+            
             if not plate_boxes:
-                self.logger.debug("No license plates detected")
+                self.logger.debug(f"🔧 [DETECTION_MANAGER] process_frame: no license plates detected")
                 # Still save vehicle detection results
             else:
                 self.detection_stats['total_plates_detected'] += len(plate_boxes)
             
             # Step 4: OCR on detected plates
+            self.logger.debug(f"🔧 [DETECTION_MANAGER] process_frame: Step 4 - calling detection_processor.perform_ocr()")
             ocr_results = []
             if plate_boxes:
                 ocr_results = self.detection_processor.perform_ocr(frame, plate_boxes)
+                self.logger.debug(f"🔧 [DETECTION_MANAGER] process_frame: Step 4 completed - OCR results: {len(ocr_results)}")
                 if ocr_results:
                     self.detection_stats['successful_ocr'] += len(ocr_results)
             
             # Step 5: Save only original image (optimized for disk space)
+            self.logger.debug(f"🔧 [DETECTION_MANAGER] process_frame: Step 5 - calling detection_processor.save_detection_results()")
             original_path, _, _, _ = self.detection_processor.save_detection_results(
                 frame, vehicle_boxes, plate_boxes, ocr_results
             )
+            self.logger.debug(f"🔧 [DETECTION_MANAGER] process_frame: Step 5 completed - original_path: {original_path}")
             
             # Calculate processing time
             processing_time = time.time() - start_time
+            self.logger.debug(f"🔧 [DETECTION_MANAGER] process_frame: processing time: {processing_time:.3f}s")
             
             # Step 6: Store results in database (only original image path)
+            self.logger.debug(f"🔧 [DETECTION_MANAGER] process_frame: Step 6 - creating detection record")
             detection_record = {
                 'timestamp': datetime.now().isoformat(),
                 'vehicles_count': len(vehicle_boxes),
@@ -434,18 +469,20 @@ class DetectionManager:
                     self.database_manager.insert_detection_result(detection_record)
             
             # Update statistics
+            self.logger.debug(f"🔧 [DETECTION_MANAGER] process_frame: updating processing statistics")
             self._update_processing_stats(processing_time)
             self.detection_stats['last_detection'] = datetime.now().isoformat()
             
             self.logger.info(
-                f"Detection completed: {len(vehicle_boxes)} vehicles, "
+                f"🔧 [DETECTION_MANAGER] process_frame: Detection completed: {len(vehicle_boxes)} vehicles, "
                 f"{len(plate_boxes)} plates, {len(ocr_results)} OCR results in {processing_time:.3f}s"
             )
             
+            self.logger.debug(f"🔧 [DETECTION_MANAGER] process_frame: returning detection record with {len(vehicle_boxes)} vehicles, {len(plate_boxes)} plates, {len(ocr_results)} OCR results")
             return detection_record
             
         except Exception as e:
-            self.logger.error(f"Error in detection pipeline: {e}")
+            self.logger.error(f"🔧 [DETECTION_MANAGER] process_frame error: {e}")
             self.detection_stats['failed_detections'] += 1
             return None
     
@@ -537,13 +574,18 @@ class DetectionManager:
         Returns:
             Dict[str, Any]: Status information including statistics
         """
+        self.logger.debug(f"🔧 [DETECTION_MANAGER] get_status called")
+        
         processor_status = {}
         if self.detection_processor:
+            self.logger.debug(f"🔧 [DETECTION_MANAGER] get_status: calling detection_processor.get_status()")
             processor_status = self.detection_processor.get_status()
+            self.logger.debug(f"🔧 [DETECTION_MANAGER] get_status: detection_processor.get_status() returned: {processor_status}")
         
         # Augment processor status with model names for UI mapping
         if self.detection_processor:
             try:
+                self.logger.debug(f"🔧 [DETECTION_MANAGER] get_status: calling detection_processor.get_ocr_status()")
                 ocr_status = self.detection_processor.get_ocr_status()
                 processor_status.update({
                     'vehicle_model_name': ocr_status.get('vehicle_model_name'),
@@ -551,13 +593,15 @@ class DetectionManager:
                     'lp_ocr_model_name': ocr_status.get('lp_ocr_model_name'),
                     'easyocr_available': ocr_status.get('easyocr_available', False)
                 })
-            except Exception:
-                pass
+                self.logger.debug(f"🔧 [DETECTION_MANAGER] get_status: OCR status updated")
+            except Exception as e:
+                self.logger.debug(f"🔧 [DETECTION_MANAGER] get_status: error getting OCR status: {e}")
 
         # Calculate quality metrics from available statistics
+        self.logger.debug(f"🔧 [DETECTION_MANAGER] get_status: calculating quality metrics")
         quality_metrics = self._calculate_quality_metrics()
         
-        return {
+        status = {
             'service_running': self.is_running,
             'detection_processor_status': processor_status,
             'detection_interval': self.detection_interval,
@@ -571,6 +615,9 @@ class DetectionManager:
             'ocr_accuracy': quality_metrics['ocr_accuracy'],
             'system_reliability': quality_metrics['system_reliability']
         }
+        
+        self.logger.debug(f"🔧 [DETECTION_MANAGER] get_status: returning status: {status}")
+        return status
     
     def cleanup(self):
         """Clean up resources and stop detection service."""

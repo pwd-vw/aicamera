@@ -78,33 +78,47 @@ class HealthMonitor:
         Returns:
             bool: True if initialization successful, False otherwise
         """
+        self.logger.debug(f"🔧 [HEALTH_MONITOR] initialize called")
+        
         try:
             # Get database manager from DI container
             from edge.src.core.dependency_container import get_service
+            self.logger.debug(f"🔧 [HEALTH_MONITOR] initialize: getting database_manager from DI container")
             self.db_manager = get_service('database_manager')
+            self.logger.debug(f"🔧 [HEALTH_MONITOR] initialize: database_manager from DI container: {self.db_manager is not None}")
             
             if not self.db_manager:
-                self.logger.error("Database manager not available")
+                self.logger.error(f"🔧 [HEALTH_MONITOR] initialize failed: database manager not available")
                 return False
             
             # Initialize database manager if not already initialized
             if not self.db_manager.connection:
+                self.logger.debug(f"🔧 [HEALTH_MONITOR] initialize: calling database_manager.initialize()")
                 if not self.db_manager.initialize():
-                    self.logger.error("Failed to initialize database manager")
+                    self.logger.error(f"🔧 [HEALTH_MONITOR] initialize failed: failed to initialize database manager")
                     return False
+                self.logger.debug(f"🔧 [HEALTH_MONITOR] initialize: database_manager.initialize() returned: True")
+            else:
+                self.logger.debug(f"🔧 [HEALTH_MONITOR] initialize: database_manager already initialized")
             
             # Get other services
+            self.logger.debug(f"🔧 [HEALTH_MONITOR] initialize: getting camera_manager from DI container")
             self.camera_manager = get_service('camera_manager')
+            self.logger.debug(f"🔧 [HEALTH_MONITOR] initialize: camera_manager from DI container: {self.camera_manager is not None}")
+            
+            self.logger.debug(f"🔧 [HEALTH_MONITOR] initialize: getting detection_manager from DI container")
             self.detection_manager = get_service('detection_manager')
+            self.logger.debug(f"🔧 [HEALTH_MONITOR] initialize: detection_manager from DI container: {self.detection_manager is not None}")
             
             # Create health_checks table if it doesn't exist
+            self.logger.debug(f"🔧 [HEALTH_MONITOR] initialize: creating health_checks table")
             self._create_health_checks_table()
             
-            self.logger.info("HealthMonitor initialized successfully")
+            self.logger.info(f"🔧 [HEALTH_MONITOR] HealthMonitor initialized successfully")
             return True
             
         except Exception as e:
-            self.logger.error(f"Failed to initialize HealthMonitor: {e}")
+            self.logger.error(f"🔧 [HEALTH_MONITOR] initialize error: {e}")
             return False
     
     def _create_health_checks_table(self):
@@ -173,20 +187,30 @@ class HealthMonitor:
             bool: True if camera is healthy, False otherwise
         """
         component = "Camera"
+        self.logger.debug(f"🔧 [HEALTH_MONITOR] check_camera called")
+        
         try:
             if not self.camera_manager:
+                self.logger.debug(f"🔧 [HEALTH_MONITOR] check_camera failed: camera manager not available")
                 self._log_result(component, "FAIL", "Camera manager not available")
                 return False
             
+            self.logger.debug(f"🔧 [HEALTH_MONITOR] check_camera: calling camera_manager.get_status()")
             status = self.camera_manager.get_status()
+            self.logger.debug(f"🔧 [HEALTH_MONITOR] check_camera: camera_manager.get_status() returned: {status is not None}")
+            
             if not status:
+                self.logger.debug(f"🔧 [HEALTH_MONITOR] check_camera failed: unable to get camera status")
                 self._log_result(component, "FAIL", "Unable to get camera status")
                 return False
             
             initialized = status.get('initialized', False)
             streaming = status.get('streaming', False)
             
+            self.logger.debug(f"🔧 [HEALTH_MONITOR] check_camera: camera status - initialized: {initialized}, streaming: {streaming}")
+            
             if initialized and streaming:
+                self.logger.debug(f"🔧 [HEALTH_MONITOR] check_camera: camera healthy - initialized and streaming")
                 self._log_result(component, "PASS", "Camera initialized and streaming", {
                     'initialized': initialized,
                     'streaming': streaming,
@@ -195,12 +219,14 @@ class HealthMonitor:
                 })
                 return True
             elif initialized and not streaming:
+                self.logger.debug(f"🔧 [HEALTH_MONITOR] check_camera: camera warning - initialized but not streaming")
                 self._log_result(component, "WARNING", "Camera initialized but not streaming", {
                     'initialized': initialized,
                     'streaming': streaming
                 })
                 return False
             else:
+                self.logger.debug(f"🔧 [HEALTH_MONITOR] check_camera: camera unhealthy - not initialized")
                 self._log_result(component, "FAIL", "Camera not initialized", {
                     'initialized': initialized,
                     'streaming': streaming
@@ -208,6 +234,7 @@ class HealthMonitor:
                 return False
                 
         except Exception as e:
+            self.logger.error(f"🔧 [HEALTH_MONITOR] check_camera error: {e}")
             self._log_result(component, "FAIL", f"Camera check failed: {e}")
             return False
     

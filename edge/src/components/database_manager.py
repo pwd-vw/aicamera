@@ -60,23 +60,31 @@ class DatabaseManager:
         Returns:
             bool: True if initialization successful, False otherwise
         """
+        self.logger.debug(f"🔧 [DATABASE_MANAGER] initialize called with database_path: {self.database_path}")
+        
         try:
             # Create database directory if it doesn't exist
             if self.database_path:
+                self.logger.debug(f"🔧 [DATABASE_MANAGER] initialize: creating database directory: {Path(self.database_path).parent}")
                 Path(self.database_path).parent.mkdir(parents=True, exist_ok=True)
+                self.logger.debug(f"🔧 [DATABASE_MANAGER] initialize: database directory created successfully")
             
             # Connect to database
+            self.logger.debug(f"🔧 [DATABASE_MANAGER] initialize: connecting to database: {self.database_path}")
             self.connection = sqlite3.connect(self.database_path, check_same_thread=False)
             self.connection.row_factory = sqlite3.Row  # Enable column access by name
+            self.logger.debug(f"🔧 [DATABASE_MANAGER] initialize: database connection established successfully")
             
             # Create tables
+            self.logger.debug(f"🔧 [DATABASE_MANAGER] initialize: creating database tables")
             self._create_tables()
+            self.logger.debug(f"🔧 [DATABASE_MANAGER] initialize: database tables created successfully")
             
-            self.logger.info(f"Database initialized successfully: {self.database_path}")
+            self.logger.info(f"🔧 [DATABASE_MANAGER] Database initialized successfully: {self.database_path}")
             return True
             
         except Exception as e:
-            self.logger.error(f"Failed to initialize database: {e}")
+            self.logger.error(f"🔧 [DATABASE_MANAGER] initialize error: {e}")
             return False
     
     def _create_tables(self):
@@ -175,14 +183,18 @@ class DatabaseManager:
         Returns:
             Optional[int]: ID of inserted record, None if failed
         """
+        self.logger.debug(f"🔧 [DATABASE_MANAGER] insert_detection_result called with detection_data keys: {list(detection_data.keys())}")
+        
         try:
             if not self.connection:
-                self.logger.error("Database connection not available")
+                self.logger.error(f"🔧 [DATABASE_MANAGER] insert_detection_result failed: database connection not available")
                 return None
             
+            self.logger.debug(f"🔧 [DATABASE_MANAGER] insert_detection_result: creating database cursor")
             cursor = self.connection.cursor()
             
             # Serialize complex data to JSON
+            self.logger.debug(f"🔧 [DATABASE_MANAGER] insert_detection_result: serializing complex data to JSON")
             ocr_results_json = json.dumps(detection_data.get('ocr_results', []))
             cropped_paths_json = json.dumps(detection_data.get('cropped_plates_paths', []))
             vehicle_detections_json = json.dumps(detection_data.get('vehicle_detections', []))
@@ -191,6 +203,8 @@ class DatabaseManager:
             # Enhanced OCR data extraction (v2 schema)
             hailo_ocr_json = json.dumps(detection_data.get('hailo_ocr_results', []))
             easyocr_json = json.dumps(detection_data.get('easyocr_results', []))
+            
+            self.logger.debug(f"🔧 [DATABASE_MANAGER] insert_detection_result: serialization completed, vehicles_count: {detection_data.get('vehicles_count', 0)}, plates_count: {detection_data.get('plates_count', 0)}")
             
             cursor.execute("""
                 INSERT INTO detection_results (
@@ -224,14 +238,15 @@ class DatabaseManager:
                 detection_data.get('easyocr_error', '')
             ))
             
+            self.logger.debug(f"🔧 [DATABASE_MANAGER] insert_detection_result: executing INSERT statement")
             self.connection.commit()
             record_id = cursor.lastrowid
             
-            self.logger.debug(f"Detection result inserted with ID: {record_id}")
+            self.logger.debug(f"🔧 [DATABASE_MANAGER] insert_detection_result: detection result inserted with ID: {record_id}")
             return record_id
             
         except Exception as e:
-            self.logger.error(f"Error inserting detection result: {e}")
+            self.logger.error(f"🔧 [DATABASE_MANAGER] insert_detection_result error: {e}")
             return None
     
     def get_recent_detections(self, limit: int = 50) -> List[Dict[str, Any]]:

@@ -20,6 +20,7 @@ import cv2
 import numpy as np
 import logging
 import sqlite3
+import time
 from datetime import datetime
 from typing import Dict, Any, Optional, List, Tuple
 from pathlib import Path
@@ -57,20 +58,28 @@ class DetectionProcessor:
             logger: Logger instance
         """
         self.logger = logger or get_logger(__name__)
+        self.logger.info("🔍 [DETECTION_PROC] Starting Detection Processor initialization...")
         
         # Model instances
+        self.logger.info("🔍 [DETECTION_PROC] Initializing model instances...")
         self.vehicle_model = None
         self.lp_detection_model = None
         self.lp_ocr_model = None
         self.ocr_reader = None  # Legacy - will be replaced by async_ocr_loader
+        self.logger.info("🔍 [DETECTION_PROC] Model instances initialized")
         
         # Async OCR loader for non-blocking EasyOCR initialization
+        self.logger.info("🔍 [DETECTION_PROC] Creating AsyncOCRLoader...")
         self.async_ocr_loader = AsyncOCRLoader(languages=EASYOCR_LANGUAGES, logger=self.logger)
+        self.logger.info("🔍 [DETECTION_PROC] AsyncOCRLoader created successfully")
         
         # Parallel OCR processor for simultaneous Hailo + EasyOCR
+        self.logger.info("🔍 [DETECTION_PROC] Initializing parallel OCR processor...")
         self.parallel_ocr_processor = None
+        self.logger.info("🔍 [DETECTION_PROC] Parallel OCR processor initialized")
         
         # State tracking
+        self.logger.info("🔍 [DETECTION_PROC] Setting up state tracking...")
         self.models_loaded = False
         self.processing_stats = {
             'total_processed': 0,
@@ -79,6 +88,7 @@ class DetectionProcessor:
             'successful_ocr': 0,
             'last_detection': None
         }
+        self.logger.info("🔍 [DETECTION_PROC] State tracking initialized")
         
         # Configuration
         from edge.src.core.config import LORES_RESOLUTION
@@ -94,65 +104,76 @@ class DetectionProcessor:
         Returns:
             bool: True if models loaded successfully, False otherwise
         """
+        self.logger.info("🔧 [DETECTION_PROC] Starting model loading process...")
         try:
-            self.logger.info("🔧 Loading detection models...")
+            self.logger.info("🔧 [DETECTION_PROC] Loading detection models...")
             
             # Check if required model parameters are available
+            self.logger.info("🔧 [DETECTION_PROC] Checking model configuration...")
             if not VEHICLE_DETECTION_MODEL:
-                self.logger.warning("VEHICLE_DETECTION_MODEL not configured")
+                self.logger.warning("🔧 [DETECTION_PROC] VEHICLE_DETECTION_MODEL not configured")
                 return False
             
             if not LICENSE_PLATE_DETECTION_MODEL:
-                self.logger.warning("LICENSE_PLATE_DETECTION_MODEL not configured")
+                self.logger.warning("🔧 [DETECTION_PROC] LICENSE_PLATE_DETECTION_MODEL not configured")
                 return False
+            
+            self.logger.info("🔧 [DETECTION_PROC] Model configuration validated")
             
             # Import degirum for Hailo model loading
             # Configure HailoRT logging before importing degirum
+            self.logger.info("🔧 [DETECTION_PROC] Configuring HailoRT logging...")
             from edge.config.hailort_logging import configure_hailort_logging
             configure_hailort_logging()
+            self.logger.info("🔧 [DETECTION_PROC] HailoRT logging configured")
             
+            self.logger.info("🔧 [DETECTION_PROC] Importing degirum...")
             try:
                 import degirum as dg
-                self.logger.info("✅ Degirum available for Hailo AI model loading")
+                self.logger.info("🔧 [DETECTION_PROC] ✅ Degirum available for Hailo AI model loading")
             except ImportError:
-                self.logger.error("degirum not available - cannot load Hailo models")
+                self.logger.error("🔧 [DETECTION_PROC] degirum not available - cannot load Hailo models")
                 return False
             
             models_loaded = 0
             
             # Load vehicle detection model
+            self.logger.info("🔧 [DETECTION_PROC] Loading vehicle detection model...")
             try:
-                self.logger.info(f"Loading vehicle detection model: {VEHICLE_DETECTION_MODEL}")
+                self.logger.info(f"🔧 [DETECTION_PROC] Loading vehicle detection model: {VEHICLE_DETECTION_MODEL}")
                 self.vehicle_model = dg.load_model(
                     model_name=VEHICLE_DETECTION_MODEL,
                     inference_host_address=HEF_MODEL_PATH,
                     zoo_url=MODEL_ZOO_URL
                 )
-                self.logger.info("✅ Vehicle detection model loaded successfully")
+                self.logger.info("🔧 [DETECTION_PROC] ✅ Vehicle detection model loaded successfully")
                 models_loaded += 1
             except Exception as e:
-                self.logger.error(f"Failed to load vehicle detection model: {e}")
+                self.logger.error(f"🔧 [DETECTION_PROC] Failed to load vehicle detection model: {e}")
                 return False
             
             # Load license plate detection model
+            self.logger.info("🔧 [DETECTION_PROC] Loading license plate detection model...")
             try:
-                self.logger.info(f"Loading license plate detection model: {LICENSE_PLATE_DETECTION_MODEL}")
+                self.logger.info(f"🔧 [DETECTION_PROC] Loading license plate detection model: {LICENSE_PLATE_DETECTION_MODEL}")
                 self.lp_detection_model = dg.load_model(
                     model_name=LICENSE_PLATE_DETECTION_MODEL,
                     inference_host_address=HEF_MODEL_PATH,
                     zoo_url=MODEL_ZOO_URL,
                     overlay_color=[(255, 255, 0), (0, 255, 0)]
                 )
-                self.logger.info("✅ License plate detection model loaded successfully")
+                self.logger.info("🔧 [DETECTION_PROC] ✅ License plate detection model loaded successfully")
                 models_loaded += 1
             except Exception as e:
-                self.logger.error(f"Failed to load license plate detection model: {e}")
+                self.logger.error(f"🔧 [DETECTION_PROC] Failed to load license plate detection model: {e}")
                 return False
             
             # Load license plate OCR model (optional)
+            self.logger.info("🔧 [DETECTION_PROC] Checking for optional OCR model...")
             if LICENSE_PLATE_OCR_MODEL:
+                self.logger.info("🔧 [DETECTION_PROC] Loading license plate OCR model...")
                 try:
-                    self.logger.info(f"Loading license plate OCR model: {LICENSE_PLATE_OCR_MODEL}")
+                    self.logger.info(f"🔧 [DETECTION_PROC] Loading license plate OCR model: {LICENSE_PLATE_OCR_MODEL}")
                     self.lp_ocr_model = dg.load_model(
                         model_name=LICENSE_PLATE_OCR_MODEL,
                         inference_host_address=HEF_MODEL_PATH,
@@ -160,23 +181,27 @@ class DetectionProcessor:
                         output_use_regular_nms=False,
                         output_confidence_threshold=0.1
                     )
-                    self.logger.info("✅ License plate OCR model loaded successfully")
+                    self.logger.info("🔧 [DETECTION_PROC] ✅ License plate OCR model loaded successfully")
                     models_loaded += 1
                 except Exception as e:
-                    self.logger.warning(f"Failed to load OCR model (optional): {e}")
+                    self.logger.warning(f"🔧 [DETECTION_PROC] Failed to load OCR model (optional): {e}")
+            else:
+                self.logger.info("🔧 [DETECTION_PROC] No OCR model configured - skipping")
             
             # Start asynchronous EasyOCR loading (non-blocking)
+            self.logger.info("🔧 [DETECTION_PROC] Starting asynchronous EasyOCR loading...")
             try:
-                self.logger.info("🚀 Starting asynchronous EasyOCR loading...")
+                self.logger.info("🔧 [DETECTION_PROC] 🚀 Starting asynchronous EasyOCR loading...")
                 if self.async_ocr_loader.start_loading():
-                    self.logger.info("✅ EasyOCR loading started in background")
+                    self.logger.info("🔧 [DETECTION_PROC] ✅ EasyOCR loading started in background")
                     # Don't increment models_loaded here - OCR will be available later
                 else:
-                    self.logger.warning("EasyOCR loading already in progress or failed to start")
+                    self.logger.warning("🔧 [DETECTION_PROC] EasyOCR loading already in progress or failed to start")
             except Exception as e:
-                self.logger.warning(f"Failed to start EasyOCR loading: {e}")
+                self.logger.warning(f"🔧 [DETECTION_PROC] Failed to start EasyOCR loading: {e}")
             
             # Initialize parallel OCR processor
+            self.logger.info("🔧 [DETECTION_PROC] Initializing parallel OCR processor...")
             try:
                 from edge.src.components.parallel_ocr_processor import ParallelOCRProcessor
                 self.parallel_ocr_processor = ParallelOCRProcessor(
@@ -184,18 +209,19 @@ class DetectionProcessor:
                     async_ocr_loader=self.async_ocr_loader,
                     logger=self.logger
                 )
-                self.logger.info("✅ Parallel OCR processor initialized")
+                self.logger.info("🔧 [DETECTION_PROC] ✅ Parallel OCR processor initialized")
             except Exception as e:
-                self.logger.warning(f"Failed to initialize parallel OCR processor: {e}")
+                self.logger.warning(f"🔧 [DETECTION_PROC] Failed to initialize parallel OCR processor: {e}")
                 self.parallel_ocr_processor = None
             
             self.models_loaded = models_loaded >= 2  # At least vehicle + LP detection
-            self.logger.info(f"Models loaded: {models_loaded}, Ready: {self.models_loaded}")
+            self.logger.info(f"🔧 [DETECTION_PROC] Models loaded: {models_loaded}, Ready: {self.models_loaded}")
             
+            self.logger.info("🔧 [DETECTION_PROC] Model loading process completed successfully")
             return self.models_loaded
             
         except Exception as e:
-            self.logger.error(f"Error loading models: {e}")
+            self.logger.error(f"🔧 [DETECTION_PROC] Error loading models: {e}")
             return False
     
     def get_ocr_status(self) -> Dict[str, Any]:
@@ -278,58 +304,67 @@ class DetectionProcessor:
         Returns:
             Optional[np.ndarray]: Enhanced frame or None if validation fails
         """
+        self.logger.debug(f"🔧 [DETECTION_PROCESSOR] validate_and_enhance_frame called with frame type: {type(frame)}")
+        
         if frame is None:
-            self.logger.warning("Invalid frame: frame is None")
+            self.logger.warning(f"🔧 [DETECTION_PROCESSOR] validate_and_enhance_frame failed: frame is None")
             return None
         
         # Check if frame is a dict (should be numpy array)
         if isinstance(frame, dict):
-            self.logger.error("Invalid frame: received dict instead of numpy array")
+            self.logger.debug(f"🔧 [DETECTION_PROCESSOR] validate_and_enhance_frame: received dict, extracting frame")
             if 'frame' in frame:
-                self.logger.info("Extracting frame from dict")
+                self.logger.debug(f"🔧 [DETECTION_PROCESSOR] validate_and_enhance_frame: extracting frame from dict")
                 frame = frame['frame']
                 if frame is None:
-                    self.logger.warning("Extracted frame is None")
+                    self.logger.warning(f"🔧 [DETECTION_PROCESSOR] validate_and_enhance_frame failed: extracted frame is None")
                     return None
             else:
-                self.logger.error("Dict does not contain 'frame' key")
+                self.logger.error(f"🔧 [DETECTION_PROCESSOR] validate_and_enhance_frame failed: dict does not contain 'frame' key")
                 return None
         
         # Check if frame is numpy array
         if not isinstance(frame, np.ndarray):
-            self.logger.error(f"Invalid frame: expected numpy array, got {type(frame)}")
+            self.logger.error(f"🔧 [DETECTION_PROCESSOR] validate_and_enhance_frame failed: expected numpy array, got {type(frame)}")
             return None
         
         # Check frame size
         if frame.size == 0:
-            self.logger.warning("Invalid frame: empty array")
+            self.logger.warning(f"🔧 [DETECTION_PROCESSOR] validate_and_enhance_frame failed: empty array")
             return None
+        
+        self.logger.debug(f"🔧 [DETECTION_PROCESSOR] validate_and_enhance_frame: frame shape: {frame.shape}, dtype: {frame.dtype}")
         
         try:
             # Ensure frame is in BGR format for detection models
             if len(frame.shape) == 3:
                 if frame.shape[2] == 4:  # BGRA
+                    self.logger.debug(f"🔧 [DETECTION_PROCESSOR] validate_and_enhance_frame: converting BGRA to BGR")
                     frame = cv2.cvtColor(frame, cv2.COLOR_BGRA2BGR)
                 elif frame.shape[2] == 3:  # RGB from camera - convert to BGR for OpenCV
+                    self.logger.debug(f"🔧 [DETECTION_PROCESSOR] validate_and_enhance_frame: converting RGB to BGR")
                     frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
             elif len(frame.shape) == 2:  # Grayscale
+                self.logger.debug(f"🔧 [DETECTION_PROCESSOR] validate_and_enhance_frame: converting grayscale to BGR")
                 frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
             else:
-                self.logger.warning(f"Unsupported frame shape: {frame.shape}")
+                self.logger.warning(f"🔧 [DETECTION_PROCESSOR] validate_and_enhance_frame failed: unsupported frame shape: {frame.shape}")
                 return None
             
             # Resize frame to detection resolution if needed
             if frame.shape[:2] != self.detection_resolution:
+                self.logger.debug(f"🔧 [DETECTION_PROCESSOR] validate_and_enhance_frame: resizing frame from {frame.shape[:2]} to {self.detection_resolution}")
                 frame = cv2.resize(frame, self.detection_resolution)
-                self.logger.debug(f"Resized frame to {self.detection_resolution}")
+                self.logger.debug(f"🔧 [DETECTION_PROCESSOR] validate_and_enhance_frame: frame resized successfully")
             
             # Basic enhancement - can be extended
             # Optional: histogram equalization, noise reduction, etc.
             
+            self.logger.debug(f"🔧 [DETECTION_PROCESSOR] validate_and_enhance_frame: returning enhanced frame with shape: {frame.shape}")
             return frame
             
         except Exception as e:
-            self.logger.error(f"Error validating/enhancing frame: {e}")
+            self.logger.error(f"🔧 [DETECTION_PROCESSOR] validate_and_enhance_frame error: {e}")
             return None
     
     def detect_vehicles(self, frame: np.ndarray) -> List[Dict[str, Any]]:
@@ -342,30 +377,39 @@ class DetectionProcessor:
         Returns:
             List[Dict[str, Any]]: List of detected vehicle objects
         """
+        self.logger.debug(f"🔧 [DETECTION_PROCESSOR] detect_vehicles called with frame shape: {frame.shape if frame is not None else 'None'}")
+        
         if not self.models_loaded or not self.vehicle_model:
-            self.logger.warning("Vehicle detection model not available")
+            self.logger.warning(f"🔧 [DETECTION_PROCESSOR] detect_vehicles failed: models_loaded={self.models_loaded}, vehicle_model={self.vehicle_model is not None}")
             return []
         
         try:
-            self.logger.debug("Performing vehicle detection...")
+            self.logger.debug(f"🔧 [DETECTION_PROCESSOR] detect_vehicles: performing vehicle detection with confidence threshold: {self.confidence_threshold}")
             
             # Perform detection
             results = self.vehicle_model(frame)
             vehicle_boxes = getattr(results, "results", [])
             
+            self.logger.debug(f"🔧 [DETECTION_PROCESSOR] detect_vehicles: raw detection results: {len(vehicle_boxes)} vehicles found")
+            
             # Filter by confidence threshold
             filtered_boxes = []
-            for box in vehicle_boxes:
-                if box.get('score', 0) >= self.confidence_threshold:
+            for i, box in enumerate(vehicle_boxes):
+                confidence = box.get('score', 0)
+                if confidence >= self.confidence_threshold:
                     filtered_boxes.append(box)
+                    self.logger.debug(f"🔧 [DETECTION_PROCESSOR] detect_vehicles: vehicle {i} passed filter (confidence: {confidence:.3f})")
+                else:
+                    self.logger.debug(f"🔧 [DETECTION_PROCESSOR] detect_vehicles: vehicle {i} filtered out (confidence: {confidence:.3f} < {self.confidence_threshold})")
             
-            self.logger.info(f"🚗 Vehicles detected: {len(filtered_boxes)}")
+            self.logger.info(f"🔧 [DETECTION_PROCESSOR] detect_vehicles: 🚗 Vehicles detected: {len(filtered_boxes)} (filtered from {len(vehicle_boxes)})")
             self.processing_stats['vehicles_detected'] += len(filtered_boxes)
             
+            self.logger.debug(f"🔧 [DETECTION_PROCESSOR] detect_vehicles: returning {len(filtered_boxes)} filtered vehicle boxes")
             return filtered_boxes
             
         except Exception as e:
-            self.logger.error(f"Error in vehicle detection: {e}")
+            self.logger.error(f"🔧 [DETECTION_PROCESSOR] detect_vehicles error: {e}")
             return []
     
     def detect_license_plates(self, frame: np.ndarray, vehicle_boxes: List[Dict]) -> List[Dict[str, Any]]:
@@ -379,31 +423,44 @@ class DetectionProcessor:
         Returns:
             List[Dict[str, Any]]: List of detected license plates
         """
+        self.logger.debug(f"🔧 [DETECTION_PROCESSOR] detect_license_plates called with frame shape: {frame.shape if frame is not None else 'None'}, vehicle_boxes: {len(vehicle_boxes)}")
+        
         if not self.models_loaded or not self.lp_detection_model:
-            self.logger.warning("License plate detection model not available")
+            self.logger.warning(f"🔧 [DETECTION_PROCESSOR] detect_license_plates failed: models_loaded={self.models_loaded}, lp_detection_model={self.lp_detection_model is not None}")
             return []
         
         detected_plates = []
         
         for i, vehicle_box in enumerate(vehicle_boxes):
             try:
+                self.logger.debug(f"🔧 [DETECTION_PROCESSOR] detect_license_plates: processing vehicle {i}")
+                
                 # Extract vehicle region
                 if 'bbox' not in vehicle_box:
+                    self.logger.debug(f"🔧 [DETECTION_PROCESSOR] detect_license_plates: vehicle {i} has no bbox, skipping")
                     continue
                     
                 x1, y1, x2, y2 = vehicle_box['bbox']
+                self.logger.debug(f"🔧 [DETECTION_PROCESSOR] detect_license_plates: vehicle {i} bbox: [{x1}, {y1}, {x2}, {y2}]")
+                
                 vehicle_region = frame[int(y1):int(y2), int(x1):int(x2)]
                 
                 if vehicle_region.size == 0:
+                    self.logger.debug(f"🔧 [DETECTION_PROCESSOR] detect_license_plates: vehicle {i} region is empty, skipping")
                     continue
+                
+                self.logger.debug(f"🔧 [DETECTION_PROCESSOR] detect_license_plates: vehicle {i} region shape: {vehicle_region.shape}")
                 
                 # Perform license plate detection on vehicle region
                 lp_results = self.lp_detection_model(vehicle_region)
                 lp_boxes = getattr(lp_results, "results", [])
                 
+                self.logger.debug(f"🔧 [DETECTION_PROCESSOR] detect_license_plates: vehicle {i} raw LP detection results: {len(lp_boxes)} plates found")
+                
                 # Filter by confidence and convert coordinates back to full frame
-                for lp_box in lp_boxes:
-                    if lp_box.get('score', 0) >= self.plate_confidence_threshold:
+                for j, lp_box in enumerate(lp_boxes):
+                    confidence = lp_box.get('score', 0)
+                    if confidence >= self.plate_confidence_threshold:
                         # Convert coordinates back to full frame
                         lp_x1, lp_y1, lp_x2, lp_y2 = lp_box['bbox']
                         full_x1 = x1 + lp_x1
@@ -411,20 +468,26 @@ class DetectionProcessor:
                         full_x2 = x1 + lp_x2
                         full_y2 = y1 + lp_y2
                         
-                        detected_plates.append({
+                        plate_data = {
                             'bbox': [full_x1, full_y1, full_x2, full_y2],
-                            'score': lp_box.get('score', 0),
+                            'score': confidence,
                             'vehicle_idx': i,
                             'vehicle_bbox': vehicle_box['bbox']
-                        })
+                        }
+                        
+                        detected_plates.append(plate_data)
+                        self.logger.debug(f"🔧 [DETECTION_PROCESSOR] detect_license_plates: vehicle {i} plate {j} passed filter (confidence: {confidence:.3f})")
+                    else:
+                        self.logger.debug(f"🔧 [DETECTION_PROCESSOR] detect_license_plates: vehicle {i} plate {j} filtered out (confidence: {confidence:.3f} < {self.plate_confidence_threshold})")
                 
             except Exception as e:
-                self.logger.warning(f"Error detecting plates in vehicle {i}: {e}")
+                self.logger.warning(f"🔧 [DETECTION_PROCESSOR] detect_license_plates: error detecting plates in vehicle {i}: {e}")
                 continue
         
-        self.logger.info(f"🔢 License plates detected: {len(detected_plates)}")
+        self.logger.info(f"🔧 [DETECTION_PROCESSOR] detect_license_plates: 🔢 License plates detected: {len(detected_plates)} from {len(vehicle_boxes)} vehicles")
         self.processing_stats['plates_detected'] += len(detected_plates)
         
+        self.logger.debug(f"🔧 [DETECTION_PROCESSOR] detect_license_plates: returning {len(detected_plates)} detected plates")
         return detected_plates
     
     def perform_ocr(self, frame: np.ndarray, plate_boxes: List[Dict]) -> List[Dict[str, Any]]:
@@ -438,16 +501,25 @@ class DetectionProcessor:
         Returns:
             List[Dict[str, Any]]: OCR results with text and confidence
         """
+        self.logger.debug(f"🔧 [DETECTION_PROCESSOR] perform_ocr called with frame shape: {frame.shape if frame is not None else 'None'}, plate_boxes: {len(plate_boxes)}")
+        
         ocr_results = []
         
         for i, plate_box in enumerate(plate_boxes):
             try:
+                self.logger.debug(f"🔧 [DETECTION_PROCESSOR] perform_ocr: processing plate {i}")
+                
                 # Extract license plate region
                 x1, y1, x2, y2 = plate_box['bbox']
+                self.logger.debug(f"🔧 [DETECTION_PROCESSOR] perform_ocr: plate {i} bbox: [{x1}, {y1}, {x2}, {y2}]")
+                
                 plate_region = frame[int(y1):int(y2), int(x1):int(x2)]
                 
                 if plate_region.size == 0:
+                    self.logger.debug(f"🔧 [DETECTION_PROCESSOR] perform_ocr: plate {i} region is empty, skipping")
                     continue
+                
+                self.logger.debug(f"🔧 [DETECTION_PROCESSOR] perform_ocr: plate {i} region shape: {plate_region.shape}")
                 
                 # Try Hailo OCR model first (if available)
                 hailo_ocr_text = ""
@@ -523,6 +595,8 @@ class DetectionProcessor:
                 ocr_method = "hailo" if hailo_ocr_success else "easyocr" if easyocr_success else "none"
                 
                 if final_ocr_text:
+                    self.logger.debug(f"🔧 [DETECTION_PROCESSOR] perform_ocr: plate {i} OCR successful with method: {ocr_method}, text: '{final_ocr_text.strip()}', confidence: {final_ocr_confidence:.3f}")
+                    
                     # Enhanced OCR result with parallel processing metadata
                     ocr_result = {
                         'plate_idx': i,
@@ -556,12 +630,15 @@ class DetectionProcessor:
                     
                     ocr_results.append(ocr_result)
                     self.processing_stats['successful_ocr'] += 1
+                else:
+                    self.logger.debug(f"🔧 [DETECTION_PROCESSOR] perform_ocr: plate {i} OCR failed - no text extracted")
                 
             except Exception as e:
-                self.logger.warning(f"Error performing OCR on plate {i}: {e}")
+                self.logger.warning(f"🔧 [DETECTION_PROCESSOR] perform_ocr: error performing OCR on plate {i}: {e}")
                 continue
         
-        self.logger.info(f"📝 OCR successful: {len(ocr_results)}")
+        self.logger.info(f"🔧 [DETECTION_PROCESSOR] perform_ocr: 📝 OCR successful: {len(ocr_results)} from {len(plate_boxes)} plates")
+        self.logger.debug(f"🔧 [DETECTION_PROCESSOR] perform_ocr: returning {len(ocr_results)} OCR results")
         return ocr_results
     
     def save_detection_results(self, original_frame: np.ndarray, vehicle_boxes: List[Dict], 
@@ -637,17 +714,24 @@ class DetectionProcessor:
         Returns:
             Dict containing detection processor status information
         """
+        self.logger.debug(f"🔧 [DETECTION_PROCESSOR] get_status called")
+        
         try:
             # Check model availability
             vehicle_model_available = self.vehicle_model is not None
             lp_detection_model_available = self.lp_detection_model is not None
             lp_ocr_model_available = self.lp_ocr_model is not None
             
+            self.logger.debug(f"🔧 [DETECTION_PROCESSOR] get_status: model availability - vehicle: {vehicle_model_available}, lp_detection: {lp_detection_model_available}, lp_ocr: {lp_ocr_model_available}")
+            
             # Get OCR status
+            self.logger.debug(f"🔧 [DETECTION_PROCESSOR] get_status: getting OCR status")
             ocr_status = self.get_ocr_status()
             easyocr_available = ocr_status.get('easyocr_ready', False)
             
-            return {
+            self.logger.debug(f"🔧 [DETECTION_PROCESSOR] get_status: OCR status - easyocr_available: {easyocr_available}")
+            
+            status = {
                 'models_loaded': self.models_loaded,
                 'vehicle_model_available': vehicle_model_available,
                 'lp_detection_model_available': lp_detection_model_available,
@@ -659,9 +743,13 @@ class DetectionProcessor:
                 'processing_stats': self.processing_stats.copy(),
                 'last_update': datetime.now().isoformat()
             }
+            
+            self.logger.debug(f"🔧 [DETECTION_PROCESSOR] get_status: returning status: {status}")
+            return status
+            
         except Exception as e:
-            self.logger.error(f"Error getting detection processor status: {e}")
-            return {
+            self.logger.error(f"🔧 [DETECTION_PROCESSOR] Error getting detection processor status: {e}")
+            error_status = {
                 'models_loaded': False,
                 'vehicle_model_available': False,
                 'lp_detection_model_available': False,
@@ -674,6 +762,8 @@ class DetectionProcessor:
                 'last_update': datetime.now().isoformat(),
                 'error': str(e)
             }
+            self.logger.debug(f"🔧 [DETECTION_PROCESSOR] get_status: returning error status: {error_status}")
+            return error_status
     
     def _create_high_quality_detection_pipeline(self, frame: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         """

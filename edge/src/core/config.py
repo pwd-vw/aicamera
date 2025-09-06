@@ -77,6 +77,10 @@ DETECTION_RESOLUTION = tuple(map(int, os.getenv("DETECTION_RESOLUTION", "640x640
 QUALITY_ENHANCEMENT_ENABLED = os.getenv("QUALITY_ENHANCEMENT_ENABLED", "true").lower() == "true"
 DEFAULT_RESOLUTION = tuple(map(int, os.getenv("CAMERA_RESOLUTION", "640x640").split('x')))
 
+# Camera focus control - Can be overridden via environment variables
+CAMERA_FOCUS_MODE = os.getenv("CAMERA_FOCUS_MODE", "auto")  # "auto" or "manual"
+CAMERA_MANUAL_FOCUS = float(os.getenv("CAMERA_MANUAL_FOCUS", "0.3"))  # 0.0 to 1.0
+
 # Main and Lores stream resolutions - Can be overridden via environment variables
 MAIN_RESOLUTION = tuple(map(int, os.getenv("MAIN_RESOLUTION", "1280x720").split('x')))
 LORES_RESOLUTION = tuple(map(int, os.getenv("LORES_RESOLUTION", "640x640").split('x')))

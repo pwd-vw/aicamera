@@ -56,14 +56,18 @@ def setup_logging(
     if not isinstance(numeric_level, int):
         raise ValueError(f'Invalid log level: {level}')
     
-    # Create formatters
+    # Create formatters - shorter, cleaner messages
     detailed_formatter = logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(filename)s:%(lineno)d - %(message)s', 
-        datefmt='%Y-%m-%d %H:%M:%S'
+        '%(asctime)s %(filename)s:%(lineno)d - %(message)s',
+        datefmt='%H:%M:%S'
+        #'%(asctime)s - %(name)s - %(levelname)s - %(filename)s:%(lineno)d - %(message)s', 
+        #'%(asctime)s-%(filename)s:%(lineno)d - %(message)s',
+        #datefmt='%Y-%m-%d %H:%M:%S'
     )
     console_formatter = logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(message)s', 
-        datefmt='%Y-%m-%d %H:%M:%S'
+        '%(levelname)s %(message)s'
+        #'%(asctime)s - %(name)s - %(levelname)s - %(message)s', 
+        #datefmt='%Y-%m-%d %H:%M:%S'
     )
     
     # Setup root logger
@@ -99,8 +103,13 @@ def setup_logging(
     except Exception as e:
         print(f"Warning: Could not setup file logging: {e}")
     
+    # Suppress noisy third-party library logs
+    logging.getLogger('picamera2').setLevel(logging.WARNING)
+    logging.getLogger('libcamera').setLevel(logging.WARNING)
+    logging.getLogger('libcamera._libcamera').setLevel(logging.WARNING)
+    
     # Log initial message to verify logging is working
-    root_logger.info(f"Logging initialized - Level: {level}, Log dir: {log_dir}")
+    root_logger.info(f"Logging initialized - Level: {level}")
     
     return root_logger
 

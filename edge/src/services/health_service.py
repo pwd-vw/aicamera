@@ -54,32 +54,42 @@ class HealthService:
         Returns:
             bool: True if initialization successful, False otherwise
         """
+        self.logger.debug(f"🔧 [HEALTH_SERVICE] initialize called")
+        
         try:
             # Get health monitor from DI container if not provided
             if not self.health_monitor:
+                self.logger.debug(f"🔧 [HEALTH_SERVICE] initialize: getting health_monitor from DI container")
                 self.health_monitor = get_service('health_monitor')
+                self.logger.debug(f"🔧 [HEALTH_SERVICE] initialize: health_monitor from DI container: {self.health_monitor is not None}")
             
             if not self.health_monitor:
-                self.logger.error("Health monitor not available")
+                self.logger.error(f"🔧 [HEALTH_SERVICE] initialize failed: health monitor not available")
                 return False
             
             # Initialize health monitor
+            self.logger.debug(f"🔧 [HEALTH_SERVICE] initialize: calling health_monitor.initialize()")
             if not self.health_monitor.initialize():
-                self.logger.error("Failed to initialize health monitor")
+                self.logger.error(f"🔧 [HEALTH_SERVICE] initialize failed: failed to initialize health monitor")
                 return False
+            
+            self.logger.debug(f"🔧 [HEALTH_SERVICE] initialize: health_monitor.initialize() returned: True")
             
             # Set up auto-start monitoring only if enabled
             from edge.src.core.config import AUTO_START_HEALTH_MONITOR
+            self.logger.debug(f"🔧 [HEALTH_SERVICE] initialize: AUTO_START_HEALTH_MONITOR: {AUTO_START_HEALTH_MONITOR}")
+            
             if AUTO_START_HEALTH_MONITOR:
+                self.logger.debug(f"🔧 [HEALTH_SERVICE] initialize: setting up auto-start monitoring")
                 self._setup_auto_start_monitoring()
-                self.logger.info("HealthService initialized successfully with auto-start monitoring")
+                self.logger.info(f"🔧 [HEALTH_SERVICE] HealthService initialized successfully with auto-start monitoring")
             else:
-                self.logger.info("HealthService initialized successfully (auto-start monitoring disabled)")
+                self.logger.info(f"🔧 [HEALTH_SERVICE] HealthService initialized successfully (auto-start monitoring disabled)")
             
             return True
             
         except Exception as e:
-            self.logger.error(f"Failed to initialize HealthService: {e}")
+            self.logger.error(f"🔧 [HEALTH_SERVICE] initialize error: {e}")
             return False
     
     def get_system_health(self) -> Dict[str, Any]:
@@ -89,8 +99,11 @@ class HealthService:
         Returns:
             Dict containing overall system health information
         """
+        self.logger.debug(f"🔧 [HEALTH_SERVICE] get_system_health called")
+        
         try:
             if not self.health_monitor:
+                self.logger.warning(f"🔧 [HEALTH_SERVICE] get_system_health failed: health monitor not available")
                 return {
                     'success': False,
                     'error': 'Health monitor not available',
@@ -98,13 +111,19 @@ class HealthService:
                 }
             
             # Run health checks to ensure we have latest data
+            self.logger.debug(f"🔧 [HEALTH_SERVICE] get_system_health: calling health_monitor.run_all_checks()")
             health_result = self.health_monitor.run_all_checks()
+            self.logger.debug(f"🔧 [HEALTH_SERVICE] get_system_health: health_monitor.run_all_checks() returned: {health_result.get('overall_status', 'unknown')}")
             
             # Get system resource information
+            self.logger.debug(f"🔧 [HEALTH_SERVICE] get_system_health: calling _get_system_info()")
             system_info = self._get_system_info()
+            self.logger.debug(f"🔧 [HEALTH_SERVICE] get_system_health: _get_system_info() returned system info with CPU usage: {system_info.get('cpu_usage', 0.0)}%")
             
             # Build comprehensive health response
+            self.logger.debug(f"🔧 [HEALTH_SERVICE] get_system_health: calling _build_component_status()")
             components = self._build_component_status(health_result)
+            self.logger.debug(f"🔧 [HEALTH_SERVICE] get_system_health: _build_component_status() returned components: {list(components.keys())}")
             
             # Add error details for non-healthy components
             error_details = {}
@@ -114,6 +133,8 @@ class HealthService:
                         'status': component_data.get('status'),
                         'issues': self._get_component_issues(component_name, component_data)
                     }
+            
+            self.logger.debug(f"🔧 [HEALTH_SERVICE] get_system_health: error details: {list(error_details.keys()) if error_details else 'none'}")
             
             response = {
                 'success': True,
@@ -131,10 +152,11 @@ class HealthService:
             self.last_system_status = response
             self.last_check_time = datetime.now()
             
+            self.logger.debug(f"🔧 [HEALTH_SERVICE] get_system_health: returning response with overall_status: {response['data']['overall_status']}")
             return response
             
         except Exception as e:
-            self.logger.error(f"Error getting system health: {e}")
+            self.logger.error(f"🔧 [HEALTH_SERVICE] get_system_health error: {e}")
             return {
                 'success': False,
                 'error': str(e),
@@ -152,9 +174,14 @@ class HealthService:
         Returns:
             Dict containing component status information
         """
+        self.logger.debug(f"🔧 [HEALTH_SERVICE] _build_component_status called with health_result: {health_result.get('overall_status', 'unknown')}")
+        
         try:
             component_status = health_result.get('component_status', {})
             latest_checks = health_result.get('latest_checks', [])
+            
+            self.logger.debug(f"🔧 [HEALTH_SERVICE] _build_component_status: component_status: {component_status}")
+            self.logger.debug(f"🔧 [HEALTH_SERVICE] _build_component_status: latest_checks count: {len(latest_checks)}")
             
             # Get real-time system info
             system_info = self._get_system_info()
@@ -167,19 +194,25 @@ class HealthService:
             camera_check = self._find_latest_check(latest_checks, "Camera")
             
             # Get camera manager status if available
+            self.logger.debug(f"🔧 [HEALTH_SERVICE] _build_component_status: getting camera_manager from DI container")
             camera_manager = get_service('camera_manager')
             camera_manager_status = None
             if camera_manager:
                 try:
+                    self.logger.debug(f"🔧 [HEALTH_SERVICE] _build_component_status: calling camera_manager.get_status()")
                     camera_manager_status = camera_manager.get_status()
-                except:
-                    pass
+                    self.logger.debug(f"🔧 [HEALTH_SERVICE] _build_component_status: camera_manager.get_status() returned: initialized={camera_manager_status.get('initialized', False)}, streaming={camera_manager_status.get('streaming', False)}")
+                except Exception as e:
+                    self.logger.debug(f"🔧 [HEALTH_SERVICE] _build_component_status: camera_manager.get_status() error: {e}")
+            else:
+                self.logger.debug(f"🔧 [HEALTH_SERVICE] _build_component_status: camera_manager not available")
             
             # Get camera properties for model information
             camera_properties = {}
             if camera_manager_status and 'camera_handler' in camera_manager_status:
                 camera_handler_status = camera_manager_status.get('camera_handler', {})
                 camera_properties = camera_handler_status.get('camera_properties', {})
+                self.logger.debug(f"🔧 [HEALTH_SERVICE] _build_component_status: camera_properties: {camera_properties}")
             
             components['camera'] = {
                 'status': camera_status,
@@ -193,7 +226,10 @@ class HealthService:
                 'camera_properties': camera_properties
             }
             
+            self.logger.debug(f"🔧 [HEALTH_SERVICE] _build_component_status: camera component status: {components['camera']['status']}")
+            
             # Detection status - use detection module patterns for accurate status
+            self.logger.debug(f"🔧 [HEALTH_SERVICE] _build_component_status: getting detection_manager from DI container")
             detection_manager = get_service('detection_manager')
             detection_status = "unknown"
             detection_active = False
@@ -204,7 +240,10 @@ class HealthService:
             
             if detection_manager:
                 try:
+                    self.logger.debug(f"🔧 [HEALTH_SERVICE] _build_component_status: calling detection_manager.get_status()")
                     detection_status_info = detection_manager.get_status()
+                    self.logger.debug(f"🔧 [HEALTH_SERVICE] _build_component_status: detection_manager.get_status() returned: service_running={detection_status_info.get('service_running', False)}, thread_alive={detection_status_info.get('thread_alive', False)}")
+                    
                     service_running = detection_status_info.get('service_running', False)
                     thread_alive = detection_status_info.get('thread_alive', False)
                     
@@ -213,20 +252,28 @@ class HealthService:
                     models_loaded = processor_status.get('models_loaded', False)
                     easyocr_available = processor_status.get('easyocr_available', False)
                     
+                    self.logger.debug(f"🔧 [HEALTH_SERVICE] _build_component_status: detection processor status: models_loaded={models_loaded}, easyocr_available={easyocr_available}")
+                    
                     # Determine overall detection status
                     if service_running and thread_alive and models_loaded:
                         detection_status = "healthy"
                         detection_active = True
+                        self.logger.debug(f"🔧 [HEALTH_SERVICE] _build_component_status: detection status determined as: healthy")
                     elif service_running and thread_alive:
                         detection_status = "warning"  # Service running but models not loaded
+                        self.logger.debug(f"🔧 [HEALTH_SERVICE] _build_component_status: detection status determined as: warning (service running but models not loaded)")
                     elif service_running:
                         detection_status = "warning"  # Service running but thread not alive
+                        self.logger.debug(f"🔧 [HEALTH_SERVICE] _build_component_status: detection status determined as: warning (service running but thread not alive)")
                     else:
                         detection_status = "unhealthy"
+                        self.logger.debug(f"🔧 [HEALTH_SERVICE] _build_component_status: detection status determined as: unhealthy")
                         
                 except Exception as e:
-                    self.logger.error(f"Error getting detection status: {e}")
+                    self.logger.error(f"🔧 [HEALTH_SERVICE] _build_component_status: error getting detection status: {e}")
                     detection_status = "error"
+            else:
+                self.logger.debug(f"🔧 [HEALTH_SERVICE] _build_component_status: detection_manager not available")
             
             # Fallback to health check results if detection manager not available
             if detection_status == "unknown":
@@ -279,10 +326,11 @@ class HealthService:
                 'ai_accelerator_info': system_info.get('ai_accelerator_info', {})
             }
             
+            self.logger.debug(f"🔧 [HEALTH_SERVICE] _build_component_status: returning components: {list(components.keys())}")
             return components
             
         except Exception as e:
-            self.logger.error(f"Error building component status: {e}")
+            self.logger.error(f"🔧 [HEALTH_SERVICE] _build_component_status error: {e}")
             return {}
     
     def _find_latest_check(self, checks: List[Dict[str, Any]], component: str) -> Optional[Dict[str, Any]]:

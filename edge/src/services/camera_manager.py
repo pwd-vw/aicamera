@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Camera Manager Service for AI Camera v1.3
+Camera Manager Service for AI Camera v2
 
 This service manages camera operations using CameraHandler component
 and provides high-level camera management functionality.
@@ -16,7 +16,7 @@ Features:
 - Metadata tracking (NEW)
 
 Author: AI Camera Team
-Version: 1.3
+Version: 2.0
 Date: August 7, 2025
 """
 
@@ -74,45 +74,53 @@ class CameraManager:
         Returns:
             bool: True if initialization successful, False otherwise
         """
+        self.logger.debug(f"🔧 [CAMERA_MANAGER] initialize called")
+        
         try:
-            self.logger.info("Initializing Camera Manager...")
+            self.logger.info("🔧 [CAMERA_MANAGER] Initializing Camera Manager...")
             
-            # Initialize camera handler
+            # Initialize camera handler with robust initialization
             if self.camera_handler:
+                self.logger.debug(f"🔧 [CAMERA_MANAGER] initialize: calling camera_handler.initialize_camera()")
                 success = self.camera_handler.initialize_camera()
+                self.logger.debug(f"🔧 [CAMERA_MANAGER] initialize: camera_handler.initialize_camera() returned: {success}")
+                
                 if success:
-                    self.logger.info("Camera handler initialized successfully")
+                    self.logger.info("🔧 [CAMERA_MANAGER] Camera handler initialized successfully")
                     
                     # Check if camera is in fallback mode
+                    self.logger.debug(f"🔧 [CAMERA_MANAGER] initialize: checking camera status")
                     camera_status = self.camera_handler.get_camera_status()
+                    self.logger.debug(f"🔧 [CAMERA_MANAGER] initialize: camera_status: {camera_status}")
+                    
                     if not camera_status['camera_ready']:
-                        self.logger.info("Camera handler initialized in fallback mode - ready for dynamic connection")
-                        self.logger.info("Camera manager will work normally but camera operations will be limited")
+                        self.logger.info("🔧 [CAMERA_MANAGER] Camera handler initialized in fallback mode - ready for dynamic connection")
+                        self.logger.info("🔧 [CAMERA_MANAGER] Camera manager will work normally but camera operations will be limited")
                         
                         # Auto-start camera if enabled (will work when camera becomes available)
                         if self.auto_start_enabled:
-                            self.logger.info("Auto-start enabled - will start camera when hardware becomes available")
+                            self.logger.info("🔧 [CAMERA_MANAGER] Auto-start enabled - will start camera when hardware becomes available")
                             return self._auto_start_camera_fallback()
                         else:
-                            self.logger.info("Auto-start disabled - camera ready for manual start when hardware available")
+                            self.logger.info("🔧 [CAMERA_MANAGER] Auto-start disabled - camera ready for manual start when hardware available")
                             return True
                     else:
                         # Camera is ready - proceed with normal auto-start
                         if self.auto_start_enabled:
-                            self.logger.info("Auto-start enabled - starting camera automatically")
+                            self.logger.info("🔧 [CAMERA_MANAGER] Auto-start enabled - starting camera automatically")
                             return self._auto_start_camera()
                         else:
-                            self.logger.info("Auto-start disabled - camera ready for manual start")
+                            self.logger.info("🔧 [CAMERA_MANAGER] Auto-start disabled - camera ready for manual start")
                             return True
                 else:
-                    self.logger.error("Failed to initialize camera handler")
+                    self.logger.error("🔧 [CAMERA_MANAGER] Failed to initialize camera handler")
                     return False
             else:
-                self.logger.error("Camera handler not available")
+                self.logger.error("🔧 [CAMERA_MANAGER] Camera handler not available")
                 return False
                 
         except Exception as e:
-            self.logger.error(f"Error initializing camera manager: {e}")
+            self.logger.error(f"🔧 [CAMERA_MANAGER] Error initializing camera manager: {e}")
             return False
     
     def _auto_start_camera(self):
@@ -304,6 +312,40 @@ class CameraManager:
     
 
     
+    def reconfigure_camera_safely(self, new_config: Dict[str, Any]) -> bool:
+        """
+        Safely reconfigure camera by stopping, adjusting config, and restarting.
+        This prevents conflicts during detection processing.
+        
+        Args:
+            new_config: New camera configuration parameters
+            
+        Returns:
+            bool: True if reconfiguration successful, False otherwise
+        """
+        self.logger.info("🔄 [CAMERA_MANAGER] Starting safe camera reconfiguration...")
+        
+        try:
+            if not self.camera_handler:
+                self.logger.error("🔄 [CAMERA_MANAGER] Camera handler not available")
+                return False
+            
+            # Use camera handler's safe reconfiguration method
+            success = self.camera_handler.reconfigure_camera_safely(new_config)
+            
+            if success:
+                self.logger.info("🔄 [CAMERA_MANAGER] ✅ Safe camera reconfiguration completed successfully")
+                # Update manager status
+                self.camera_status = self.camera_handler.get_camera_status()
+            else:
+                self.logger.error("🔄 [CAMERA_MANAGER] Safe camera reconfiguration failed")
+            
+            return success
+            
+        except Exception as e:
+            self.logger.error(f"🔄 [CAMERA_MANAGER] Safe reconfiguration error: {e}")
+            return False
+    
     def get_status(self):
         """
         Get comprehensive camera status.
@@ -311,19 +353,27 @@ class CameraManager:
         Returns:
             dict: Camera status information including metadata
         """
+        self.logger.debug(f"🔧 [CAMERA_MANAGER] get_status called")
+        
         try:
             if not self.camera_handler:
-                return {
+                error_status = {
                     'initialized': False,
                     'streaming': False,
                     'error': 'Camera handler not available'
                 }
+                self.logger.debug(f"🔧 [CAMERA_MANAGER] get_status: camera_handler not available, returning: {error_status}")
+                return error_status
             
             # Get camera handler status
+            self.logger.debug(f"🔧 [CAMERA_MANAGER] get_status: calling camera_handler.get_status()")
             camera_status = self.camera_handler.get_status()
+            self.logger.debug(f"🔧 [CAMERA_MANAGER] get_status: camera_handler.get_status() returned: {camera_status}")
             
             # Get configuration
+            self.logger.debug(f"🔧 [CAMERA_MANAGER] get_status: calling get_configuration()")
             config = self.get_configuration()
+            self.logger.debug(f"🔧 [CAMERA_MANAGER] get_status: get_configuration() returned: {config}")
             
             # Add manager-specific status
             status = {
@@ -344,16 +394,20 @@ class CameraManager:
             if self.startup_time:
                 uptime = (datetime.now() - self.startup_time).total_seconds()
                 status['uptime'] = uptime
+                self.logger.debug(f"🔧 [CAMERA_MANAGER] get_status: calculated uptime: {uptime}")
             
+            self.logger.debug(f"🔧 [CAMERA_MANAGER] get_status: returning status: {status}")
             return status
             
         except Exception as e:
-            self.logger.error(f"Error getting camera status: {e}")
-            return {
+            self.logger.error(f"🔧 [CAMERA_MANAGER] Error getting camera status: {e}")
+            error_status = {
                 'initialized': False,
                 'streaming': False,
                 'error': str(e)
             }
+            self.logger.debug(f"🔧 [CAMERA_MANAGER] get_status: returning error status: {error_status}")
+            return error_status
     
     def update_configuration(self, config):
         """
@@ -405,8 +459,12 @@ class CameraManager:
         Returns:
             dict: Health status information
         """
+        self.logger.debug(f"🔧 [CAMERA_MANAGER] health_check called")
+        
         try:
+            self.logger.debug(f"🔧 [CAMERA_MANAGER] health_check: calling get_status()")
             status = self.get_status()
+            self.logger.debug(f"🔧 [CAMERA_MANAGER] health_check: get_status() returned: {status}")
             
             health = {
                 'status': 'healthy' if status.get('initialized', False) else 'unhealthy',
@@ -424,15 +482,18 @@ class CameraManager:
                 health['status'] = 'unhealthy'
                 health['error'] = status.get('error', 'Camera not initialized')
             
+            self.logger.debug(f"🔧 [CAMERA_MANAGER] health_check: returning health status: {health}")
             return health
             
         except Exception as e:
-            self.logger.error(f"Error in health check: {e}")
-            return {
+            self.logger.error(f"🔧 [CAMERA_MANAGER] Error in health check: {e}")
+            error_health = {
                 'status': 'unhealthy',
                 'error': str(e),
                 'timestamp': datetime.now().isoformat()
             }
+            self.logger.debug(f"🔧 [CAMERA_MANAGER] health_check: returning error health: {error_health}")
+            return error_health
     
     def get_available_settings(self):
         """
@@ -511,151 +572,191 @@ class CameraManager:
     def capture_frame(self):
         """
         Capture a single frame from the camera for detection processing.
-        Uses frame buffer for thread-safe access.
+        Uses unified camera handler method with buffer source for thread-safe access.
         
         Returns:
             numpy.ndarray or None: Camera frame as numpy array, None if capture failed
         """
+        self.logger.debug(f"🔧 [CAMERA_MANAGER] capture_frame called")
+        
         try:
             if not self.camera_handler or not self.camera_handler.initialized:
-                self.logger.warning("Cannot capture frame - camera not initialized")
+                self.logger.warning(f"🔧 [CAMERA_MANAGER] capture_frame failed: camera_handler={self.camera_handler is not None}, initialized={self.camera_handler.initialized if self.camera_handler else False}")
                 return None
             
             # Check if frame buffer is ready
             if not self.camera_handler.is_frame_buffer_ready():
-                self.logger.warning("Frame buffer not ready yet")
+                self.logger.warning(f"🔧 [CAMERA_MANAGER] capture_frame failed: frame buffer not ready")
                 return None
             
-            # Capture frame from camera handler (returns dict with 'frame' key)
-            frame_data = self.camera_handler.capture_frame()
+            self.logger.debug(f"🔧 [CAMERA_MANAGER] capture_frame: calling camera_handler.capture_frame(source='buffer')")
             
-            # Debug: Log frame data information
-            self.logger.debug(f"Camera handler returned frame_data type: {type(frame_data)}")
+            # Use unified camera handler method with buffer source
+            frame_data = self.camera_handler.capture_frame(source="buffer", stream_type="main", include_metadata=False)
+            
+            self.logger.debug(f"🔧 [CAMERA_MANAGER] capture_frame: camera_handler returned frame_data type: {type(frame_data)}")
+            
             if isinstance(frame_data, dict):
-                self.logger.debug(f"Frame data keys: {list(frame_data.keys())}")
+                self.logger.debug(f"🔧 [CAMERA_MANAGER] capture_frame: frame data keys: {list(frame_data.keys())}")
                 if 'frame' in frame_data:
                     frame = frame_data['frame']
-                    self.logger.debug(f"Extracted frame shape: {frame.shape if hasattr(frame, 'shape') else 'No shape'}")
+                    self.logger.debug(f"🔧 [CAMERA_MANAGER] capture_frame: extracted frame shape: {frame.shape if hasattr(frame, 'shape') else 'No shape'}")
                     return frame
                 else:
-                    self.logger.warning("Frame data dict does not contain 'frame' key")
+                    self.logger.warning(f"🔧 [CAMERA_MANAGER] capture_frame: frame data dict does not contain 'frame' key")
                     return None
             elif isinstance(frame_data, np.ndarray):
-                self.logger.debug(f"Frame data is numpy array, shape: {frame_data.shape}")
+                self.logger.debug(f"🔧 [CAMERA_MANAGER] capture_frame: frame data is numpy array, shape: {frame_data.shape}")
                 return frame_data
             else:
-                self.logger.warning(f"Invalid frame data type: {type(frame_data)}")
+                self.logger.warning(f"🔧 [CAMERA_MANAGER] capture_frame: invalid frame data type: {type(frame_data)}")
                 return None
                 
         except Exception as e:
-            self.logger.error(f"Error capturing frame: {e}")
+            self.logger.error(f"🔧 [CAMERA_MANAGER] capture_frame error: {e}")
             return None
     
     def capture_main_frame(self):
         """
         Capture a main resolution frame for detection processing.
-        Thread-safe access to main stream using frame buffer.
+        Uses unified camera handler method with buffer source for thread-safe access.
         
         Returns:
             numpy.ndarray or None: Main resolution camera frame as numpy array, None if capture failed
         """
+        self.logger.debug(f"🔧 [CAMERA_MANAGER] capture_main_frame called")
+        
         try:
             if not self.camera_handler or not self.camera_handler.initialized:
-                self.logger.warning("Cannot capture main frame - camera not initialized")
+                self.logger.warning(f"🔧 [CAMERA_MANAGER] capture_main_frame failed: camera_handler={self.camera_handler is not None}, initialized={self.camera_handler.initialized if self.camera_handler else False}")
                 return None
             
             # Check if frame buffer is ready
             if not self.camera_handler.is_frame_buffer_ready():
-                self.logger.warning("Frame buffer not ready yet")
+                self.logger.warning(f"🔧 [CAMERA_MANAGER] capture_main_frame failed: frame buffer not ready")
                 return None
             
-            # Get main frame from camera handler buffer
-            frame = self.camera_handler.get_main_frame()
+            self.logger.debug(f"🔧 [CAMERA_MANAGER] capture_main_frame: calling camera_handler.capture_frame(source='buffer', stream_type='main')")
             
-            if frame is not None:
-                self.logger.debug(f"Main frame captured, shape: {frame.shape}")
-                return frame
+            # Use unified camera handler method with buffer source for main stream
+            frame_data = self.camera_handler.capture_frame(source="buffer", stream_type="main", include_metadata=False)
+            
+            self.logger.debug(f"🔧 [CAMERA_MANAGER] capture_main_frame: camera_handler returned frame_data type: {type(frame_data)}")
+            
+            if isinstance(frame_data, dict):
+                if 'frame' in frame_data:
+                    frame = frame_data['frame']
+                    self.logger.debug(f"🔧 [CAMERA_MANAGER] capture_main_frame: extracted main frame shape: {frame.shape if hasattr(frame, 'shape') else 'No shape'}")
+                    return frame
+                else:
+                    self.logger.warning(f"🔧 [CAMERA_MANAGER] capture_main_frame: frame data dict does not contain 'frame' key")
+                    return None
+            elif isinstance(frame_data, np.ndarray):
+                self.logger.debug(f"🔧 [CAMERA_MANAGER] capture_main_frame: main frame captured, shape: {frame_data.shape}")
+                return frame_data
             else:
-                self.logger.warning("No main frame available from camera handler")
+                self.logger.warning(f"🔧 [CAMERA_MANAGER] capture_main_frame: no main frame available from camera handler")
                 return None
                 
         except Exception as e:
-            self.logger.error(f"Error capturing main frame: {e}")
+            self.logger.error(f"🔧 [CAMERA_MANAGER] capture_main_frame error: {e}")
             return None
 
     def capture_lores_frame(self):
         """
         Capture a low-resolution frame for web interface video streaming.
-        Uses frame buffer for thread-safe access.
+        Uses unified camera handler method with buffer source for thread-safe access.
         
         Returns:
             numpy.ndarray or None: Low-res camera frame as numpy array, None if capture failed
         """
+        self.logger.debug(f"🔧 [CAMERA_MANAGER] capture_lores_frame called")
+        
         try:
             if not self.camera_handler or not self.camera_handler.initialized:
-                self.logger.warning("Cannot capture lores frame - camera not initialized")
+                self.logger.warning(f"🔧 [CAMERA_MANAGER] capture_lores_frame failed: camera_handler={self.camera_handler is not None}, initialized={self.camera_handler.initialized if self.camera_handler else False}")
                 return None
             
             # Check if frame buffer is ready
             if not self.camera_handler.is_frame_buffer_ready():
-                self.logger.warning("Frame buffer not ready yet")
+                self.logger.warning(f"🔧 [CAMERA_MANAGER] capture_lores_frame failed: frame buffer not ready")
                 return None
             
-            # Get lores frame from camera handler buffer
-            frame = self.camera_handler.get_lores_frame()
+            self.logger.debug(f"🔧 [CAMERA_MANAGER] capture_lores_frame: calling camera_handler.capture_frame(source='buffer', stream_type='lores')")
             
-            if frame is not None:
-                self.logger.debug(f"Lores frame captured, shape: {frame.shape}")
-                return frame
+            # Use unified camera handler method with buffer source for lores stream
+            frame_data = self.camera_handler.capture_frame(source="buffer", stream_type="lores", include_metadata=False)
+            
+            self.logger.debug(f"🔧 [CAMERA_MANAGER] capture_lores_frame: camera_handler returned frame_data type: {type(frame_data)}")
+            
+            if isinstance(frame_data, dict):
+                if 'frame' in frame_data:
+                    frame = frame_data['frame']
+                    self.logger.debug(f"🔧 [CAMERA_MANAGER] capture_lores_frame: extracted lores frame shape: {frame.shape if hasattr(frame, 'shape') else 'No shape'}")
+                    return frame
+                else:
+                    self.logger.warning(f"🔧 [CAMERA_MANAGER] capture_lores_frame: frame data dict does not contain 'frame' key")
+                    return None
+            elif isinstance(frame_data, np.ndarray):
+                self.logger.debug(f"🔧 [CAMERA_MANAGER] capture_lores_frame: lores frame captured, shape: {frame_data.shape}")
+                return frame_data
             else:
-                self.logger.warning("No lores frame available from camera handler")
+                self.logger.warning(f"🔧 [CAMERA_MANAGER] capture_lores_frame: no lores frame available from camera handler")
                 return None
                 
         except Exception as e:
-            self.logger.error(f"Error capturing lores frame: {e}")
+            self.logger.error(f"🔧 [CAMERA_MANAGER] capture_lores_frame error: {e}")
             return None
 
     def capture_image(self) -> Optional[Dict[str, Any]]:
         """
         Capture and save a single image to manual_capture directory.
-        Uses current frame from camera for high-quality capture.
+        Uses unified camera handler method with direct source for high-quality capture.
         
         Returns:
             Dict[str, Any] or None: Capture result with file path and metadata, None if failed
         """
+        self.logger.debug(f"🔧 [CAMERA_MANAGER] capture_image called")
+        
         try:
             if not self.camera_handler or not self.camera_handler.initialized:
-                self.logger.warning("Cannot capture image - camera not initialized")
+                self.logger.warning(f"🔧 [CAMERA_MANAGER] capture_image failed: camera_handler={self.camera_handler is not None}, initialized={self.camera_handler.initialized if self.camera_handler else False}")
                 return None
             
             # Check if frame buffer is ready
             if not self.camera_handler.is_frame_buffer_ready():
-                self.logger.warning("Frame buffer not ready yet")
+                self.logger.warning(f"🔧 [CAMERA_MANAGER] capture_image failed: frame buffer not ready")
                 return None
             
-            # Capture main frame for high quality
-            frame_data = self.camera_handler.capture_frame()
+            self.logger.debug(f"🔧 [CAMERA_MANAGER] capture_image: calling camera_handler.capture_frame(source='direct', stream_type='main', include_metadata=True)")
+            
+            # Use unified camera handler method with direct source for high quality
+            frame_data = self.camera_handler.capture_frame(source="direct", stream_type="main", include_metadata=True)
             
             if frame_data is None:
-                self.logger.warning("No frame data available for capture")
+                self.logger.warning(f"🔧 [CAMERA_MANAGER] capture_image: no frame data available for capture")
                 return None
+            
+            self.logger.debug(f"🔧 [CAMERA_MANAGER] capture_image: camera_handler returned frame_data type: {type(frame_data)}")
             
             # Extract frame from frame_data
             frame = None
             if isinstance(frame_data, dict) and 'frame' in frame_data:
                 frame = frame_data['frame']
+                self.logger.debug(f"🔧 [CAMERA_MANAGER] capture_image: extracted frame from dict, shape: {frame.shape if hasattr(frame, 'shape') else 'No shape'}")
             elif isinstance(frame_data, np.ndarray):
                 frame = frame_data
+                self.logger.debug(f"🔧 [CAMERA_MANAGER] capture_image: frame_data is numpy array, shape: {frame.shape}")
             else:
-                self.logger.warning(f"Invalid frame data format: {type(frame_data)}")
+                self.logger.warning(f"🔧 [CAMERA_MANAGER] capture_image: invalid frame data format: {type(frame_data)}")
                 return None
             
             if frame is None or not isinstance(frame, np.ndarray):
-                self.logger.warning("Frame is None or not a numpy array")
+                self.logger.warning(f"🔧 [CAMERA_MANAGER] capture_image: frame is None or not a numpy array")
                 return None
             
             if frame.size == 0 or len(frame.shape) != 3:
-                self.logger.warning(f"Invalid frame shape: {frame.shape}")
+                self.logger.warning(f"🔧 [CAMERA_MANAGER] capture_image: invalid frame shape: {frame.shape}")
                 return None
             
             # Generate filename with timestamp
@@ -666,11 +767,13 @@ class CameraManager:
             # Ensure directory exists
             os.makedirs(self.manual_capture_dir, exist_ok=True)
             
+            self.logger.debug(f"🔧 [CAMERA_MANAGER] capture_image: saving image to {filepath}")
+            
             # Save image with high quality
             success = cv2.imwrite(filepath, frame, [cv2.IMWRITE_JPEG_QUALITY, 95])
             
             if not success:
-                self.logger.error(f"Failed to save image to {filepath}")
+                self.logger.error(f"🔧 [CAMERA_MANAGER] capture_image: failed to save image to {filepath}")
                 return None
             
             # Get file size
@@ -679,9 +782,9 @@ class CameraManager:
             # Get frame dimensions
             height, width = frame.shape[:2]
             
-            self.logger.info(f"Image captured successfully: {filepath} ({width}x{height}, {file_size} bytes)")
+            self.logger.info(f"🔧 [CAMERA_MANAGER] capture_image: image captured successfully: {filepath} ({width}x{height}, {file_size} bytes)")
             
-            return {
+            result = {
                 'success': True,
                 'saved_path': filepath,
                 'filename': filename,
@@ -691,8 +794,11 @@ class CameraManager:
                 'timestamp_iso': datetime.now().isoformat()
             }
             
+            self.logger.debug(f"🔧 [CAMERA_MANAGER] capture_image: returning result: {result}")
+            return result
+            
         except Exception as e:
-            self.logger.error(f"Error capturing image: {e}")
+            self.logger.error(f"🔧 [CAMERA_MANAGER] capture_image error: {e}")
             return None
     
     def get_stream_generator(self):

@@ -104,6 +104,7 @@ def _initialize_services(logger):
         logger: Logger instance
     """
     logger.info("🚀 Starting modular service initialization sequence...")
+    logger.debug(f"🔧 [APP] _initialize_services called")
     
     # Track initialization results
     init_results = {
@@ -111,6 +112,7 @@ def _initialize_services(logger):
         'optional_modules': {},
         'errors': []
     }
+    logger.debug(f"🔧 [APP] _initialize_services: initialization results tracking initialized")
     
     # === PHASE 0: Device Registration ===
     logger.info("🔐 Phase 0: Device Registration")
@@ -454,33 +456,43 @@ def create_app():
     # Setup logging
     logger = setup_logging(level="DEBUG")
     logger.info("🚀 === STARTING FLASK APP CREATION ===")
-    logger.info("Creating Flask application...")
+    logger.info("🔧 [APP] create_app called")
     
     # Validate imports
+    logger.debug(f"🔧 [APP] create_app: validating imports")
     import_errors = validate_imports()
     if import_errors:
-        logger.warning("Some imports failed:")
+        logger.warning("🔧 [APP] create_app: some imports failed:")
         for error in import_errors:
-            logger.warning(f"  {error}")
+            logger.warning(f"🔧 [APP] create_app:   {error}")
+    else:
+        logger.debug(f"🔧 [APP] create_app: all imports validated successfully")
     
     # Set template and static folders
     current_dir = Path(__file__).parent
     template_dir = current_dir / 'web' / 'templates'
     static_dir = current_dir / 'web' / 'static'
+    logger.debug(f"🔧 [APP] create_app: template_dir: {template_dir}, static_dir: {static_dir}")
 
     # Create Flask app
+    logger.debug(f"🔧 [APP] create_app: creating Flask app")
     app = Flask(__name__, 
                 template_folder=str(template_dir),
                 static_folder=str(static_dir))
+    logger.debug(f"🔧 [APP] create_app: Flask app created successfully")
     
     # Load configuration using absolute import
+    logger.debug(f"🔧 [APP] create_app: loading configuration from edge.src.core.config")
     app.config.from_object('edge.src.core.config')
+    logger.debug(f"🔧 [APP] create_app: configuration loaded successfully")
     
     # Initialize dependency container
+    logger.debug(f"🔧 [APP] create_app: initializing dependency container")
     container = get_container()
-    logger.info("Dependency container initialized")
+    logger.info("🔧 [APP] create_app: dependency container initialized")
     
     # Initialize SocketIO with improved configuration
+    logger.debug(f"🔧 [APP] create_app: initializing SocketIO")
     socketio = SocketIO(
         app, 
         cors_allowed_origins="*", 
@@ -492,12 +504,16 @@ def create_app():
         engineio_logger=True,  # Enable engineio logging
         cors_credentials=True
     )
+    logger.debug(f"🔧 [APP] create_app: SocketIO initialized successfully")
     
     # Register blueprints using existing structure
+    logger.debug(f"🔧 [APP] create_app: registering blueprints")
     register_blueprints(app, socketio)
+    logger.debug(f"🔧 [APP] create_app: blueprints registered successfully")
     
     # Initialize services with auto-startup sequence
     logger.info("🔧 === ABOUT TO INITIALIZE SERVICES ===")
+    logger.debug(f"🔧 [APP] create_app: about to initialize services")
     try:
         _initialize_services(logger)
         logger.info("✅ === SERVICES INITIALIZATION COMPLETED ===")
@@ -510,19 +526,13 @@ def create_app():
     def api_health():
         """API Health check endpoint."""
         try:
-            camera_manager = get_service('camera_manager')
-            detection_manager = get_service('detection_manager')
+            logger.info("Health check endpoint called")
             
-            camera_health = camera_manager.health_check() if camera_manager else {}
-            detection_health = detection_manager.get_status() if detection_manager else {}
-            
+            # Simple health check without service dependencies
             return jsonify({
                 'success': True,
                 'status': 'healthy',
-                'camera': camera_health,
-                'detection': detection_health,
-                'errors': [],
-                'database_errors': [],
+                'message': 'Service is running',
                 'timestamp': datetime.now().isoformat()
             })
         except Exception as e:
@@ -531,8 +541,6 @@ def create_app():
                 'success': False,
                 'status': 'unhealthy',
                 'error': str(e),
-                'errors': [str(e)],
-                'database_errors': [],
                 'timestamp': datetime.now().isoformat()
             }), 500
     
@@ -624,6 +632,7 @@ def create_app():
         return render_template('errors/500.html'), 500
     
     logger.info("✅ === FLASK APPLICATION CREATED SUCCESSFULLY ===")
+    logger.debug(f"🔧 [APP] create_app: returning Flask app and SocketIO instance")
     return app, socketio
 
 

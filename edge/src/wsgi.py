@@ -15,6 +15,8 @@ def setup_wsgi_paths():
     Setup paths for WSGI environment.
     This function handles both development and production environments.
     """
+    print("🔧 [WSGI] setup_wsgi_paths called")
+    
     # Get the current file's directory
     current_file = Path(__file__)
     
@@ -22,68 +24,82 @@ def setup_wsgi_paths():
     if current_file.parent.name == 'src':
         # We're in edge/src/wsgi.py, so go up 2 levels to get aicamera root
         project_root = current_file.parent.parent.parent
+        print(f"🔧 [WSGI] using strategy 1 - project_root: {project_root}")
     else:
         # Fallback: try to find aicamera root by looking for edge/ and server/ directories
         current = current_file.parent
         while current.parent != current:  # While not at root
             if (current / 'edge').exists() and (current / 'server').exists():
                 project_root = current
+                print(f"🔧 [WSGI] using fallback strategy - project_root: {project_root}")
                 break
             current = current.parent
         else:
             # If we can't find it, use the current file's parent's parent
             project_root = current_file.parent.parent
+            print(f"🔧 [WSGI] using default fallback - project_root: {project_root}")
     
     # Add project root to path
     project_root_str = str(project_root.absolute())
     if project_root_str not in sys.path:
         sys.path.insert(0, project_root_str)
+        print(f"🔧 [WSGI] added project_root to sys.path")
     
     # Add edge directory for edge.* imports
     edge_path = str(project_root / 'edge')
     if edge_path not in sys.path:
         sys.path.insert(0, edge_path)
+        print(f"🔧 [WSGI] added edge_path to sys.path")
     
     # Add edge/src directory for src.* imports
     edge_src_path = str(project_root / 'edge' / 'src')
     if edge_src_path not in sys.path:
         sys.path.insert(0, edge_src_path)
+        print(f"🔧 [WSGI] added edge_src_path to sys.path")
     
+    print(f"🔧 [WSGI] setup_wsgi_paths completed")
     return project_root
 
 # Setup paths first
 project_root = setup_wsgi_paths()
 
 # Now import the import helper and setup proper paths
+print("🔧 [WSGI] importing import_helper")
 try:
     from edge.src.core.utils.import_helper import setup_import_paths, validate_imports
     setup_import_paths()
+    print("🔧 [WSGI] import_helper setup completed")
 except ImportError as e:
-    # Fallback if import helper is not available
-    print(f"Warning: Could not import import_helper: {e}")
-    print(f"Using basic path setup with project_root: {project_root}")
+    print(f"🔧 [WSGI] Warning: Could not import import_helper: {e}")
 
 # Setup logging
+print("🔧 [WSGI] setting up logging")
 try:
     from edge.src.core.utils.logging_config import setup_logging, get_logger
     logger = setup_logging(level="INFO")
+    print("🔧 [WSGI] logging setup completed")
 except ImportError as e:
-    # Fallback logging setup
+    print(f"🔧 [WSGI] Could not import logging_config: {e}, using fallback")
     import logging
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(__name__)
     logger.warning(f"Could not import logging_config: {e}")
 
 # Import the application
-logger.info("📥 === ABOUT TO IMPORT create_app ===")
+print("🔧 [WSGI] importing create_app")
+logger.info("📥 importing create_app")
 try:
     from edge.src.app import create_app
-    logger.info("✅ === create_app IMPORTED SUCCESSFULLY ===")
-    logger.info("🚀 === ABOUT TO CALL create_app() ===")
+    print("🔧 [WSGI] create_app imported")
+    logger.info("✅ create_app imported")
+    print("🔧 [WSGI] calling create_app()")
+    logger.info("🚀 calling create_app()")
     app, socketio = create_app()
-    logger.info("✅ === create_app() COMPLETED SUCCESSFULLY ===")
-    logger.info(f"📊 App type: {type(app)}, SocketIO type: {type(socketio)}")
+    print(f"🔧 [WSGI] create_app() completed - App: {type(app).__name__}, SocketIO: {type(socketio).__name__}")
+    logger.info("✅ create_app() completed")
+    logger.info(f"📊 App: {type(app).__name__}, SocketIO: {type(socketio).__name__}")
 except Exception as e:
+    print(f"🔧 [WSGI] Failed to create app: {e}")
     logger.error(f"❌ Failed to create app: {e}")
     raise
 
@@ -103,7 +119,15 @@ def application(environ, start_response):
     
     This function is called by the WSGI server (e.g., Gunicorn)
     """
-    return app(environ, start_response)
+    method = environ.get('REQUEST_METHOD', 'UNKNOWN')
+    path = environ.get('PATH_INFO', 'UNKNOWN')
+    print(f"🔧 [WSGI] {method} {path}")
+    try:
+        result = app(environ, start_response)
+        return result
+    except Exception as e:
+        print(f"🔧 [WSGI] error: {e}")
+        raise
 
 if __name__ == '__main__':
     # For direct execution
