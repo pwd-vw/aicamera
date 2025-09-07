@@ -60,6 +60,7 @@ def camera_dashboard():
                              camera_settings=camera_settings,
                              auto_start_info=auto_start_info,
                              title="Camera Dashboard",
+                             use_socketio=True,
                              timestamp=int(time.time()))
         return response
     except Exception as e:
@@ -69,6 +70,7 @@ def camera_dashboard():
                              camera_settings={},
                              auto_start_info={'enabled': False, 'uptime': 0},
                              title="Camera Dashboard",
+                             use_socketio=True,
                              timestamp=int(time.time()))
         return response
 
@@ -1765,8 +1767,9 @@ def debug_camera_metadata():
                 'timestamp': datetime.now().isoformat()
             }), 500
         
-        # Get debug information from camera handler
-        debug_info = camera_handler.debug_metadata_capture()
+        # Get debug information from camera handler using unified method
+        frame_result = camera_handler.capture_frame(source="buffer", stream_type="main", include_metadata=True)
+        debug_info = frame_result.get('metadata', {}) if frame_result else {}
         
         return jsonify({
             'success': True,

@@ -25,6 +25,7 @@ def index():
         response = render_template('index.html', 
                              camera_status=camera_status,
                              title="AI Camera Dashboard",
+                             use_socketio=True,
                              timestamp=int(time.time()))
         return response
     except KeyError as e:
@@ -32,6 +33,7 @@ def index():
         response = render_template('index.html', 
                              camera_status={'error': f'Camera service not available: {e}'},
                              title="AI Camera Dashboard",
+                             use_socketio=True,
                              timestamp=int(time.time()))
         return response
     except Exception as e:
@@ -39,6 +41,7 @@ def index():
         response = render_template('index.html', 
                              camera_status={'error': str(e)},
                              title="AI Camera Dashboard",
+                             use_socketio=True,
                              timestamp=int(time.time()))
         return response
 
