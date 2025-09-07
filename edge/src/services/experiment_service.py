@@ -267,8 +267,8 @@ class ExperimentService:
     def _capture_frame(self) -> np.ndarray:
         """เก็บภาพจากกล้อง"""
         try:
-            if hasattr(self.camera_manager, 'capture_main_frame'):
-                frame = self.camera_manager.capture_main_frame()
+            if hasattr(self.camera_manager, 'camera_handler'):
+                frame = self.camera_manager.camera_handler.capture_frame(source="buffer", stream_type="main", include_metadata=False)
             elif hasattr(self.camera_manager, 'get_frame'):
                 frame = self.camera_manager.get_frame()
             else:

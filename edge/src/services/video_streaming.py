@@ -137,7 +137,7 @@ class VideoStreamingService:
             if self.camera_manager:
                 # Try to get frame from camera manager
                 try:
-                    frame = self.camera_manager.capture_lores_frame()
+                    frame = self.camera_manager.camera_handler.capture_frame(source="buffer", stream_type="lores", include_metadata=False)
                     if frame is not None:
                         # Validate frame
                         if isinstance(frame, np.ndarray) and frame.size > 0 and len(frame.shape) == 3:

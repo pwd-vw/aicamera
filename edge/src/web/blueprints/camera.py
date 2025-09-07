@@ -491,7 +491,7 @@ def generate_frames():
                         consecutive_errors += 1
                 
                 # Get lores frame from camera manager
-                frame_data = camera_manager.capture_lores_frame()
+                frame_data = camera_manager.camera_handler.capture_frame(source="buffer", stream_type="lores", include_metadata=False)
                 
                 if frame_data is None:
                     consecutive_errors += 1
@@ -688,7 +688,7 @@ def generate_lores_frames():
                         consecutive_errors += 1
                 
                 # Use camera manager to capture lores frame
-                frame_data = camera_manager.capture_lores_frame()
+                frame_data = camera_manager.camera_handler.capture_frame(source="buffer", stream_type="lores", include_metadata=False)
                 
                 if frame_data is None:
                     consecutive_errors += 1
@@ -2071,7 +2071,7 @@ def video_test():
         # Test 3: Frame Capture
         try:
             if camera_manager:
-                frame = camera_manager.capture_lores_frame()
+                frame = camera_manager.camera_handler.capture_frame(source="buffer", stream_type="lores", include_metadata=False)
                 test_results['tests']['frame_capture'] = {
                     'status': 'passed' if frame is not None else 'failed',
                     'message': f"Frame captured: {frame is not None}",

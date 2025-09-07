@@ -287,9 +287,9 @@ class DetectionManager:
                 return None
             
             # Capture main frame from camera for detection processing
-            self.logger.debug(f"🔧 [DETECTION_MANAGER] process_frame_from_camera: calling camera_manager.capture_main_frame()")
-            frame = camera_manager.capture_main_frame()
-            self.logger.debug(f"🔧 [DETECTION_MANAGER] process_frame_from_camera: camera_manager.capture_main_frame() returned frame type: {type(frame)}")
+            self.logger.debug(f"🔧 [DETECTION_MANAGER] process_frame_from_camera: calling camera_manager.camera_handler.capture_frame(source='buffer', stream_type='main', include_metadata=False)")
+            frame = camera_manager.camera_handler.capture_frame(source="buffer", stream_type="main", include_metadata=False)
+            self.logger.debug(f"🔧 [DETECTION_MANAGER] process_frame_from_camera: camera_handler.capture_frame() returned frame type: {type(frame)}")
             
             if frame is None:
                 self.logger.debug(f"🔧 [DETECTION_MANAGER] process_frame_from_camera: no frame available from camera")

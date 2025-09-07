@@ -1322,16 +1322,9 @@ class CameraHandler:
         Returns:
             Optional[np.ndarray]: Latest main frame or None
         """
-        # Quick check without lock if buffer is ready
-        if not getattr(self, '_frame_buffer_ready', False):
-            return None
-        
-        with self._frame_buffer_lock:
-            if self._main_frame_buffer is not None:
-                # Return a view instead of copy for better performance
-                # Detection processing can handle the view safely
-                return self._main_frame_buffer
-        return None
+        # Use unified capture method
+        result = self.capture_frame(source="buffer", stream_type="main", include_metadata=False)
+        return result if isinstance(result, np.ndarray) else None
     
     def get_lores_frame(self) -> Optional[np.ndarray]:
         """
@@ -1341,16 +1334,9 @@ class CameraHandler:
         Returns:
             Optional[np.ndarray]: Latest lores frame or None
         """
-        # Quick check without lock if buffer is ready
-        if not getattr(self, '_frame_buffer_ready', False):
-            return None
-        
-        with self._frame_buffer_lock:
-            if self._lores_frame_buffer is not None:
-                # Return a view instead of copy for better performance
-                # Web interface can handle the view safely
-                return self._lores_frame_buffer
-        return None
+        # Use unified capture method
+        result = self.capture_frame(source="buffer", stream_type="lores", include_metadata=False)
+        return result if isinstance(result, np.ndarray) else None
     
     def get_cached_metadata(self) -> Dict[str, Any]:
         """
