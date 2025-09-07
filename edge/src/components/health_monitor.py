@@ -515,6 +515,16 @@ class HealthMonitor:
         component = "EasyOCR"
         try:
             # Try to import EasyOCR
+            # Patch sympy to handle missing equal_valued function
+            try:
+                import sympy.core.numbers
+                if not hasattr(sympy.core.numbers, 'equal_valued'):
+                    def equal_valued(a, b):
+                        return a == b
+                    sympy.core.numbers.equal_valued = equal_valued
+            except ImportError:
+                pass
+            
             import easyocr
             
             # Try to initialize with supported languages

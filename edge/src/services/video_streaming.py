@@ -139,8 +139,7 @@ class VideoStreamingService:
                 try:
                     frame = self.camera_manager.camera_handler.capture_frame(source="buffer", stream_type="lores", include_metadata=False)
                     if frame is not None:
-                        # Validate frame
-                        if isinstance(frame, np.ndarray) and frame.size > 0:
+                        # Validate frame                        if isinstance(frame, np.ndarray) and frame.size > 0:
                             # Handle 2D frames (grayscale) by converting to 3D
                             if len(frame.shape) == 2:
                                 # Convert grayscale to RGB

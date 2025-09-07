@@ -11,10 +11,10 @@ class ExperimentDashboard {
     }
     
     initializeSocket() {
-        // เชื่อมต่อ WebSocket
+        // เชื่อมต่อ WebSocket using Flask-SocketIO
         this.socket.on('connect', () => {
-            console.log('Connected to experiment server');
-            this.socket.emit('join_experiment_room');
+            console.log('Connected to experiment server via Flask-SocketIO');
+            this.socket.emit('join_experiment', {experiment_id: 'dashboard'});
         });
         
         // รับอัปเดตสถานะการทดลอง
@@ -28,13 +28,23 @@ class ExperimentDashboard {
         });
         
         // รับผลลัพธ์การทดลอง
-        this.socket.on('experiment_result', (result) => {
+        this.socket.on('step_result', (result) => {
             this.addExperimentResult(result);
         });
         
         // การทดลองเสร็จสิ้น
         this.socket.on('experiment_complete', (summary) => {
             this.showExperimentComplete(summary);
+        });
+        
+        // Handle experiment errors
+        this.socket.on('experiment_error', (error) => {
+            this.showError('Experiment Error: ' + error.error);
+        });
+        
+        // Handle disconnection
+        this.socket.on('disconnect', () => {
+            console.log('Disconnected from experiment server');
         });
     }
     

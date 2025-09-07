@@ -137,9 +137,9 @@ class StorageMonitor:
             
             # Query database for image files and their status
             query = """
-                SELECT image_path, sent_to_server, created_at 
+                SELECT original_image_path, sent_to_server, created_at 
                 FROM detection_results 
-                WHERE image_path IS NOT NULL 
+                WHERE original_image_path IS NOT NULL 
                 ORDER BY created_at ASC
             """
             

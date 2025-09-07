@@ -109,6 +109,16 @@ class AsyncOCRLoader:
             self.logger.info(f"Loading EasyOCR Reader with languages: {self.languages}")
             
             # Import and initialize EasyOCR
+            # Patch sympy to handle missing equal_valued function
+            try:
+                import sympy.core.numbers
+                if not hasattr(sympy.core.numbers, 'equal_valued'):
+                    def equal_valued(a, b):
+                        return a == b
+                    sympy.core.numbers.equal_valued = equal_valued
+            except ImportError:
+                pass
+            
             import easyocr
             start_time = time.time()
             

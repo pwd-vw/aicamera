@@ -12,9 +12,10 @@ Environment=PATH=/home/camuser/aicamera/edge/installation/venv_hailo/bin:/usr/lo
 Environment=FLASK_ENV=production
 Environment=FLASK_APP=edge.src.wsgi:app
 Environment=PYTHONPATH=/home/camuser/aicamera/edge/installation/venv_hailo/lib/python3.11/site-packages:/home/camuser/aicamera
+Environment=PYTHONNOUSERSITE=1
 
 ExecStartPre=/bin/bash -lc 'source /home/camuser/aicamera/edge/installation/venv_hailo/bin/activate && /home/camuser/aicamera/edge/systemd_service/aicamera_lpr_prestart.sh'
-ExecStart=/bin/bash -lc 'source /home/camuser/aicamera/edge/installation/venv_hailo/bin/activate && source /home/camuser/aicamera/edge/installation/setup_env.sh && exec /home/camuser/aicamera/edge/installation/venv_hailo/bin/gunicorn --config /home/camuser/aicamera/edge/gunicorn_config.py --worker-class gthread --workers 1 --threads 4 edge.src.wsgi:app'
+ExecStart=/bin/bash -lc 'source /home/camuser/aicamera/edge/installation/venv_hailo/bin/activate && source /home/camuser/aicamera/edge/installation/setup_env.sh && export PYTHONPATH="/home/camuser/aicamera/edge/installation/venv_hailo/lib/python3.11/site-packages:/home/camuser/aicamera" && exec /home/camuser/aicamera/edge/installation/venv_hailo/bin/gunicorn --config /home/camuser/aicamera/edge/gunicorn_config.py --worker-class gthread --workers 1 --threads 4 edge.src.wsgi:app'
 ExecReload=/bin/kill -s HUP $MAINPID
 
 # Restart policy

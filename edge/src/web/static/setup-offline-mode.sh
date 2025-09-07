@@ -35,7 +35,7 @@ echo "✓ Font Awesome paths updated"
 
 # Download Socket.IO
 echo "Downloading Socket.IO..."
-wget -q -O libs/socket.io/socket.io.js https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js
+wget -q -O libs/socket.io/socket.io.js https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.4/socket.io.js
 echo "✓ Socket.IO downloaded"
 
 # Download Chart.js
