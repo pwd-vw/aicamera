@@ -1857,8 +1857,9 @@ def get_experimental_metadata():
                 'timestamp': datetime.now().isoformat()
             }), 500
         
-        # Get comprehensive experimental metadata
-        comprehensive_metadata = camera_handler.get_comprehensive_metadata()
+        # Get comprehensive experimental metadata using unified capture_frame method
+        frame_result = camera_handler.capture_frame(source="buffer", stream_type="main", include_metadata=True)
+        comprehensive_metadata = frame_result.get('metadata', {}) if frame_result else {}
         
         if comprehensive_metadata is None:
             return jsonify({
@@ -1907,8 +1908,9 @@ def get_metadata_summary():
                 'timestamp': datetime.now().isoformat()
             }), 500
         
-        # Get comprehensive metadata
-        comprehensive_metadata = camera_handler.get_comprehensive_metadata()
+        # Get comprehensive metadata using unified capture_frame method
+        frame_result = camera_handler.capture_frame(source="buffer", stream_type="main", include_metadata=True)
+        comprehensive_metadata = frame_result.get('metadata', {}) if frame_result else {}
         
         if comprehensive_metadata is None:
             return jsonify({
@@ -2391,8 +2393,7 @@ def video_feed_debug():
             } if video_streaming else None,
             'camera_manager': {
                 'available': camera_manager is not None,
-                'initialized': camera_manager.initialized if camera_manager else False,
-                'streaming': camera_manager.streaming if camera_manager else False,
+                'status': camera_manager.get_status() if camera_manager else None,
             } if camera_manager else None,
             'system_info': {
                 'python_version': sys.version,

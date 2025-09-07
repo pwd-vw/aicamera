@@ -140,43 +140,50 @@ class VideoStreamingService:
                     frame = self.camera_manager.camera_handler.capture_frame(source="buffer", stream_type="lores", include_metadata=False)
                     if frame is not None:
                         # Validate frame
-                        if isinstance(frame, np.ndarray) and frame.size > 0 and len(frame.shape) == 3:
-                            # Handle different channel formats
-                            if frame.shape[2] == 4:  # RGBA or BGRA
-                                # Convert 4-channel to 3-channel RGB
-                                try:
-                                    # Convert RGBA to RGB by removing alpha channel
-                                    frame_rgb = frame[:, :, :3]
-                                    self.logger.debug(f"Converted 4-channel frame to RGB: {frame_rgb.shape}")
-                                    
-                                    # Validate converted frame
-                                    if frame_rgb.shape[0] > 0 and frame_rgb.shape[1] > 0 and frame_rgb.shape[2] == 3:
+                        if isinstance(frame, np.ndarray) and frame.size > 0:
+                            # Handle 2D frames (grayscale) by converting to 3D
+                            if len(frame.shape) == 2:
+                                # Convert grayscale to RGB
+                                frame = np.stack([frame, frame, frame], axis=2)
+                                self.logger.debug(f"Converted grayscale frame to RGB: {frame.shape}")
+                            
+                            if len(frame.shape) == 3:
+                                # Handle different channel formats
+                                if frame.shape[2] == 4:  # RGBA or BGRA
+                                    # Convert 4-channel to 3-channel RGB
+                                    try:
+                                        # Convert RGBA to RGB by removing alpha channel
+                                        frame_rgb = frame[:, :, :3]
+                                        self.logger.debug(f"Converted 4-channel frame to RGB: {frame_rgb.shape}")
+                                        
+                                        # Validate converted frame
+                                        if frame_rgb.shape[0] > 0 and frame_rgb.shape[1] > 0 and frame_rgb.shape[2] == 3:
+                                            self.error_count = 0
+                                            self.fallback_mode = False
+                                            self.last_successful_frame = frame_rgb.copy()
+                                            self.frames_from_camera += 1
+                                            self.logger.debug(f"Frame captured and converted successfully: {frame_rgb.shape}")
+                                            return frame_rgb, "camera_lores_converted"
+                                        else:
+                                            self.logger.warning(f"Invalid converted frame dimensions: {frame_rgb.shape}")
+                                    except Exception as convert_error:
+                                        self.logger.error(f"Error converting 4-channel frame: {convert_error}")
+                                        raise convert_error
+                                elif frame.shape[2] == 3:  # RGB
+                                    # Validate frame dimensions
+                                    if frame.shape[0] > 0 and frame.shape[1] > 0:
                                         self.error_count = 0
                                         self.fallback_mode = False
-                                        self.last_successful_frame = frame_rgb.copy()
+                                        self.last_successful_frame = frame.copy()
                                         self.frames_from_camera += 1
-                                        self.logger.debug(f"Frame captured and converted successfully: {frame_rgb.shape}")
-                                        return frame_rgb, "camera_lores_converted"
+                                        self.logger.debug(f"Frame captured successfully: {frame.shape}")
+                                        return frame, "camera_lores"
                                     else:
-                                        self.logger.warning(f"Invalid converted frame dimensions: {frame_rgb.shape}")
-                                except Exception as convert_error:
-                                    self.logger.error(f"Error converting 4-channel frame: {convert_error}")
-                                    raise convert_error
-                            elif frame.shape[2] == 3:  # RGB
-                                # Validate frame dimensions
-                                if frame.shape[0] > 0 and frame.shape[1] > 0:
-                                    self.error_count = 0
-                                    self.fallback_mode = False
-                                    self.last_successful_frame = frame.copy()
-                                    self.frames_from_camera += 1
-                                    self.logger.debug(f"Frame captured successfully: {frame.shape}")
-                                    return frame, "camera_lores"
+                                        self.logger.warning(f"Invalid frame dimensions: {frame.shape}")
                                 else:
-                                    self.logger.warning(f"Invalid frame dimensions: {frame.shape}")
+                                    self.logger.warning(f"Unsupported frame format: {frame.shape} channels")
                             else:
-                                self.logger.warning(f"Unsupported frame format: {frame.shape} channels")
-                        else:
-                            self.logger.warning(f"Invalid frame type or size: {type(frame)}, size: {frame.size if hasattr(frame, 'size') else 'unknown'}")
+                                self.logger.warning(f"Invalid frame type or size: {type(frame)}, size: {frame.size if hasattr(frame, 'size') else 'unknown'}")
                     else:
                         self.logger.debug("No frame from camera manager")
                 except Exception as camera_error:

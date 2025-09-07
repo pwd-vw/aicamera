@@ -385,7 +385,7 @@ class CameraManager:
                 'frame_count': camera_status.get('frame_count', 0),
                 'average_fps': camera_status.get('average_fps', 0),
                 'config': config,  # Use the corrected configuration
-                'metadata': self.last_metadata,  # Add metadata to status
+                'metadata': make_json_serializable(self.last_metadata),  # Add metadata to status
                 'camera_handler': camera_status,
                 'frame_buffer_ready': self.camera_handler.is_frame_buffer_ready() if self.camera_handler else False
             }

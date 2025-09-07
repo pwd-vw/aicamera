@@ -125,6 +125,9 @@ def make_json_serializable(obj: Any) -> Any:
             return str(obj)
         else:
             return str(type(obj).__name__)
+    elif hasattr(obj, '__class__') and 'ColorSpace' in str(type(obj)):
+        # Handle ColorSpace objects specifically
+        return str(obj)
     else:
         return str(obj)
 
@@ -1033,7 +1036,7 @@ class CameraHandler:
             
             # Add configuration if available
             if self.current_config:
-                status['current_config'] = self.current_config
+                status['current_config'] = make_json_serializable(self.current_config)
             
             # Add camera properties if available
             if self.camera_properties:
@@ -1059,7 +1062,7 @@ class CameraHandler:
         """
         try:
             if self.current_config:
-                return self.current_config.copy()
+                return make_json_serializable(self.current_config)
             else:
                 return {
                     'status': 'not_configured',
