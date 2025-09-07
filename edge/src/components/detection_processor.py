@@ -1,18 +1,29 @@
 #!/usr/bin/env python3
 """
-Detection Processor Component for AI Camera v1.3
+Enhanced Detection Processor Component for AI Camera v2.0
 
-This component provides AI detection operations using Hailo AI models:
-- Vehicle detection using Hailo accelerator
-- License plate detection 
-- License plate OCR
-- Image validation and enhancement
-- Bounding box drawing and cropping
-- Database integration for detection results
+This component provides enhanced AI detection operations using Hailo AI models:
+- Vehicle detection using Hailo accelerator with tracking and deduplication
+- License plate detection with best frame selection
+- License plate OCR with parallel processing (Hailo + EasyOCR)
+- Advanced image preprocessing (motion detection, illumination/contrast/denoise)
+- Post-processing for natural color preservation
+- Pre-OCR processing for optimal text recognition
+- Event-driven pipeline orchestration
+- Coordinate mapping with letterbox resizing
+- Performance optimization and reliability improvements
+
+Enhanced Features:
+- Motion/change detection for efficient processing
+- Vehicle tracking with deduplication rules
+- Best frame selection for OCR
+- Multi-condition lighting adaptation
+- Resource-limited processing
+- Storage optimization (85% quality)
 
 Author: AI Camera Team  
-Version: 1.3
-Date: August 2025
+Version: 2.0
+Date: September 2025
 """
 
 import os
@@ -21,9 +32,14 @@ import numpy as np
 import logging
 import sqlite3
 import time
+import threading
+import queue
 from datetime import datetime
-from typing import Dict, Any, Optional, List, Tuple
+from typing import Dict, Any, Optional, List, Tuple, Union
 from pathlib import Path
+from collections import deque
+from dataclasses import dataclass
+from enum import Enum
 
 from edge.src.core.utils.logging_config import get_logger
 from edge.src.core.config import (
@@ -37,17 +53,82 @@ from edge.src.components.parallel_ocr_processor import ParallelOCRProcessor
 logger = get_logger(__name__)
 
 
+class ProcessingStage(Enum):
+    """Processing stages in the enhanced detection pipeline."""
+    MOTION_DETECTION = "motion_detection"
+    PREPROCESSING = "preprocessing"
+    VEHICLE_DETECTION = "vehicle_detection"
+    TRACKING = "tracking"
+    PLATE_DETECTION = "plate_detection"
+    OCR_PROCESSING = "ocr_processing"
+    POSTPROCESSING = "postprocessing"
+    STORAGE = "storage"
+
+
+class LightingCondition(Enum):
+    """Lighting conditions for adaptive processing."""
+    NORMAL = "normal"
+    LOW_LIGHT = "low_light"
+    BRIGHT = "bright"
+    NIGHT = "night"
+
+
+@dataclass
+class VehicleTrack:
+    """Vehicle tracking data structure."""
+    track_id: int
+    bbox: List[float]
+    confidence: float
+    first_seen: float
+    last_seen: float
+    frame_count: int
+    best_frame_score: float
+    best_frame_data: Optional[np.ndarray] = None
+    plate_candidates: List[Dict] = None
+    ocr_results: List[Dict] = None
+    iou_history: deque = None
+    
+    def __post_init__(self):
+        if self.plate_candidates is None:
+            self.plate_candidates = []
+        if self.ocr_results is None:
+            self.ocr_results = []
+        if self.iou_history is None:
+            self.iou_history = deque(maxlen=10)
+
+
+@dataclass
+class ProcessingMetrics:
+    """Processing performance metrics."""
+    motion_detection_time: float = 0.0
+    preprocessing_time: float = 0.0
+    vehicle_detection_time: float = 0.0
+    tracking_time: float = 0.0
+    plate_detection_time: float = 0.0
+    ocr_time: float = 0.0
+    total_time: float = 0.0
+    frames_skipped: int = 0
+    vehicles_tracked: int = 0
+    plates_detected: int = 0
+    ocr_successful: int = 0
+
+
 class DetectionProcessor:
     """
-    Detection Processor Component for AI model inference.
+    Enhanced Detection Processor Component for AI model inference.
     
     This component handles:
     - Loading and managing Hailo AI models
-    - Image frame validation and enhancement
-    - Vehicle detection using Hailo accelerator
-    - License plate detection and OCR
-    - Result processing and storage
-    - Bounding box visualization
+    - Motion/change detection for efficient processing
+    - Advanced image preprocessing (illumination/contrast/denoise)
+    - Vehicle detection with tracking and deduplication
+    - License plate detection with best frame selection
+    - Parallel OCR processing (Hailo + EasyOCR)
+    - Post-processing for natural color preservation
+    - Pre-OCR processing for optimal text recognition
+    - Event-driven pipeline orchestration
+    - Coordinate mapping with letterbox resizing
+    - Performance optimization and reliability improvements
     """
     
     def __init__(self, logger=None):
@@ -96,6 +177,53 @@ class DetectionProcessor:
         self.confidence_threshold = CONFIDENCE_THRESHOLD
         self.plate_confidence_threshold = PLATE_CONFIDENCE_THRESHOLD
         self.logger.info("DetectionProcessor initialized")
+        
+        # Enhanced Detection Pipeline Configuration
+        self.logger.info("🔧 [ENHANCED_DETECTION] Initializing enhanced detection pipeline...")
+        
+        # Motion Detection
+        self.motion_detection_enabled = True
+        self.motion_threshold = 0.1  # Threshold for motion detection
+        self.previous_frame = None
+        self.frame_buffer_size = 5  # Circular buffer for motion detection
+        
+        # Vehicle Tracking
+        self.tracking_enabled = True
+        self.next_track_id = 1
+        self.active_tracks: Dict[int, VehicleTrack] = {}
+        self.track_timeout = 5.0  # seconds
+        self.reentry_time_threshold = 10.0  # seconds for deduplication
+        self.iou_threshold = 0.2  # IoU threshold for tracking
+        
+        # Best Frame Selection
+        self.best_frame_selection_enabled = True
+        self.frame_score_weights = {
+            'sharpness': 0.4,
+            'plate_confidence': 0.3,
+            'area_ratio': 0.2,
+            'plate_centeredness': 0.1
+        }
+        
+        # Processing Pipeline
+        self.pipeline_stage = ProcessingStage.MOTION_DETECTION
+        self.processing_metrics = ProcessingMetrics()
+        self.resource_limited_mode = True
+        self.max_processing_time = 0.1  # 100ms max processing time
+        
+        # Image Processing
+        self.lighting_condition = LightingCondition.NORMAL
+        self.adaptive_processing = True
+        self.quality_optimization = True
+        
+        # Storage Optimization
+        self.image_quality = 85  # JPEG quality for storage
+        self.storage_optimization = True
+        
+        # Thread Safety
+        self._processing_lock = threading.RLock()
+        self._track_lock = threading.RLock()
+        
+        self.logger.info("🔧 [ENHANCED_DETECTION] Enhanced detection pipeline initialized successfully")
     
     def load_models(self) -> bool:
         """
@@ -293,6 +421,148 @@ class DetectionProcessor:
             
         except Exception as e:
             self.logger.error(f"Error during DetectionProcessor cleanup: {e}")
+    
+    def detect_motion(self, frame: np.ndarray) -> bool:
+        """
+        Detect motion/change in frame for efficient processing.
+        
+        Args:
+            frame: Input image frame
+            
+        Returns:
+            bool: True if significant motion detected, False otherwise
+        """
+        try:
+            if not self.motion_detection_enabled or self.previous_frame is None:
+                self.previous_frame = frame.copy()
+                return True  # Process first frame
+            
+            # Convert to grayscale for motion detection
+            gray_current = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            gray_previous = cv2.cvtColor(self.previous_frame, cv2.COLOR_BGR2GRAY)
+            
+            # Calculate frame difference
+            frame_diff = cv2.absdiff(gray_current, gray_previous)
+            
+            # Apply threshold
+            _, thresh = cv2.threshold(frame_diff, 30, 255, cv2.THRESH_BINARY)
+            
+            # Calculate motion percentage
+            motion_pixels = np.sum(thresh > 0)
+            total_pixels = thresh.shape[0] * thresh.shape[1]
+            motion_ratio = motion_pixels / total_pixels
+            
+            # Update previous frame
+            self.previous_frame = frame.copy()
+            
+            # Check if motion exceeds threshold
+            motion_detected = motion_ratio > self.motion_threshold
+            
+            if motion_detected:
+                self.logger.debug(f"🔧 [MOTION_DETECTION] Motion detected: {motion_ratio:.3f} > {self.motion_threshold}")
+            else:
+                self.logger.debug(f"🔧 [MOTION_DETECTION] No significant motion: {motion_ratio:.3f} <= {self.motion_threshold}")
+                self.processing_metrics.frames_skipped += 1
+            
+            return motion_detected
+            
+        except Exception as e:
+            self.logger.error(f"🔧 [MOTION_DETECTION] Motion detection error: {e}")
+            return True  # Process frame on error
+    
+    def enhance_for_detection(self, frame: np.ndarray) -> np.ndarray:
+        """
+        Enhance frame specifically for detection models.
+        
+        Args:
+            frame: Input image frame
+            
+        Returns:
+            np.ndarray: Enhanced frame optimized for detection
+        """
+        try:
+            enhanced_frame = frame.copy()
+            
+            # Step 1: Assess lighting condition
+            self.lighting_condition = self._assess_lighting_condition(enhanced_frame)
+            
+            # Step 2: Apply lighting-specific enhancements
+            if self.lighting_condition == LightingCondition.LOW_LIGHT:
+                enhanced_frame = self._enhance_for_low_light(enhanced_frame)
+            elif self.lighting_condition == LightingCondition.BRIGHT:
+                enhanced_frame = self._enhance_for_bright_light(enhanced_frame)
+            elif self.lighting_condition == LightingCondition.NIGHT:
+                enhanced_frame = self._enhance_for_night(enhanced_frame)
+            else:  # NORMAL
+                enhanced_frame = self._enhance_for_normal_light(enhanced_frame)
+            
+            # Step 3: Apply general enhancements
+            enhanced_frame = self._apply_general_enhancements(enhanced_frame)
+            
+            return enhanced_frame
+            
+        except Exception as e:
+            self.logger.error(f"🔧 [ENHANCEMENT] Frame enhancement error: {e}")
+            return frame
+    
+    def enhance_for_storage(self, frame: np.ndarray) -> np.ndarray:
+        """
+        Enhance frame for natural color preservation in storage.
+        
+        Args:
+            frame: Input image frame
+            
+        Returns:
+            np.ndarray: Enhanced frame with natural colors
+        """
+        try:
+            storage_frame = frame.copy()
+            
+            # Apply color correction for natural appearance
+            storage_frame = self._apply_color_correction(storage_frame)
+            
+            # Apply brightness/contrast normalization
+            storage_frame = self._normalize_brightness_contrast(storage_frame)
+            
+            # Apply noise reduction for storage quality
+            storage_frame = self._apply_storage_noise_reduction(storage_frame)
+            
+            return storage_frame
+            
+        except Exception as e:
+            self.logger.error(f"🔧 [STORAGE_ENHANCEMENT] Storage enhancement error: {e}")
+            return frame
+    
+    def enhance_for_ocr(self, plate_region: np.ndarray) -> np.ndarray:
+        """
+        Enhance license plate region specifically for OCR.
+        
+        Args:
+            plate_region: Cropped license plate region
+            
+        Returns:
+            np.ndarray: Enhanced plate region optimized for OCR
+        """
+        try:
+            ocr_frame = plate_region.copy()
+            
+            # Step 1: Resize to optimal OCR size
+            ocr_frame = self._resize_for_ocr(ocr_frame)
+            
+            # Step 2: Apply OCR-specific preprocessing
+            ocr_frame = self._apply_ocr_preprocessing(ocr_frame)
+            
+            # Step 3: Enhance text clarity
+            ocr_frame = self._enhance_text_clarity(ocr_frame)
+            
+            # Step 4: Apply character edge enhancement
+            ocr_frame = self._enhance_character_edges(ocr_frame)
+            
+            return ocr_frame
+            
+        except Exception as e:
+            self.logger.error(f"🔧 [OCR_ENHANCEMENT] OCR enhancement error: {e}")
+            return plate_region
     
     def validate_and_enhance_frame(self, frame: np.ndarray) -> Optional[np.ndarray]:
         """
@@ -995,3 +1265,1419 @@ class DetectionProcessor:
             
         except Exception as e:
             self.logger.warning(f"Performance monitoring failed: {e}")
+    
+    # Enhanced Image Processing Helper Methods
+    
+    def _assess_lighting_condition(self, frame: np.ndarray) -> LightingCondition:
+        """Assess lighting condition from frame."""
+        try:
+            # Convert to grayscale
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            
+            # Calculate brightness statistics
+            mean_brightness = np.mean(gray)
+            std_brightness = np.std(gray)
+            
+            # Classify lighting condition
+            if mean_brightness < 50:
+                return LightingCondition.NIGHT
+            elif mean_brightness < 100:
+                return LightingCondition.LOW_LIGHT
+            elif mean_brightness > 200:
+                return LightingCondition.BRIGHT
+            else:
+                return LightingCondition.NORMAL
+                
+        except Exception as e:
+            self.logger.warning(f"Lighting assessment failed: {e}")
+            return LightingCondition.NORMAL
+    
+    def _enhance_for_low_light(self, frame: np.ndarray) -> np.ndarray:
+        """Enhance frame for low light conditions."""
+        try:
+            # Apply CLAHE (Contrast Limited Adaptive Histogram Equalization)
+            lab = cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)
+            clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+            lab[:, :, 0] = clahe.apply(lab[:, :, 0])
+            enhanced = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
+            
+            # Apply noise reduction
+            enhanced = cv2.fastNlMeansDenoisingColored(enhanced, None, 10, 10, 7, 21)
+            
+            return enhanced
+            
+        except Exception as e:
+            self.logger.warning(f"Low light enhancement failed: {e}")
+            return frame
+    
+    def _enhance_for_bright_light(self, frame: np.ndarray) -> np.ndarray:
+        """Enhance frame for bright light conditions."""
+        try:
+            # Reduce overexposure
+            enhanced = cv2.convertScaleAbs(frame, alpha=0.8, beta=0)
+            
+            # Apply sharpening
+            kernel = np.array([[-1, -1, -1], [-1, 9, -1], [-1, -1, -1]])
+            enhanced = cv2.filter2D(enhanced, -1, kernel)
+            
+            return enhanced
+            
+        except Exception as e:
+            self.logger.warning(f"Bright light enhancement failed: {e}")
+            return frame
+    
+    def _enhance_for_night(self, frame: np.ndarray) -> np.ndarray:
+        """Enhance frame for night conditions."""
+        try:
+            # Apply temporal averaging for noise reduction
+            enhanced = cv2.fastNlMeansDenoisingColored(frame, None, 15, 15, 7, 21)
+            
+            # Apply gamma correction
+            gamma = 1.5
+            enhanced = np.power(enhanced / 255.0, gamma) * 255.0
+            enhanced = np.uint8(enhanced)
+            
+            return enhanced
+            
+        except Exception as e:
+            self.logger.warning(f"Night enhancement failed: {e}")
+            return frame
+    
+    def _enhance_for_normal_light(self, frame: np.ndarray) -> np.ndarray:
+        """Enhance frame for normal lighting conditions."""
+        try:
+            # Apply balanced enhancement
+            enhanced = cv2.convertScaleAbs(frame, alpha=1.1, beta=10)
+            
+            # Apply mild sharpening
+            kernel = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])
+            enhanced = cv2.filter2D(enhanced, -1, kernel)
+            
+            return enhanced
+            
+        except Exception as e:
+            self.logger.warning(f"Normal light enhancement failed: {e}")
+            return frame
+    
+    def _apply_general_enhancements(self, frame: np.ndarray) -> np.ndarray:
+        """Apply general enhancements to frame."""
+        try:
+            # Apply unsharp masking
+            enhanced = self._apply_unsharp_masking(frame, amount=1.5, radius=1.0, threshold=0)
+            
+            # Apply CLAHE for contrast enhancement
+            enhanced = self._apply_clahe_enhancement(enhanced)
+            
+            return enhanced
+            
+        except Exception as e:
+            self.logger.warning(f"General enhancement failed: {e}")
+            return frame
+    
+    def _apply_color_correction(self, frame: np.ndarray) -> np.ndarray:
+        """Apply color correction for natural appearance."""
+        try:
+            # Apply white balance correction
+            lab = cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)
+            lab[:, :, 1] = lab[:, :, 1] * 1.1  # Enhance a channel
+            lab[:, :, 2] = lab[:, :, 2] * 1.1  # Enhance b channel
+            corrected = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
+            
+            return corrected
+            
+        except Exception as e:
+            self.logger.warning(f"Color correction failed: {e}")
+            return frame
+    
+    def _normalize_brightness_contrast(self, frame: np.ndarray) -> np.ndarray:
+        """Normalize brightness and contrast."""
+        try:
+            # Apply histogram equalization
+            yuv = cv2.cvtColor(frame, cv2.COLOR_BGR2YUV)
+            yuv[:, :, 0] = cv2.equalizeHist(yuv[:, :, 0])
+            normalized = cv2.cvtColor(yuv, cv2.COLOR_YUV2BGR)
+            
+            return normalized
+            
+        except Exception as e:
+            self.logger.warning(f"Brightness/contrast normalization failed: {e}")
+            return frame
+    
+    def _apply_storage_noise_reduction(self, frame: np.ndarray) -> np.ndarray:
+        """Apply noise reduction for storage quality."""
+        try:
+            # Apply bilateral filter for noise reduction while preserving edges
+            denoised = cv2.bilateralFilter(frame, 9, 75, 75)
+            
+            return denoised
+            
+        except Exception as e:
+            self.logger.warning(f"Storage noise reduction failed: {e}")
+            return frame
+    
+    def _resize_for_ocr(self, plate_region: np.ndarray) -> np.ndarray:
+        """Resize plate region for optimal OCR."""
+        try:
+            # Resize to optimal OCR size (height = 64, maintain aspect ratio)
+            height, width = plate_region.shape[:2]
+            target_height = 64
+            target_width = int(width * target_height / height)
+            
+            resized = cv2.resize(plate_region, (target_width, target_height), interpolation=cv2.INTER_CUBIC)
+            
+            return resized
+            
+        except Exception as e:
+            self.logger.warning(f"OCR resize failed: {e}")
+            return plate_region
+    
+    def _apply_ocr_preprocessing(self, plate_region: np.ndarray) -> np.ndarray:
+        """Apply OCR-specific preprocessing."""
+        try:
+            # Convert to grayscale
+            gray = cv2.cvtColor(plate_region, cv2.COLOR_BGR2GRAY)
+            
+            # Apply adaptive thresholding
+            processed = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
+            
+            # Convert back to BGR
+            processed = cv2.cvtColor(processed, cv2.COLOR_GRAY2BGR)
+            
+            return processed
+            
+        except Exception as e:
+            self.logger.warning(f"OCR preprocessing failed: {e}")
+            return plate_region
+    
+    def _enhance_text_clarity(self, plate_region: np.ndarray) -> np.ndarray:
+        """Enhance text clarity for OCR."""
+        try:
+            # Apply morphological operations to clean up text
+            kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 2))
+            enhanced = cv2.morphologyEx(plate_region, cv2.MORPH_CLOSE, kernel)
+            
+            return enhanced
+            
+        except Exception as e:
+            self.logger.warning(f"Text clarity enhancement failed: {e}")
+            return plate_region
+    
+    def _enhance_character_edges(self, plate_region: np.ndarray) -> np.ndarray:
+        """Enhance character edges for better OCR."""
+        try:
+            # Apply edge enhancement
+            kernel = np.array([[-1, -1, -1], [-1, 9, -1], [-1, -1, -1]])
+            enhanced = cv2.filter2D(plate_region, -1, kernel)
+            
+            return enhanced
+            
+        except Exception as e:
+            self.logger.warning(f"Character edge enhancement failed: {e}")
+            return plate_region
+    
+    # Vehicle Tracking and Deduplication Methods
+    
+    def update_vehicle_tracks(self, detections: List[Dict[str, Any]], frame: np.ndarray) -> List[VehicleTrack]:
+        """
+        Update vehicle tracks with new detections.
+        
+        Args:
+            detections: List of vehicle detections
+            frame: Current frame for best frame selection
+            
+        Returns:
+            List[VehicleTrack]: Updated active tracks
+        """
+        try:
+            with self._track_lock:
+                current_time = time.time()
+                
+                # Clean up expired tracks
+                self._cleanup_expired_tracks(current_time)
+                
+                # Update existing tracks and create new ones
+                updated_tracks = []
+                matched_detections = set()
+                
+                for detection in detections:
+                    best_track = self._find_best_track_match(detection, current_time)
+                    
+                    if best_track:
+                        # Update existing track
+                        self._update_track(best_track, detection, frame, current_time)
+                        updated_tracks.append(best_track)
+                        matched_detections.add(id(detection))
+                    else:
+                        # Create new track
+                        new_track = self._create_new_track(detection, frame, current_time)
+                        updated_tracks.append(new_track)
+                        matched_detections.add(id(detection))
+                
+                # Update active tracks
+                self.active_tracks = {track.track_id: track for track in updated_tracks}
+                
+                self.logger.debug(f"🔧 [TRACKING] Updated {len(updated_tracks)} tracks")
+                return updated_tracks
+                
+        except Exception as e:
+            self.logger.error(f"🔧 [TRACKING] Track update error: {e}")
+            return []
+    
+    def _cleanup_expired_tracks(self, current_time: float):
+        """Clean up expired tracks."""
+        try:
+            expired_tracks = []
+            for track_id, track in self.active_tracks.items():
+                if current_time - track.last_seen > self.track_timeout:
+                    expired_tracks.append(track_id)
+            
+            for track_id in expired_tracks:
+                del self.active_tracks[track_id]
+                self.logger.debug(f"🔧 [TRACKING] Removed expired track {track_id}")
+                
+        except Exception as e:
+            self.logger.warning(f"Track cleanup error: {e}")
+    
+    def _find_best_track_match(self, detection: Dict[str, Any], current_time: float) -> Optional[VehicleTrack]:
+        """Find best matching track for detection."""
+        try:
+            best_track = None
+            best_iou = 0.0
+            
+            detection_bbox = detection.get('bbox', [])
+            if not detection_bbox:
+                return None
+            
+            for track in self.active_tracks.values():
+                # Check if track is recent enough
+                if current_time - track.last_seen > self.track_timeout:
+                    continue
+                
+                # Calculate IoU
+                iou = self._calculate_iou(detection_bbox, track.bbox)
+                
+                if iou > self.iou_threshold and iou > best_iou:
+                    best_iou = iou
+                    best_track = track
+            
+            return best_track
+            
+        except Exception as e:
+            self.logger.warning(f"Track matching error: {e}")
+            return None
+    
+    def _update_track(self, track: VehicleTrack, detection: Dict[str, Any], frame: np.ndarray, current_time: float):
+        """Update existing track with new detection."""
+        try:
+            # Update track properties
+            track.bbox = detection.get('bbox', track.bbox)
+            track.confidence = detection.get('score', track.confidence)
+            track.last_seen = current_time
+            track.frame_count += 1
+            
+            # Update IoU history
+            if track.iou_history:
+                prev_bbox = track.iou_history[-1] if track.iou_history else track.bbox
+                iou = self._calculate_iou(track.bbox, prev_bbox)
+                track.iou_history.append(iou)
+            
+            # Update best frame if current frame is better
+            current_score = self._calculate_frame_score(detection, frame)
+            if current_score > track.best_frame_score:
+                track.best_frame_score = current_score
+                track.best_frame_data = frame.copy()
+                self.logger.debug(f"🔧 [TRACKING] Updated best frame for track {track.track_id} with score {current_score:.3f}")
+            
+        except Exception as e:
+            self.logger.warning(f"Track update error: {e}")
+    
+    def _create_new_track(self, detection: Dict[str, Any], frame: np.ndarray, current_time: float) -> VehicleTrack:
+        """Create new track from detection."""
+        try:
+            track_id = self.next_track_id
+            self.next_track_id += 1
+            
+            # Calculate initial frame score
+            frame_score = self._calculate_frame_score(detection, frame)
+            
+            track = VehicleTrack(
+                track_id=track_id,
+                bbox=detection.get('bbox', []),
+                confidence=detection.get('score', 0.0),
+                first_seen=current_time,
+                last_seen=current_time,
+                frame_count=1,
+                best_frame_score=frame_score,
+                best_frame_data=frame.copy()
+            )
+            
+            self.logger.debug(f"🔧 [TRACKING] Created new track {track_id} with score {frame_score:.3f}")
+            return track
+            
+        except Exception as e:
+            self.logger.warning(f"Track creation error: {e}")
+            return None
+    
+    def _calculate_frame_score(self, detection: Dict[str, Any], frame: np.ndarray) -> float:
+        """
+        Calculate weighted score for best frame selection.
+        Score = a*sharpness + b*plate_conf + y*area_ratio + k*plate_centeredness
+        """
+        try:
+            # Calculate sharpness (Laplacian variance)
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            sharpness = cv2.Laplacian(gray, cv2.CV_64F).var()
+            sharpness_score = min(sharpness / 1000.0, 1.0)  # Normalize to 0-1
+            
+            # Plate confidence (from detection)
+            plate_conf = detection.get('score', 0.0)
+            
+            # Area ratio (detection area / frame area)
+            bbox = detection.get('bbox', [0, 0, 0, 0])
+            if len(bbox) >= 4:
+                detection_area = (bbox[2] - bbox[0]) * (bbox[3] - bbox[1])
+                frame_area = frame.shape[0] * frame.shape[1]
+                area_ratio = min(detection_area / frame_area, 1.0)
+            else:
+                area_ratio = 0.0
+            
+            # Plate centeredness (how centered the detection is in frame)
+            if len(bbox) >= 4:
+                center_x = (bbox[0] + bbox[2]) / 2
+                center_y = (bbox[1] + bbox[3]) / 2
+                frame_center_x = frame.shape[1] / 2
+                frame_center_y = frame.shape[0] / 2
+                
+                distance_from_center = np.sqrt((center_x - frame_center_x)**2 + (center_y - frame_center_y)**2)
+                max_distance = np.sqrt(frame_center_x**2 + frame_center_y**2)
+                centeredness = 1.0 - (distance_from_center / max_distance)
+            else:
+                centeredness = 0.0
+            
+            # Calculate weighted score
+            weights = self.frame_score_weights
+            score = (weights['sharpness'] * sharpness_score +
+                    weights['plate_confidence'] * plate_conf +
+                    weights['area_ratio'] * area_ratio +
+                    weights['plate_centeredness'] * centeredness)
+            
+            return score
+            
+        except Exception as e:
+            self.logger.warning(f"Frame score calculation error: {e}")
+            return 0.0
+    
+    def _calculate_iou(self, bbox1: List[float], bbox2: List[float]) -> float:
+        """Calculate Intersection over Union (IoU) of two bounding boxes."""
+        try:
+            if len(bbox1) < 4 or len(bbox2) < 4:
+                return 0.0
+            
+            # Calculate intersection
+            x1 = max(bbox1[0], bbox2[0])
+            y1 = max(bbox1[1], bbox2[1])
+            x2 = min(bbox1[2], bbox2[2])
+            y2 = min(bbox1[3], bbox2[3])
+            
+            if x2 <= x1 or y2 <= y1:
+                return 0.0
+            
+            intersection = (x2 - x1) * (y2 - y1)
+            
+            # Calculate union
+            area1 = (bbox1[2] - bbox1[0]) * (bbox1[3] - bbox1[1])
+            area2 = (bbox2[2] - bbox2[0]) * (bbox2[3] - bbox2[1])
+            union = area1 + area2 - intersection
+            
+            if union <= 0:
+                return 0.0
+            
+            return intersection / union
+            
+        except Exception as e:
+            self.logger.warning(f"IoU calculation error: {e}")
+            return 0.0
+    
+    def apply_deduplication_rules(self, tracks: List[VehicleTrack]) -> List[VehicleTrack]:
+        """
+        Apply deduplication rules to prevent duplicate vehicle detection.
+        
+        Args:
+            tracks: List of vehicle tracks
+            
+        Returns:
+            List[VehicleTrack]: Filtered tracks after deduplication
+        """
+        try:
+            with self._track_lock:
+                filtered_tracks = []
+                current_time = time.time()
+                
+                for track in tracks:
+                    # Check if track should be kept based on deduplication rules
+                    if self._should_keep_track(track, current_time):
+                        filtered_tracks.append(track)
+                    else:
+                        self.logger.debug(f"🔧 [DEDUPLICATION] Filtered out track {track.track_id}")
+                
+                self.logger.debug(f"🔧 [DEDUPLICATION] Kept {len(filtered_tracks)} out of {len(tracks)} tracks")
+                return filtered_tracks
+                
+        except Exception as e:
+            self.logger.error(f"🔧 [DEDUPLICATION] Deduplication error: {e}")
+            return tracks
+    
+    def _should_keep_track(self, track: VehicleTrack, current_time: float) -> bool:
+        """
+        Determine if track should be kept based on deduplication rules.
+        
+        Rules:
+        1. If same car has track id and time between finalize of old track and start of new track < reentry_time_thresh
+        2. And similarity (IoU or small displacement) > 0.2, don't record new
+        """
+        try:
+            # Check for recent similar tracks
+            for existing_track_id, existing_track in self.active_tracks.items():
+                if existing_track_id == track.track_id:
+                    continue
+                
+                # Check time difference
+                time_diff = current_time - existing_track.last_seen
+                if time_diff < self.reentry_time_threshold:
+                    # Check similarity
+                    iou = self._calculate_iou(track.bbox, existing_track.bbox)
+                    if iou > self.iou_threshold:
+                        self.logger.debug(f"🔧 [DEDUPLICATION] Track {track.track_id} similar to {existing_track_id} (IoU: {iou:.3f}, time: {time_diff:.1f}s)")
+                        return False
+            
+            return True
+            
+        except Exception as e:
+            self.logger.warning(f"Deduplication rule check error: {e}")
+            return True
+    
+    # Enhanced Detection Pipeline Orchestration
+    
+    def process_enhanced_pipeline(self, frame: np.ndarray) -> Optional[Dict[str, Any]]:
+        """
+        Process frame through enhanced detection pipeline with event-driven orchestration.
+        
+        Pipeline Flow:
+        1. Motion detection -> if no motion, skip entirely
+        2. Preprocessing for detection
+        3. Vehicle detection
+        4. Tracking and deduplication
+        5. Plate detection on best frames
+        6. OCR processing
+        7. Post-processing and storage
+        
+        Args:
+            frame: Input image frame
+            
+        Returns:
+            Optional[Dict[str, Any]]: Enhanced detection results or None if skipped
+        """
+        try:
+            with self._processing_lock:
+                start_time = time.time()
+                self.processing_metrics.total_time = 0.0
+                
+                # Step 1: Motion Detection
+                motion_start = time.time()
+                if not self.detect_motion(frame):
+                    self.logger.debug("🔧 [PIPELINE] No motion detected - skipping frame")
+                    self.processing_metrics.frames_skipped += 1
+                    return None
+                self.processing_metrics.motion_detection_time = time.time() - motion_start
+                
+                # Step 2: Preprocessing for Detection
+                preprocess_start = time.time()
+                enhanced_frame = self.enhance_for_detection(frame)
+                self.processing_metrics.preprocessing_time = time.time() - preprocess_start
+                
+                # Step 3: Vehicle Detection
+                detection_start = time.time()
+                vehicle_detections = self.detect_vehicles(enhanced_frame)
+                if not vehicle_detections:
+                    self.logger.debug("🔧 [PIPELINE] No vehicles detected")
+                    return None
+                self.processing_metrics.vehicle_detection_time = time.time() - detection_start
+                
+                # Step 4: Tracking and Deduplication
+                tracking_start = time.time()
+                tracks = self.update_vehicle_tracks(vehicle_detections, frame)
+                filtered_tracks = self.apply_deduplication_rules(tracks)
+                self.processing_metrics.tracking_time = time.time() - tracking_start
+                self.processing_metrics.vehicles_tracked = len(filtered_tracks)
+                
+                if not filtered_tracks:
+                    self.logger.debug("🔧 [PIPELINE] No tracks after deduplication")
+                    return None
+                
+                # Step 5: Plate Detection on Best Frames
+                plate_start = time.time()
+                plate_results = []
+                for track in filtered_tracks:
+                    # Use best frame if available, otherwise use current frame
+                    frame_for_plate = track.best_frame_data if track.best_frame_data is not None else frame
+                    
+                    # Detect plates in vehicle region
+                    plates = self.detect_license_plates(frame_for_plate, [{'bbox': track.bbox, 'score': track.confidence}])
+                    track.plate_candidates.extend(plates)
+                    plate_results.extend(plates)
+                
+                self.processing_metrics.plate_detection_time = time.time() - plate_start
+                self.processing_metrics.plates_detected = len(plate_results)
+                
+                # Step 6: OCR Processing
+                ocr_start = time.time()
+                ocr_results = []
+                if plate_results:
+                    # Process OCR on best frames
+                    for track in filtered_tracks:
+                        if track.plate_candidates:
+                            # Use best frame for OCR
+                            ocr_frame = track.best_frame_data if track.best_frame_data is not None else frame
+                            
+                            # Enhance plate regions for OCR
+                            enhanced_plates = []
+                            for plate in track.plate_candidates:
+                                x1, y1, x2, y2 = plate['bbox']
+                                plate_region = ocr_frame[int(y1):int(y2), int(x1):int(x2)]
+                                if plate_region.size > 0:
+                                    enhanced_plate_region = self.enhance_for_ocr(plate_region)
+                                    enhanced_plates.append({
+                                        'bbox': plate['bbox'],
+                                        'score': plate['score'],
+                                        'enhanced_region': enhanced_plate_region
+                                    })
+                            
+                            # Perform OCR on enhanced plates
+                            if enhanced_plates:
+                                track_ocr = self.perform_ocr_on_enhanced_plates(enhanced_plates)
+                                track.ocr_results.extend(track_ocr)
+                                ocr_results.extend(track_ocr)
+                
+                self.processing_metrics.ocr_time = time.time() - ocr_start
+                self.processing_metrics.ocr_successful = len(ocr_results)
+                
+                # Step 7: Post-processing and Storage
+                storage_start = time.time()
+                storage_frame = self.enhance_for_storage(frame)
+                storage_results = self.save_enhanced_detection_results(
+                    storage_frame, filtered_tracks, plate_results, ocr_results
+                )
+                storage_time = time.time() - storage_start
+                
+                # Calculate total processing time
+                total_time = time.time() - start_time
+                self.processing_metrics.total_time = total_time
+                
+                # Check resource limits
+                if self.resource_limited_mode and total_time > self.max_processing_time:
+                    self.logger.warning(f"🔧 [PIPELINE] Processing time exceeded limit: {total_time:.3f}s > {self.max_processing_time}s")
+                
+                # Create enhanced results
+                enhanced_results = {
+                    'timestamp': datetime.now().isoformat(),
+                    'processing_metrics': {
+                        'motion_detection_time': self.processing_metrics.motion_detection_time,
+                        'preprocessing_time': self.processing_metrics.preprocessing_time,
+                        'vehicle_detection_time': self.processing_metrics.vehicle_detection_time,
+                        'tracking_time': self.processing_metrics.tracking_time,
+                        'plate_detection_time': self.processing_metrics.plate_detection_time,
+                        'ocr_time': self.processing_metrics.ocr_time,
+                        'total_time': total_time,
+                        'frames_skipped': self.processing_metrics.frames_skipped,
+                        'vehicles_tracked': self.processing_metrics.vehicles_tracked,
+                        'plates_detected': self.processing_metrics.plates_detected,
+                        'ocr_successful': self.processing_metrics.ocr_successful
+                    },
+                    'tracks': [
+                        {
+                            'track_id': track.track_id,
+                            'bbox': track.bbox,
+                            'confidence': track.confidence,
+                            'frame_count': track.frame_count,
+                            'best_frame_score': track.best_frame_score,
+                            'plate_candidates': track.plate_candidates,
+                            'ocr_results': track.ocr_results
+                        }
+                        for track in filtered_tracks
+                    ],
+                    'plates': plate_results,
+                    'ocr_results': ocr_results,
+                    'storage_results': storage_results,
+                    'lighting_condition': self.lighting_condition.value,
+                    'pipeline_stage': self.pipeline_stage.value
+                }
+                
+                self.logger.info(f"🔧 [PIPELINE] Enhanced processing completed: {len(filtered_tracks)} tracks, {len(plate_results)} plates, {len(ocr_results)} OCR in {total_time:.3f}s")
+                
+                return enhanced_results
+                
+        except Exception as e:
+            self.logger.error(f"🔧 [PIPELINE] Enhanced pipeline error: {e}")
+            return None
+    
+    def perform_ocr_on_enhanced_plates(self, enhanced_plates: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Perform OCR on enhanced plate regions.
+        
+        Args:
+            enhanced_plates: List of enhanced plate regions
+            
+        Returns:
+            List[Dict[str, Any]]: OCR results
+        """
+        try:
+            ocr_results = []
+            
+            for i, plate_data in enumerate(enhanced_plates):
+                enhanced_region = plate_data['enhanced_region']
+                bbox = plate_data['bbox']
+                confidence = plate_data['score']
+                
+                # Use parallel OCR processing if available
+                if self.parallel_ocr_processor:
+                    try:
+                        parallel_results = self.parallel_ocr_processor.process_plate_parallel(
+                            enhanced_region, i, timeout=5.0
+                        )
+                        
+                        if parallel_results and parallel_results.get('best_result', {}).get('success'):
+                            best_result = parallel_results['best_result']
+                            ocr_result = {
+                                'plate_idx': i,
+                                'bbox': bbox,
+                                'text': best_result['text'],
+                                'confidence': best_result['confidence'],
+                                'detection_confidence': confidence,
+                                'ocr_method': best_result['method'],
+                                'enhanced_processing': True,
+                                'parallel_results': parallel_results
+                            }
+                            ocr_results.append(ocr_result)
+                            
+                    except Exception as e:
+                        self.logger.warning(f"Parallel OCR failed for enhanced plate {i}: {e}")
+                
+                # Fallback to individual OCR methods
+                if not ocr_results or len(ocr_results) <= i:
+                    # Try Hailo OCR first
+                    hailo_text = ""
+                    hailo_confidence = 0.0
+                    hailo_success = False
+                    
+                    if self.lp_ocr_model:
+                        try:
+                            ocr_result = self.lp_ocr_model(enhanced_region)
+                            hailo_text = str(ocr_result)
+                            hailo_confidence = 0.8
+                            hailo_success = True
+                        except Exception as e:
+                            self.logger.debug(f"Hailo OCR failed for enhanced plate {i}: {e}")
+                    
+                    # Try EasyOCR
+                    easyocr_text = ""
+                    easyocr_confidence = 0.0
+                    easyocr_success = False
+                    
+                    if self.async_ocr_loader.is_ready():
+                        try:
+                            easyocr_results = self.async_ocr_loader.read_text(enhanced_region)
+                            if easyocr_results:
+                                best_result = max(easyocr_results, key=lambda x: x[2])
+                                easyocr_text = best_result[1]
+                                easyocr_confidence = best_result[2]
+                                easyocr_success = True
+                        except Exception as e:
+                            self.logger.debug(f"EasyOCR failed for enhanced plate {i}: {e}")
+                    
+                    # Choose best result
+                    if hailo_success and easyocr_success:
+                        # Use the one with higher confidence
+                        if hailo_confidence > easyocr_confidence:
+                            final_text = hailo_text
+                            final_confidence = hailo_confidence
+                            ocr_method = "hailo"
+                        else:
+                            final_text = easyocr_text
+                            final_confidence = easyocr_confidence
+                            ocr_method = "easyocr"
+                    elif hailo_success:
+                        final_text = hailo_text
+                        final_confidence = hailo_confidence
+                        ocr_method = "hailo"
+                    elif easyocr_success:
+                        final_text = easyocr_text
+                        final_confidence = easyocr_confidence
+                        ocr_method = "easyocr"
+                    else:
+                        continue
+                    
+                    ocr_result = {
+                        'plate_idx': i,
+                        'bbox': bbox,
+                        'text': final_text.strip(),
+                        'confidence': final_confidence,
+                        'detection_confidence': confidence,
+                        'ocr_method': ocr_method,
+                        'enhanced_processing': True,
+                        'hailo_ocr': {
+                            'text': hailo_text.strip() if hailo_success else "",
+                            'confidence': hailo_confidence,
+                            'success': hailo_success
+                        },
+                        'easyocr': {
+                            'text': easyocr_text.strip() if easyocr_success else "",
+                            'confidence': easyocr_confidence,
+                            'success': easyocr_success
+                        }
+                    }
+                    ocr_results.append(ocr_result)
+            
+            return ocr_results
+            
+        except Exception as e:
+            self.logger.error(f"Enhanced OCR processing error: {e}")
+            return []
+    
+    def save_enhanced_detection_results(self, storage_frame: np.ndarray, tracks: List[VehicleTrack], 
+                                      plates: List[Dict], ocr_results: List[Dict]) -> Dict[str, Any]:
+        """
+        Save enhanced detection results with optimized storage.
+        
+        Args:
+            storage_frame: Frame enhanced for storage
+            tracks: Vehicle tracks
+            plates: Detected plates
+            ocr_results: OCR results
+            
+        Returns:
+            Dict[str, Any]: Storage results
+        """
+        try:
+            # Generate timestamp for filename
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
+            
+            # Ensure directory exists
+            Path(IMAGE_SAVE_DIR).mkdir(parents=True, exist_ok=True)
+            
+            # Save original image with 85% quality for storage optimization
+            original_filename = f"detection_{timestamp}.jpg"
+            original_path = os.path.join(IMAGE_SAVE_DIR, original_filename)
+            
+            # Apply storage optimization
+            if self.storage_optimization:
+                # Use 85% JPEG quality
+                success = cv2.imwrite(original_path, storage_frame, [cv2.IMWRITE_JPEG_QUALITY, self.image_quality])
+            else:
+                success = cv2.imwrite(original_path, storage_frame)
+            
+            if not success or not os.path.exists(original_path):
+                self.logger.error(f"Failed to save enhanced detection image: {original_path}")
+                return {'success': False, 'error': 'Image save failed'}
+            
+            # Verify file size
+            file_size = os.path.getsize(original_path)
+            if file_size <= 0:
+                self.logger.error(f"Saved image file is empty: {original_path}")
+                return {'success': False, 'error': 'Empty image file'}
+            
+            storage_results = {
+                'success': True,
+                'original_image_path': original_path,
+                'relative_path': f"captured_images/{original_filename}",
+                'file_size_bytes': file_size,
+                'image_quality': self.image_quality,
+                'storage_optimized': self.storage_optimization,
+                'timestamp': timestamp,
+                'tracks_count': len(tracks),
+                'plates_count': len(plates),
+                'ocr_results_count': len(ocr_results)
+            }
+            
+            self.logger.info(f"🔧 [STORAGE] Enhanced detection saved: {original_path} ({file_size} bytes, quality: {self.image_quality}%)")
+            
+            return storage_results
+            
+        except Exception as e:
+            self.logger.error(f"Enhanced storage error: {e}")
+            return {'success': False, 'error': str(e)}
+    
+    # Coordinate Mapping and Letterbox Resizing Utilities
+    
+    def resize_with_letterbox(self, frame: np.ndarray, target_size: Tuple[int, int], 
+                            padding_color: Tuple[int, int, int] = (114, 114, 114)) -> Tuple[np.ndarray, Dict[str, Any]]:
+        """
+        Resize frame to target size while preserving aspect ratio using letterboxing.
+        
+        Args:
+            frame: Input frame
+            target_size: Target (width, height)
+            padding_color: BGR color for padding
+            
+        Returns:
+            Tuple of (resized_frame, mapping_info)
+        """
+        try:
+            target_w, target_h = target_size
+            frame_h, frame_w = frame.shape[:2]
+            
+            # Calculate scaling factor
+            scale = min(target_w / frame_w, target_h / frame_h)
+            
+            # Calculate new dimensions
+            new_w = int(frame_w * scale)
+            new_h = int(frame_h * scale)
+            
+            # Resize frame
+            resized = cv2.resize(frame, (new_w, new_h), interpolation=cv2.INTER_LINEAR)
+            
+            # Create target canvas with padding color
+            canvas = np.full((target_h, target_w, 3), padding_color, dtype=np.uint8)
+            
+            # Calculate padding
+            pad_x = (target_w - new_w) // 2
+            pad_y = (target_h - new_h) // 2
+            
+            # Place resized frame on canvas
+            canvas[pad_y:pad_y + new_h, pad_x:pad_x + new_w] = resized
+            
+            # Create mapping information
+            mapping_info = {
+                'original_size': (frame_w, frame_h),
+                'target_size': (target_w, target_h),
+                'scale': scale,
+                'new_size': (new_w, new_h),
+                'padding': (pad_x, pad_y),
+                'offset': (pad_x, pad_y)
+            }
+            
+            return canvas, mapping_info
+            
+        except Exception as e:
+            self.logger.error(f"Letterbox resizing failed: {e}")
+            return cv2.resize(frame, target_size), {'error': str(e)}
+    
+    def map_coordinates_to_original(self, bbox: List[float], mapping_info: Dict[str, Any]) -> List[float]:
+        """
+        Map coordinates from resized frame back to original frame.
+        
+        Args:
+            bbox: Bounding box in resized frame [x1, y1, x2, y2]
+            mapping_info: Mapping information from resize_with_letterbox
+            
+        Returns:
+            List[float]: Bounding box in original frame coordinates
+        """
+        try:
+            if 'error' in mapping_info:
+                return bbox
+            
+            scale = mapping_info['scale']
+            offset_x, offset_y = mapping_info['offset']
+            
+            # Remove padding offset and scale back to original
+            x1 = (bbox[0] - offset_x) / scale
+            y1 = (bbox[1] - offset_y) / scale
+            x2 = (bbox[2] - offset_x) / scale
+            y2 = (bbox[3] - offset_y) / scale
+            
+            # Clamp to original frame bounds
+            orig_w, orig_h = mapping_info['original_size']
+            x1 = max(0, min(x1, orig_w))
+            y1 = max(0, min(y1, orig_h))
+            x2 = max(0, min(x2, orig_w))
+            y2 = max(0, min(y2, orig_h))
+            
+            return [x1, y1, x2, y2]
+            
+        except Exception as e:
+            self.logger.warning(f"Coordinate mapping failed: {e}")
+            return bbox
+    
+    def map_coordinates_to_resized(self, bbox: List[float], mapping_info: Dict[str, Any]) -> List[float]:
+        """
+        Map coordinates from original frame to resized frame.
+        
+        Args:
+            bbox: Bounding box in original frame [x1, y1, x2, y2]
+            mapping_info: Mapping information from resize_with_letterbox
+            
+        Returns:
+            List[float]: Bounding box in resized frame coordinates
+        """
+        try:
+            if 'error' in mapping_info:
+                return bbox
+            
+            scale = mapping_info['scale']
+            offset_x, offset_y = mapping_info['offset']
+            
+            # Scale and add padding offset
+            x1 = bbox[0] * scale + offset_x
+            y1 = bbox[1] * scale + offset_y
+            x2 = bbox[2] * scale + offset_x
+            y2 = bbox[3] * scale + offset_y
+            
+            # Clamp to resized frame bounds
+            target_w, target_h = mapping_info['target_size']
+            x1 = max(0, min(x1, target_w))
+            y1 = max(0, min(y1, target_h))
+            x2 = max(0, min(x2, target_w))
+            y2 = max(0, min(y2, target_h))
+            
+            return [x1, y1, x2, y2]
+            
+        except Exception as e:
+            self.logger.warning(f"Coordinate mapping to resized failed: {e}")
+            return bbox
+    
+    def crop_with_safe_padding(self, frame: np.ndarray, bbox: List[float], 
+                              padding_ratio: float = 0.1) -> Tuple[np.ndarray, Dict[str, Any]]:
+        """
+        Crop region with safe padding to avoid edge artifacts.
+        
+        Args:
+            frame: Input frame
+            bbox: Bounding box [x1, y1, x2, y2]
+            padding_ratio: Padding ratio (0.1 = 10% padding)
+            
+        Returns:
+            Tuple of (cropped_region, crop_info)
+        """
+        try:
+            if len(bbox) < 4:
+                return frame, {'error': 'Invalid bbox'}
+            
+            x1, y1, x2, y2 = bbox
+            frame_h, frame_w = frame.shape[:2]
+            
+            # Calculate region dimensions
+            region_w = x2 - x1
+            region_h = y2 - y1
+            
+            # Calculate padding
+            pad_w = int(region_w * padding_ratio)
+            pad_h = int(region_h * padding_ratio)
+            
+            # Apply padding with bounds checking
+            crop_x1 = max(0, int(x1 - pad_w))
+            crop_y1 = max(0, int(y1 - pad_h))
+            crop_x2 = min(frame_w, int(x2 + pad_w))
+            crop_y2 = min(frame_h, int(y2 + pad_h))
+            
+            # Crop the region
+            cropped = frame[crop_y1:crop_y2, crop_x1:crop_x2]
+            
+            # Create crop information
+            crop_info = {
+                'original_bbox': bbox,
+                'crop_bbox': [crop_x1, crop_y1, crop_x2, crop_y2],
+                'padding_applied': (pad_w, pad_h),
+                'padding_ratio': padding_ratio,
+                'crop_size': (crop_x2 - crop_x1, crop_y2 - crop_y1)
+            }
+            
+            return cropped, crop_info
+            
+        except Exception as e:
+            self.logger.warning(f"Safe padding crop failed: {e}")
+            return frame, {'error': str(e)}
+    
+    def resize_for_model_input(self, frame: np.ndarray, model_input_size: Tuple[int, int]) -> Tuple[np.ndarray, Dict[str, Any]]:
+        """
+        Resize frame for model input with letterboxing and coordinate mapping.
+        
+        Args:
+            frame: Input frame
+            model_input_size: Model input size (width, height)
+            
+        Returns:
+            Tuple of (resized_frame, mapping_info)
+        """
+        try:
+            # Use letterbox resizing to preserve aspect ratio
+            resized_frame, mapping_info = self.resize_with_letterbox(frame, model_input_size)
+            
+            # Add model-specific information
+            mapping_info.update({
+                'model_input_size': model_input_size,
+                'resize_method': 'letterbox',
+                'aspect_ratio_preserved': True
+            })
+            
+            return resized_frame, mapping_info
+            
+        except Exception as e:
+            self.logger.error(f"Model input resize failed: {e}")
+            return cv2.resize(frame, model_input_size), {'error': str(e)}
+    
+    def process_detection_with_coordinate_mapping(self, frame: np.ndarray, 
+                                                detections: List[Dict[str, Any]], 
+                                                mapping_info: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """
+        Process detections with coordinate mapping back to original frame.
+        
+        Args:
+            frame: Original frame
+            detections: Detections in resized frame coordinates
+            mapping_info: Mapping information from resize
+            
+        Returns:
+            List[Dict[str, Any]]: Detections with original frame coordinates
+        """
+        try:
+            mapped_detections = []
+            
+            for detection in detections:
+                # Map bounding box coordinates
+                if 'bbox' in detection:
+                    original_bbox = self.map_coordinates_to_original(detection['bbox'], mapping_info)
+                    detection['bbox'] = original_bbox
+                    detection['bbox_original'] = original_bbox
+                    detection['bbox_resized'] = detection.get('bbox_resized', detection['bbox'])
+                
+                # Add mapping information
+                detection['coordinate_mapping'] = {
+                    'mapped': True,
+                    'mapping_info': mapping_info,
+                    'original_frame_size': mapping_info.get('original_size'),
+                    'resized_frame_size': mapping_info.get('target_size')
+                }
+                
+                mapped_detections.append(detection)
+            
+            return mapped_detections
+            
+        except Exception as e:
+            self.logger.error(f"Coordinate mapping processing failed: {e}")
+            return detections
+    
+    # Performance Optimization and Reliability Improvements
+    
+    def get_enhanced_status(self) -> Dict[str, Any]:
+        """
+        Get enhanced status including performance metrics and reliability information.
+        
+        Returns:
+            Dict[str, Any]: Enhanced status information
+        """
+        try:
+            # Get base status
+            base_status = self.get_status()
+            
+            # Add enhanced metrics
+            enhanced_status = base_status.copy()
+            enhanced_status.update({
+                'enhanced_pipeline': {
+                    'motion_detection_enabled': self.motion_detection_enabled,
+                    'tracking_enabled': self.tracking_enabled,
+                    'best_frame_selection_enabled': self.best_frame_selection_enabled,
+                    'resource_limited_mode': self.resource_limited_mode,
+                    'max_processing_time': self.max_processing_time,
+                    'adaptive_processing': self.adaptive_processing,
+                    'quality_optimization': self.quality_optimization,
+                    'storage_optimization': self.storage_optimization,
+                    'image_quality': self.image_quality
+                },
+                'processing_metrics': {
+                    'motion_detection_time': self.processing_metrics.motion_detection_time,
+                    'preprocessing_time': self.processing_metrics.preprocessing_time,
+                    'vehicle_detection_time': self.processing_metrics.vehicle_detection_time,
+                    'tracking_time': self.processing_metrics.tracking_time,
+                    'plate_detection_time': self.processing_metrics.plate_detection_time,
+                    'ocr_time': self.processing_metrics.ocr_time,
+                    'total_time': self.processing_metrics.total_time,
+                    'frames_skipped': self.processing_metrics.frames_skipped,
+                    'vehicles_tracked': self.processing_metrics.vehicles_tracked,
+                    'plates_detected': self.processing_metrics.plates_detected,
+                    'ocr_successful': self.processing_metrics.ocr_successful
+                },
+                'tracking_info': {
+                    'active_tracks_count': len(self.active_tracks),
+                    'next_track_id': self.next_track_id,
+                    'track_timeout': self.track_timeout,
+                    'reentry_time_threshold': self.reentry_time_threshold,
+                    'iou_threshold': self.iou_threshold
+                },
+                'lighting_condition': self.lighting_condition.value,
+                'pipeline_stage': self.pipeline_stage.value,
+                'frame_score_weights': self.frame_score_weights,
+                'performance_optimization': {
+                    'motion_detection_threshold': self.motion_threshold,
+                    'frame_buffer_size': self.frame_buffer_size,
+                    'processing_lock_acquired': self._processing_lock.locked(),
+                    'track_lock_acquired': self._track_lock.locked()
+                }
+            })
+            
+            return enhanced_status
+            
+        except Exception as e:
+            self.logger.error(f"Enhanced status error: {e}")
+            return base_status
+    
+    def optimize_for_performance(self, target_fps: float = 30.0) -> Dict[str, Any]:
+        """
+        Optimize detection processor for target performance.
+        
+        Args:
+            target_fps: Target FPS for processing
+            
+        Returns:
+            Dict[str, Any]: Optimization results
+        """
+        try:
+            optimization_results = {
+                'target_fps': target_fps,
+                'optimizations_applied': [],
+                'performance_impact': {}
+            }
+            
+            # Calculate target processing time per frame
+            target_processing_time = 1.0 / target_fps
+            
+            # Adjust motion detection threshold based on target FPS
+            if target_fps < 15:
+                # Lower FPS - can be more sensitive to motion
+                self.motion_threshold = 0.05
+                optimization_results['optimizations_applied'].append('motion_threshold_lowered')
+            elif target_fps > 30:
+                # Higher FPS - need to be less sensitive to motion
+                self.motion_threshold = 0.15
+                optimization_results['optimizations_applied'].append('motion_threshold_raised')
+            
+            # Adjust processing time limits
+            if target_processing_time < 0.05:  # Very high FPS
+                self.max_processing_time = target_processing_time * 0.8
+                self.resource_limited_mode = True
+                optimization_results['optimizations_applied'].append('processing_time_limited')
+            
+            # Adjust tracking parameters for performance
+            if target_fps > 20:
+                # High FPS - reduce tracking complexity
+                self.track_timeout = 3.0  # Shorter timeout
+                self.reentry_time_threshold = 5.0  # Shorter reentry threshold
+                optimization_results['optimizations_applied'].append('tracking_parameters_optimized')
+            
+            # Adjust image quality for storage optimization
+            if target_fps > 25:
+                # High FPS - reduce storage quality to save space
+                self.image_quality = 75
+                optimization_results['optimizations_applied'].append('storage_quality_reduced')
+            
+            # Enable/disable features based on performance requirements
+            if target_processing_time < 0.02:  # Very high FPS
+                self.best_frame_selection_enabled = False
+                optimization_results['optimizations_applied'].append('best_frame_selection_disabled')
+            
+            optimization_results['performance_impact'] = {
+                'motion_threshold': self.motion_threshold,
+                'max_processing_time': self.max_processing_time,
+                'track_timeout': self.track_timeout,
+                'reentry_time_threshold': self.reentry_time_threshold,
+                'image_quality': self.image_quality,
+                'best_frame_selection_enabled': self.best_frame_selection_enabled
+            }
+            
+            self.logger.info(f"🔧 [PERFORMANCE] Optimized for {target_fps} FPS: {len(optimization_results['optimizations_applied'])} optimizations applied")
+            
+            return optimization_results
+            
+        except Exception as e:
+            self.logger.error(f"Performance optimization error: {e}")
+            return {'error': str(e)}
+    
+    def monitor_performance(self) -> Dict[str, Any]:
+        """
+        Monitor current performance and provide recommendations.
+        
+        Returns:
+            Dict[str, Any]: Performance monitoring results
+        """
+        try:
+            monitoring_results = {
+                'timestamp': datetime.now().isoformat(),
+                'current_metrics': {
+                    'total_time': self.processing_metrics.total_time,
+                    'frames_skipped': self.processing_metrics.frames_skipped,
+                    'vehicles_tracked': self.processing_metrics.vehicles_tracked,
+                    'plates_detected': self.processing_metrics.plates_detected,
+                    'ocr_successful': self.processing_metrics.ocr_successful
+                },
+                'performance_analysis': {},
+                'recommendations': []
+            }
+            
+            # Analyze processing time
+            if self.processing_metrics.total_time > self.max_processing_time:
+                monitoring_results['performance_analysis']['processing_slow'] = True
+                monitoring_results['recommendations'].append('Consider reducing motion detection threshold')
+                monitoring_results['recommendations'].append('Consider disabling best frame selection')
+            else:
+                monitoring_results['performance_analysis']['processing_slow'] = False
+            
+            # Analyze frame skipping rate
+            total_frames = self.processing_metrics.frames_skipped + self.processing_metrics.vehicles_tracked
+            if total_frames > 0:
+                skip_rate = self.processing_metrics.frames_skipped / total_frames
+                monitoring_results['performance_analysis']['skip_rate'] = skip_rate
+                
+                if skip_rate > 0.8:
+                    monitoring_results['recommendations'].append('High frame skip rate - consider adjusting motion threshold')
+                elif skip_rate < 0.2:
+                    monitoring_results['recommendations'].append('Low frame skip rate - may be processing too many frames')
+            
+            # Analyze detection success rate
+            if self.processing_metrics.plates_detected > 0:
+                ocr_success_rate = self.processing_metrics.ocr_successful / self.processing_metrics.plates_detected
+                monitoring_results['performance_analysis']['ocr_success_rate'] = ocr_success_rate
+                
+                if ocr_success_rate < 0.5:
+                    monitoring_results['recommendations'].append('Low OCR success rate - consider improving preprocessing')
+            
+            # Analyze tracking efficiency
+            if self.processing_metrics.vehicles_tracked > 0:
+                tracking_efficiency = self.processing_metrics.vehicles_tracked / max(1, len(self.active_tracks))
+                monitoring_results['performance_analysis']['tracking_efficiency'] = tracking_efficiency
+                
+                if tracking_efficiency < 0.7:
+                    monitoring_results['recommendations'].append('Low tracking efficiency - consider adjusting IoU threshold')
+            
+            return monitoring_results
+            
+        except Exception as e:
+            self.logger.error(f"Performance monitoring error: {e}")
+            return {'error': str(e)}
+    
+    def apply_reliability_improvements(self) -> Dict[str, Any]:
+        """
+        Apply reliability improvements to the detection processor.
+        
+        Returns:
+            Dict[str, Any]: Reliability improvement results
+        """
+        try:
+            improvements = {
+                'timestamp': datetime.now().isoformat(),
+                'improvements_applied': [],
+                'reliability_metrics': {}
+            }
+            
+            # Enable resource-limited mode for stability
+            if not self.resource_limited_mode:
+                self.resource_limited_mode = True
+                improvements['improvements_applied'].append('resource_limited_mode_enabled')
+            
+            # Set conservative processing time limits
+            if self.max_processing_time > 0.1:
+                self.max_processing_time = 0.1
+                improvements['improvements_applied'].append('processing_time_limited_conservative')
+            
+            # Enable adaptive processing for different conditions
+            if not self.adaptive_processing:
+                self.adaptive_processing = True
+                improvements['improvements_applied'].append('adaptive_processing_enabled')
+            
+            # Enable quality optimization
+            if not self.quality_optimization:
+                self.quality_optimization = True
+                improvements['improvements_applied'].append('quality_optimization_enabled')
+            
+            # Set conservative tracking parameters
+            if self.track_timeout < 5.0:
+                self.track_timeout = 5.0
+                improvements['improvements_applied'].append('track_timeout_increased')
+            
+            if self.reentry_time_threshold < 10.0:
+                self.reentry_time_threshold = 10.0
+                improvements['improvements_applied'].append('reentry_threshold_increased')
+            
+            # Enable storage optimization
+            if not self.storage_optimization:
+                self.storage_optimization = True
+                improvements['improvements_applied'].append('storage_optimization_enabled')
+            
+            # Set reliable image quality
+            if self.image_quality < 80:
+                self.image_quality = 85
+                improvements['improvements_applied'].append('image_quality_optimized')
+            
+            improvements['reliability_metrics'] = {
+                'resource_limited_mode': self.resource_limited_mode,
+                'max_processing_time': self.max_processing_time,
+                'adaptive_processing': self.adaptive_processing,
+                'quality_optimization': self.quality_optimization,
+                'track_timeout': self.track_timeout,
+                'reentry_time_threshold': self.reentry_time_threshold,
+                'storage_optimization': self.storage_optimization,
+                'image_quality': self.image_quality
+            }
+            
+            self.logger.info(f"🔧 [RELIABILITY] Applied {len(improvements['improvements_applied'])} reliability improvements")
+            
+            return improvements
+            
+        except Exception as e:
+            self.logger.error(f"Reliability improvements error: {e}")
+            return {'error': str(e)}
+    
+    def reset_performance_metrics(self):
+        """Reset performance metrics for fresh monitoring."""
+        try:
+            self.processing_metrics = ProcessingMetrics()
+            self.logger.info("🔧 [PERFORMANCE] Performance metrics reset")
+        except Exception as e:
+            self.logger.warning(f"Performance metrics reset error: {e}")
+    
+    def get_processing_statistics(self) -> Dict[str, Any]:
+        """
+        Get comprehensive processing statistics.
+        
+        Returns:
+            Dict[str, Any]: Processing statistics
+        """
+        try:
+            stats = {
+                'timestamp': datetime.now().isoformat(),
+                'processing_metrics': {
+                    'motion_detection_time': self.processing_metrics.motion_detection_time,
+                    'preprocessing_time': self.processing_metrics.preprocessing_time,
+                    'vehicle_detection_time': self.processing_metrics.vehicle_detection_time,
+                    'tracking_time': self.processing_metrics.tracking_time,
+                    'plate_detection_time': self.processing_metrics.plate_detection_time,
+                    'ocr_time': self.processing_metrics.ocr_time,
+                    'total_time': self.processing_metrics.total_time,
+                    'frames_skipped': self.processing_metrics.frames_skipped,
+                    'vehicles_tracked': self.processing_metrics.vehicles_tracked,
+                    'plates_detected': self.processing_metrics.plates_detected,
+                    'ocr_successful': self.processing_metrics.ocr_successful
+                },
+                'tracking_statistics': {
+                    'active_tracks': len(self.active_tracks),
+                    'next_track_id': self.next_track_id,
+                    'track_timeout': self.track_timeout,
+                    'reentry_time_threshold': self.reentry_time_threshold,
+                    'iou_threshold': self.iou_threshold
+                },
+                'system_status': {
+                    'motion_detection_enabled': self.motion_detection_enabled,
+                    'tracking_enabled': self.tracking_enabled,
+                    'best_frame_selection_enabled': self.best_frame_selection_enabled,
+                    'resource_limited_mode': self.resource_limited_mode,
+                    'adaptive_processing': self.adaptive_processing,
+                    'quality_optimization': self.quality_optimization,
+                    'storage_optimization': self.storage_optimization
+                },
+                'lighting_condition': self.lighting_condition.value,
+                'pipeline_stage': self.pipeline_stage.value
+            }
+            
+            return stats
+            
+        except Exception as e:
+            self.logger.error(f"Processing statistics error: {e}")
+            return {'error': str(e)}
