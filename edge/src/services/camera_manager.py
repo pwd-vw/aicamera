@@ -366,9 +366,9 @@ class CameraManager:
                 return error_status
             
             # Get camera handler status
-            self.logger.debug(f"🔧 [CAMERA_MANAGER] get_status: calling camera_handler.get_status()")
-            camera_status = self.camera_handler.get_status()
-            self.logger.debug(f"🔧 [CAMERA_MANAGER] get_status: camera_handler.get_status() returned: {camera_status}")
+            self.logger.debug(f"🔧 [CAMERA_MANAGER] get_status: calling camera_handler.get_camera_status()")
+            camera_status = self.camera_handler.get_camera_status()
+            self.logger.debug(f"🔧 [CAMERA_MANAGER] get_status: camera_handler.get_camera_status() returned: {camera_status}")
             
             # Get configuration
             self.logger.debug(f"🔧 [CAMERA_MANAGER] get_status: calling get_configuration()")

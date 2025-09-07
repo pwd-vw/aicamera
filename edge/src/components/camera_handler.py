@@ -1050,15 +1050,6 @@ class OptimizedCameraHandler:
                 'timestamp': datetime.now().isoformat()
             }
     
-    def get_status(self) -> Dict[str, Any]:
-        """
-        Get camera handler status (alias for get_camera_status for compatibility).
-        
-        Returns:
-            Dict: Camera status information
-        """
-        return self.get_camera_status()
-    
     def get_configuration(self) -> Dict[str, Any]:
         """
         Get current camera configuration.

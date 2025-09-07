@@ -637,7 +637,7 @@ def generate_lores_frames():
         camera_handler = camera_manager.camera_handler
         
         # Initial health check
-        camera_status = camera_handler.get_status()
+        camera_status = camera_handler.get_camera_status()
         if not camera_status.get('initialized', False):
             logger.warning("Camera not initialized for lores streaming")
             yield _generate_error_placeholder("Camera not initialized")
@@ -651,7 +651,7 @@ def generate_lores_frames():
                 if camera_manager.ensure_camera_streaming():
                     logger.info("Camera streaming started successfully for lores")
                     # Get updated status
-                    camera_status = camera_handler.get_status()
+                    camera_status = camera_handler.get_camera_status()
                 else:
                     logger.warning("Failed to start camera streaming for lores, sending placeholder")
                     yield _generate_error_placeholder("Camera not streaming - failed to start")
@@ -670,7 +670,7 @@ def generate_lores_frames():
                 # Periodic health check
                 if current_time - last_health_check > HEALTH_CHECK_INTERVAL:
                     try:
-                        camera_status = camera_handler.get_status()
+                        camera_status = camera_handler.get_camera_status()
                         if not camera_status.get('initialized', False):
                             logger.warning("Camera lost initialization during lores streaming")
                             yield _generate_error_placeholder("Camera lost initialization")
@@ -1688,7 +1688,7 @@ def camera_debug():
         
         # Get camera status from both manager and handler
         manager_status = camera_manager.get_status()
-        handler_status = camera_handler.get_status()
+        handler_status = camera_handler.get_camera_status()
         handler_config = camera_handler.get_configuration()
         
         # Test frame capture
@@ -2051,7 +2051,7 @@ def video_test():
         # Test 2: Camera Handler Status
         try:
             if camera_manager and camera_manager.camera_handler:
-                camera_status = camera_manager.camera_handler.get_status()
+                camera_status = camera_manager.camera_handler.get_camera_status()
                 test_results['tests']['camera_handler'] = {
                     'status': 'passed' if camera_status.get('initialized', False) else 'failed',
                     'message': f"Camera initialized: {camera_status.get('initialized', False)}, Streaming: {camera_status.get('streaming', False)}",
