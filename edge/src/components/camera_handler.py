@@ -1314,41 +1314,6 @@ class CameraHandler:
                    self._lores_frame_buffer is not None and
                    bool(self._metadata_buffer))
     
-    def get_main_frame(self) -> Optional[np.ndarray]:
-        """
-        Get the latest main stream frame from buffer with minimal latency.
-        Thread-safe access to main stream for detection processing.
-        
-        Returns:
-            Optional[np.ndarray]: Latest main frame or None
-        """
-        # Use unified capture method
-        result = self.capture_frame(source="buffer", stream_type="main", include_metadata=False)
-        return result if isinstance(result, np.ndarray) else None
-    
-    def get_lores_frame(self) -> Optional[np.ndarray]:
-        """
-        Get the latest lores stream frame from buffer with minimal latency.
-        Thread-safe access to lores stream for web interface.
-        
-        Returns:
-            Optional[np.ndarray]: Latest lores frame or None
-        """
-        # Use unified capture method
-        result = self.capture_frame(source="buffer", stream_type="lores", include_metadata=False)
-        return result if isinstance(result, np.ndarray) else None
-    
-    def get_cached_metadata(self) -> Dict[str, Any]:
-        """
-        Get the latest metadata from buffer with minimal latency.
-        Thread-safe access to metadata for status reporting.
-        
-        Returns:
-            Dict[str, Any]: Latest metadata or empty dict
-        """
-        with self._frame_buffer_lock:
-            return self._metadata_buffer.copy()
-    
     def close_camera(self) -> bool:
         """
         Close camera and release all resources with enhanced cleanup.
