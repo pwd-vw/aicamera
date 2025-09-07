@@ -1449,8 +1449,7 @@ class CameraHandler:
                         self._lores_frame_buffer = lores_frame
                 
                 # Update frame count and FPS
-                self.frame_count += 1
-                self._update_fps()
+                self._update_frame_stats()
                 
                 # Sleep to control capture rate
                 time.sleep(self._capture_interval)
