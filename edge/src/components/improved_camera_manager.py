@@ -479,9 +479,8 @@ class ImprovedCameraManager:
             frame = self.get_frame(timeout=1.0)
             if frame is not None:
                 try:
-                    # Convert frame to JPEG
-                    frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-                    _, buffer = cv2.imencode('.jpg', frame_bgr, [cv2.IMWRITE_JPEG_QUALITY, 85])
+                    # Encode RGB frame directly to JPEG (no BGR conversion needed)
+                    _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
                     frame_bytes = buffer.tobytes()
                     
                     yield (b'--frame\r\n'

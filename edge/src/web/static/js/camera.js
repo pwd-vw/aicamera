@@ -27,6 +27,7 @@ const CameraManager = {
     // Video feed stability variables
     lastStreamingStatus: false,
     videoFeedRefreshTimeout: null,
+    videoErrorShown: false,
     
     /**
      * Initialize Camera Manager
@@ -58,8 +59,8 @@ const CameraManager = {
             this.toggleMetadataSection(true);
         }, 3000);
         
-        // Initialize capture status
-        this.showCaptureStatus('Ready to capture', 'info');
+        // Initialize capture status (hidden by default)
+        this.hideCaptureStatus();
         
         console.log('Camera Manager initialized successfully (cached data mode)');
     },
@@ -129,6 +130,11 @@ const CameraManager = {
         console.log('Loading camera status from HTTP API...');
         fetch('/camera/status')
             .then(response => {
+                // Check if response is successful
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
                 // Check if response is JSON
                 const contentType = response.headers.get('content-type');
                 if (!contentType || !contentType.includes('application/json')) {
@@ -148,7 +154,11 @@ const CameraManager = {
             })
             .catch(error => {
                 console.error('❌ Error loading status from HTTP API:', error);
-                AICameraUtils.addLogMessage('log-container', `HTTP API error: ${error.message}`, 'warning');
+                
+                // Only show error message for non-404 errors to reduce noise
+                if (!error.message.includes('404')) {
+                    AICameraUtils.addLogMessage('log-container', `HTTP API error: ${error.message}`, 'warning');
+                }
                 
                 // Don't retry immediately on HTTP API errors
                 // The WebSocket will attempt reconnection instead
@@ -414,6 +424,13 @@ const CameraManager = {
             
             // Show status
             captureStatus.style.display = 'block';
+            
+            // Auto-hide for non-critical messages after 3 seconds
+            if (type === 'info' || type === 'success') {
+                setTimeout(() => {
+                    this.hideCaptureStatus();
+                }, 3000);
+            }
         }
     },
 
@@ -925,6 +942,7 @@ const CameraManager = {
         console.log('Video feed loaded successfully');
         this.videoErrorCount = 0;
         this.videoErrorState = false;
+        this.videoErrorShown = false; // Reset error shown flag
         this.updateVideoStatus('hidden', '');
         AICameraUtils.addLogMessage('log-container', 'Video feed loaded successfully', 'success');
     },
@@ -1575,7 +1593,12 @@ const CameraManager = {
         } else {
             console.error('Video feed error limit reached, stopping automatic retries');
             this.updateVideoStatus('error', 'Video feed error - manual refresh recommended');
-            AICameraUtils.addLogMessage('log-container', 'Video feed error - manual refresh recommended', 'warning');
+            
+            // Only show error message once to avoid spam
+            if (!this.videoErrorShown) {
+                AICameraUtils.addLogMessage('log-container', 'Video feed error - manual refresh recommended', 'warning');
+                this.videoErrorShown = true;
+            }
             
             // Reset error count after a longer delay to allow manual intervention
             setTimeout(() => {
@@ -1592,6 +1615,7 @@ const CameraManager = {
         console.log('Video feed loaded successfully');
         this.videoErrorCount = 0;
         this.videoErrorState = false;
+        this.videoErrorShown = false; // Reset error shown flag
         this.updateVideoStatus('hidden', '');
         AICameraUtils.addLogMessage('log-container', 'Video feed loaded successfully', 'success');
     },

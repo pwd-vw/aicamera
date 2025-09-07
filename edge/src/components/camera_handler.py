@@ -38,6 +38,7 @@ import atexit
 from contextlib import contextmanager
 
 from edge.src.core.utils.logging_config import get_logger
+from edge.src.core.config import DEFAULT_AUTOFOCUS_ENABLED
 
 logger = get_logger(__name__)
 
@@ -245,7 +246,7 @@ class CameraEnhancementEngine:
         self.logger = logger
         
         # Enhancement state
-        self.autofocus_enabled = True
+        self.autofocus_enabled = DEFAULT_AUTOFOCUS_ENABLED
         self.auto_exposure_enabled = True
         self.noise_reduction_enabled = True
         
@@ -395,6 +396,43 @@ class CameraEnhancementEngine:
         except Exception as e:
             self.logger.warning(f"Normal light enhancement failed: {e}")
     
+    def _is_autofocus_available(self) -> bool:
+        """
+        Check if autofocus is available on the camera.
+        
+        Returns:
+            bool: True if autofocus is available, False otherwise
+        """
+        try:
+            if not self.camera or not self.camera.picam2:
+                return False
+                
+            # Check if libcamera controls are available
+            from libcamera import controls
+            return True
+            
+        except ImportError:
+            return False
+        except Exception:
+            return False
+    
+    def _get_af_mode_name(self, mode: int) -> str:
+        """
+        Convert numeric AF mode to descriptive name.
+        
+        Args:
+            mode: Numeric AF mode (0, 1, 2)
+            
+        Returns:
+            str: Descriptive name of AF mode
+        """
+        af_modes = {
+            0: "Manual",
+            1: "Auto", 
+            2: "Continuous"
+        }
+        return af_modes.get(mode, f"Unknown({mode})")
+    
     def _apply_autofocus(self, current_fom: float) -> Optional[str]:
         """
         Apply intelligent autofocus based on current focus quality.
@@ -415,6 +453,11 @@ class CameraEnhancementEngine:
             
             if not self.camera or not self.camera.picam2:
                 return None
+                
+            # Check if autofocus is available
+            if not self._is_autofocus_available():
+                self.logger.debug("Autofocus not available, skipping AF trigger")
+                return None
             
             # Assess focus quality
             if current_fom < 400:  # Poor focus
@@ -422,11 +465,20 @@ class CameraEnhancementEngine:
                 try:
                     from libcamera import controls
                     
-                    # Set autofocus mode to continuous
+                    # First ensure AF mode is set to Auto (1) (required for AF trigger)
                     self.camera.picam2.set_controls({
-                        "AfMode": controls.AfModeEnum.Continuous,
-                        "AfTrigger": controls.AfTriggerEnum.Start
+                        "AfMode": 1  # 1=Auto mode
                     })
+                    self.logger.debug("Set AF mode to Auto (1)")
+                    
+                    # Small delay to ensure mode is set
+                    time.sleep(0.1)
+                    
+                    # Now trigger autofocus
+                    self.camera.picam2.set_controls({
+                        "AfTrigger": 0  # 0=Start trigger
+                    })
+                    self.logger.debug("Triggered AF with AfTrigger=0 (Start)")
                     
                     return "autofocus_triggered_poor_quality"
                     
@@ -435,6 +487,9 @@ class CameraEnhancementEngine:
                     lens_position = 5.0  # Mid-range focus
                     self.camera.picam2.set_controls({"LensPosition": lens_position})
                     return "manual_focus_adjustment"
+                except Exception as af_error:
+                    self.logger.warning(f"AF trigger failed: {af_error}")
+                    return None
                     
             elif current_fom > 800:  # Excellent focus
                 # Maintain current settings
@@ -684,13 +739,20 @@ class CameraHandler:
                 controls["AeEnable"] = True
                 controls["AeConstraintMode"] = lc_controls.AeConstraintModeEnum.Normal
                 
-                # Autofocus setup
-                controls["AfMode"] = lc_controls.AfModeEnum.Continuous
+                # Autofocus setup - use numeric mode for proper AF trigger support (if enabled)
+                if DEFAULT_AUTOFOCUS_ENABLED:
+                    controls["AfMode"] = DEFAULT_AUTOFOCUS_MODE  # 0=Manual, 1=Auto, 2=Continuous
                 
             except ImportError:
                 self.logger.debug("libcamera controls not available, using basic controls")
             
             self.picam2.set_controls(controls)
+            
+            # Log AF mode if autofocus is enabled
+            if DEFAULT_AUTOFOCUS_ENABLED and "AfMode" in controls:
+                af_mode_name = self._get_af_mode_name(controls["AfMode"])
+                self.logger.info(f"Autofocus enabled with mode: {af_mode_name} ({controls['AfMode']})")
+            
             self.logger.debug(f"Applied initial controls: {list(controls.keys())}")
             
         except Exception as e:

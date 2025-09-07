@@ -82,15 +82,17 @@
     right: 0;
     bottom: 0;
     background: rgba(0, 0, 0, 0.8);
-    display: none; /* Hidden by default */
+    display: none !important; /* Force hidden by default */
     align-items: center;
     justify-content: center;
     z-index: 5;
     transition: opacity 0.3s ease;
+    opacity: 0; /* Ensure it's transparent when hidden */
 }
 
 .video-status-overlay.show {
-    display: flex;
+    display: flex !important;
+    opacity: 1;
 }
 
 .video-status-content {
