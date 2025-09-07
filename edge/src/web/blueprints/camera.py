@@ -1771,6 +1771,16 @@ def debug_camera_metadata():
         frame_result = camera_handler.capture_frame(source="buffer", stream_type="main", include_metadata=True)
         debug_info = frame_result.get('metadata', {}) if frame_result else {}
         
+        # Add camera status information for debug display
+        camera_status = camera_handler.get_camera_status()
+        debug_info.update({
+            'camera_initialized': camera_status.get('initialized', False),
+            'camera_streaming': camera_status.get('streaming', False),
+            'picam2_exists': camera_status.get('camera_ready', False),
+            'picam2_started': camera_status.get('streaming', False),
+            'success': True
+        })
+        
         return jsonify({
             'success': True,
             'debug_info': debug_info,
