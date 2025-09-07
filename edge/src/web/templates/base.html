@@ -28,9 +28,9 @@
     <link href="{{ url_for('static', filename='css/base.css', v=3) }}" rel="stylesheet">
     {% block additional_css %}{% endblock %}
     
-    <!-- Flask-SocketIO Client (Built-in) -->
+    <!-- Socket.IO Client (Static) -->
     {% if use_socketio %}
-    <script src="/socket.io/socket.io.js"></script>
+    <script src="{{ url_for('static', filename='libs/socket.io/socket.io.js', v=3) }}"></script>
     {% endif %}
     
     {% block additional_head %}{% endblock %}
