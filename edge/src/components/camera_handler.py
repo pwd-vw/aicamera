@@ -468,7 +468,7 @@ class CameraEnhancementEngine:
         else:
             return "poor"
 
-class OptimizedCameraHandler:
+class CameraHandler:
     """
     Optimized Camera Handler with unified capture methods and enhanced controls.
     
@@ -504,7 +504,7 @@ class OptimizedCameraHandler:
         Get singleton instance with thread-safe double-checked locking.
         
         Returns:
-            OptimizedCameraHandler: Singleton instance
+            CameraHandler: Singleton instance
         """
         if cls._instance is None:
             with cls._instance_lock:
@@ -577,7 +577,7 @@ class OptimizedCameraHandler:
         self.max_retry_attempts = 5
         self.retry_delay = 2.0
         
-        self.logger.info("OptimizedCameraHandler singleton initialized")
+        self.logger.info("CameraHandler singleton initialized")
         self.logger.info(f"Camera availability: {self.camera_status}")
         
         self._initialized = True
@@ -1432,13 +1432,13 @@ class OptimizedCameraHandler:
             return False
 
 # Factory functions and compatibility layer
-def get_optimized_camera_handler():
-    """Get the singleton optimized camera handler instance."""
-    return OptimizedCameraHandler.get_instance()
+def get_camera_handler():
+    """Get the singleton camera handler instance."""
+    return CameraHandler.get_instance()
 
 def create_camera_handler():
     """Create or get camera handler instance (compatibility)."""
-    return get_optimized_camera_handler()
+    return get_camera_handler()
 
-# Export the optimized handler as the main handler
-CameraHandler = OptimizedCameraHandler
+# Export the camera handler
+# CameraHandler is now the main class
