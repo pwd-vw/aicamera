@@ -914,13 +914,13 @@ class WebSocketSender:
                 'created_at': detection['created_at']
             }
             
-            # Add image data if available
-            if detection['annotated_image_path']:
-                image_path = Path(detection['annotated_image_path'])
+            # Add image data if available (use original_image_path)
+            if detection.get('original_image_path'):
+                image_path = Path(detection['original_image_path'])
                 if image_path.exists():
                     with open(image_path, 'rb') as f:
                         image_data = base64.b64encode(f.read()).decode('utf-8')
-                        data['annotated_image'] = image_data
+                        data['original_image'] = image_data
             
             # Add cropped plate images if available
             if detection['cropped_plates_paths']:
