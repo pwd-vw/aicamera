@@ -100,4 +100,4 @@ edge/installation/venv_hailo/
 edge/db/
 
 #images
-.jpg
+*.jpg
