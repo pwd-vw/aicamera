@@ -117,25 +117,53 @@ echo "Step 5: Removing project data and files..."
 # Remove database
 if [[ -f "db/lpr_data.db" ]]; then
     rm -f db/lpr_data.db
-    echo "   ✅ Removed SQLite database"
+    echo "   ✅ Removed SQLite database (root)"
 else
-    echo "   ⚪ Database not found"
+    echo "   ⚪ Database not found (root)"
+fi
+
+if [[ -f "edge/db/lpr_data.db" ]]; then
+    rm -f edge/db/lpr_data.db
+    echo "   ✅ Removed SQLite database (edge)"
+else
+    echo "   ⚪ Database not found (edge)"
 fi
 
 # Remove captured images
 if [[ -d "captured_images" ]]; then
     rm -rf captured_images
-    echo "   ✅ Removed captured images"
+    echo "   ✅ Removed captured images (root)"
 else
-    echo "   ⚪ Captured images directory not found"
+    echo "   ⚪ Captured images directory not found (root)"
+fi
+
+if [[ -d "edge/captured_images" ]]; then
+    rm -rf edge/captured_images
+    echo "   ✅ Removed captured images (edge)"
+else
+    echo "   ⚪ Captured images directory not found (edge)"
 fi
 
 # Remove logs
 if [[ -d "logs" ]]; then
     rm -rf logs
-    echo "   ✅ Removed logs directory"
+    echo "   ✅ Removed logs directory (root)"
 else
-    echo "   ⚪ Logs directory not found"
+    echo "   ⚪ Logs directory not found (root)"
+fi
+
+if [[ -d "edge/logs" ]]; then
+    rm -rf edge/logs
+    echo "   ✅ Removed logs directory (edge)"
+else
+    echo "   ⚪ Logs directory not found (edge)"
+fi
+
+if [[ -d "edge/src/logs" ]]; then
+    rm -rf edge/src/logs
+    echo "   ✅ Removed logs directory (edge/src)"
+else
+    echo "   ⚪ Logs directory not found (edge/src)"
 fi
 
 # Remove environment files
@@ -284,7 +312,7 @@ fi
 # Step 9: Clean up directories and files
 echo ""
 echo "Step 9: Cleaning up directories and files..."
-for dir in db logs captured_images; do
+for dir in db logs captured_images edge/db edge/logs edge/captured_images edge/src/logs; do
     if [[ -d "$dir" ]]; then
         rmdir "$dir" 2>/dev/null && echo "   ✅ Removed empty directory: $dir" || echo "   ⚪ Directory not empty: $dir"
     fi

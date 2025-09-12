@@ -126,10 +126,14 @@ def check_project_files():
     project_root = Path.cwd()
     files_to_check = [
         "db/lpr_data.db",
+        "edge/db/lpr_data.db",
         "edge/installation/.env.production",
         ".env",
         "captured_images",
-        "logs"
+        "edge/captured_images",
+        "logs",
+        "edge/logs",
+        "edge/src/logs"
     ]
     
     issues = []
@@ -153,7 +157,7 @@ def check_virtual_environment():
     """Check virtual environment state."""
     print("🔍 Checking virtual environment...")
     
-    venv_path = Path("venv_hailo")
+    venv_path = Path("edge/installation/venv_hailo")
     if venv_path.exists():
         return [f"⚠️  Virtual environment still exists: {venv_path}"]
     else:
