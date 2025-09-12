@@ -211,10 +211,7 @@ class SchemaMigrationV3:
             columns = [row[1] for row in cursor.fetchall()]
             
             required_columns = [
-                'original_image_path',
-                'vehicle_detected_image_path', 
-                'plate_image_path',
-                'cropped_plates_paths'
+                'original_image_path'
             ]
             
             missing_columns = [col for col in required_columns if col not in columns]

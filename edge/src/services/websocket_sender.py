@@ -922,22 +922,8 @@ class WebSocketSender:
                         image_data = base64.b64encode(f.read()).decode('utf-8')
                         data['original_image'] = image_data
             
-            # Add cropped plate images if available
-            if detection['cropped_plates_paths']:
-                try:
-                    plate_paths = json.loads(detection['cropped_plates_paths'])
-                    cropped_images = []
-                    
-                    for path in plate_paths:
-                        plate_path = Path(path)
-                        if plate_path.exists():
-                            with open(plate_path, 'rb') as f:
-                                plate_image = base64.b64encode(f.read()).decode('utf-8')
-                                cropped_images.append(plate_image)
-                    
-                    data['cropped_plates'] = cropped_images
-                except Exception as e:
-                    self.logger.warning(f"Error processing cropped plate images: {e}")
+            # Note: cropped_plates_paths column removed to save disk space
+            # Only original image is stored and sent
             
             # Send to server using synchronous method
             if self.server_type == 'rest':

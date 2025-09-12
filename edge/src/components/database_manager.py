@@ -101,9 +101,6 @@ class DatabaseManager:
                     plates_count INTEGER DEFAULT 0,
                     ocr_results TEXT,
                     original_image_path TEXT,
-                    vehicle_detected_image_path TEXT,
-                    plate_image_path TEXT,
-                    cropped_plates_paths TEXT,
                     vehicle_detections TEXT,
                     plate_detections TEXT,
                     processing_time_ms REAL,
@@ -196,7 +193,6 @@ class DatabaseManager:
             # Serialize complex data to JSON
             self.logger.debug(f"🔧 [DATABASE_MANAGER] insert_detection_result: serializing complex data to JSON")
             ocr_results_json = json.dumps(detection_data.get('ocr_results', []))
-            cropped_paths_json = json.dumps(detection_data.get('cropped_plates_paths', []))
             vehicle_detections_json = json.dumps(detection_data.get('vehicle_detections', []))
             plate_detections_json = json.dumps(detection_data.get('plate_detections', []))
             
@@ -536,7 +532,7 @@ class DatabaseManager:
             cursor = self.connection.cursor()
             cursor.execute("""
                 SELECT id, timestamp, vehicles_count, plates_count, ocr_results, 
-                       original_image_path, vehicle_detected_image_path, plate_image_path, cropped_plates_paths, 
+                       original_image_path, vehicle_detections, plate_detections, 
                        processing_time_ms, created_at
                 FROM detection_results
                 ORDER BY created_at DESC
@@ -553,20 +549,20 @@ class DatabaseManager:
                     'vehicles_count': row[2],
                     'plates_count': row[3],
                     'original_image_path': row[5],
-                    'vehicle_detected_image_path': row[6],
-                    'plate_image_path': row[7],
-                    'processing_time_ms': row[9],
-                    'created_at': row[10]
+                    'processing_time_ms': row[8],
+                    'created_at': row[9]
                 }
                 
                 # Deserialize JSON fields
                 try:
                     result['ocr_results'] = json.loads(row[4] or '[]')
-                    result['cropped_plates_paths'] = json.loads(row[8] or '[]')
+                    result['vehicle_detections'] = json.loads(row[6] or '[]')
+                    result['plate_detections'] = json.loads(row[7] or '[]')
                 except json.JSONDecodeError as e:
                     self.logger.warning(f"Error deserializing JSON for record {row[0]}: {e}")
                     result['ocr_results'] = []
-                    result['cropped_plates_paths'] = []
+                    result['vehicle_detections'] = []
+                    result['plate_detections'] = []
                 
                 results.append(result)
             
@@ -928,8 +924,8 @@ class DatabaseManager:
             cursor = self.connection.cursor()
             cursor.execute("""
                 SELECT id, timestamp, vehicles_count, plates_count, ocr_results,
-                       original_image_path, cropped_plates_paths, vehicle_detections,
-                       plate_detections, processing_time_ms, created_at
+                       original_image_path, vehicle_detections, plate_detections, 
+                       processing_time_ms, created_at
                 FROM detection_results
                 WHERE sent_to_server = 0
                 ORDER BY created_at ASC
@@ -947,11 +943,10 @@ class DatabaseManager:
                     'plates_count': row[3],
                     'ocr_results': row[4],
                     'original_image_path': row[5],
-                    'cropped_plates_paths': row[6],
-                    'vehicle_detections': row[7],
-                    'plate_detections': row[8],
-                    'processing_time_ms': row[9],
-                    'created_at': row[10]
+                    'vehicle_detections': row[6],
+                    'plate_detections': row[7],
+                    'processing_time_ms': row[8],
+                    'created_at': row[9]
                 }
                 results.append(result)
             
