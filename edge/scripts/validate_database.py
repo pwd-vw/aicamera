@@ -150,7 +150,7 @@ def validate_health_monitor_database():
         import sys
         import os
         sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
-        from core.database_manager import DatabaseManager
+        from edge.src.components.database_manager import DatabaseManager
         
         db_manager = DatabaseManager()
         if not db_manager.initialize():
@@ -174,24 +174,30 @@ def validate_health_monitor_database():
             
             # Test inserting a sample health check record
             try:
+                # Use the actual table schema with component column
                 db_manager.execute_query("""
                     CREATE TABLE IF NOT EXISTS health_checks (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-                        service_name TEXT,
-                        status TEXT,
-                        message TEXT
+                        timestamp TEXT NOT NULL,
+                        component TEXT NOT NULL,
+                        status TEXT NOT NULL,
+                        message TEXT,
+                        details TEXT,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        sent_to_server BOOLEAN DEFAULT 0,
+                        sent_at DATETIME,
+                        server_response TEXT
                     )
                 """)
                 
-                # Insert a test record
+                # Insert a test record using the correct column name
                 db_manager.execute_query("""
-                    INSERT INTO health_checks (service_name, status, message) 
-                    VALUES ('database_validation', 'ok', 'Database validation test')
+                    INSERT INTO health_checks (timestamp, component, status, message) 
+                    VALUES (datetime('now'), 'database_validation', 'ok', 'Database validation test')
                 """)
                 
-                # Clean up test record
-                db_manager.execute_query("DELETE FROM health_checks WHERE service_name = 'database_validation'")
+                # Clean up test record using the correct column name
+                db_manager.execute_query("DELETE FROM health_checks WHERE component = 'database_validation'")
                 
                 print("✅ Health checks table operations working")
             except Exception as e:
