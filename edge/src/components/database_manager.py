@@ -928,7 +928,7 @@ class DatabaseManager:
             cursor = self.connection.cursor()
             cursor.execute("""
                 SELECT id, timestamp, vehicles_count, plates_count, ocr_results,
-                       vehicle_detected_image_path, cropped_plates_paths, vehicle_detections,
+                       original_image_path, cropped_plates_paths, vehicle_detections,
                        plate_detections, processing_time_ms, created_at
                 FROM detection_results
                 WHERE sent_to_server = 0
@@ -946,7 +946,7 @@ class DatabaseManager:
                     'vehicles_count': row[2],
                     'plates_count': row[3],
                     'ocr_results': row[4],
-                    'vehicle_detected_image_path': row[5],
+                    'original_image_path': row[5],
                     'cropped_plates_paths': row[6],
                     'vehicle_detections': row[7],
                     'plate_detections': row[8],
@@ -958,7 +958,15 @@ class DatabaseManager:
             return results
             
         except Exception as e:
-            self.logger.error(f"Error getting unsent detection results: {e}")
+            # Use rate-limited logging for database errors
+            if not hasattr(self, 'rate_limited'):
+                from edge.src.core.utils.logging_config import RateLimitedLogger
+                self.rate_limited = RateLimitedLogger(self.logger, default_interval=30.0)
+            self.rate_limited.error_rate_limited(
+                "unsent_detection_results_error",
+                f"Error getting unsent detection results: {e}",
+                interval=60.0
+            )
             return []
     
     def get_unsent_health_checks(self, limit: int = 50) -> List[Dict[str, Any]]:

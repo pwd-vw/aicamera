@@ -106,6 +106,9 @@ def setup_logging(
     logging.getLogger('picamera2').setLevel(logging.WARNING)
     logging.getLogger('libcamera').setLevel(logging.WARNING)
     logging.getLogger('libcamera._libcamera').setLevel(logging.WARNING)
+    logging.getLogger('socketio').setLevel(logging.WARNING)
+    logging.getLogger('engineio').setLevel(logging.WARNING)
+    logging.getLogger('werkzeug').setLevel(logging.WARNING)
     
     # Log initial message to verify logging is working
     root_logger.info(f"Logging initialized - Level: {level}, Rotation: Daily at 00:01")
@@ -417,7 +420,9 @@ def configure_production_logging(logger: logging.Logger, log_level: str = "INFO"
         'libcamera._libcamera',
         'urllib3',
         'requests',
-        'socketio'
+        'socketio',
+        'engineio',
+        'werkzeug'
     ]
     
     for noisy_logger in noisy_loggers:
