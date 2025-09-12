@@ -227,11 +227,8 @@ class VideoStreamingService:
             if frame.shape[:2] != (self.height, self.width):
                 frame = cv2.resize(frame, (self.width, self.height))
             
-            # Add source indicator for debugging
-            if source != "camera_lores":
-                # Add small indicator in corner
-                cv2.putText(frame, f"Source: {source}", (10, 30), 
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+            # Remove source indicator to prevent overlay issues
+            # Debug information is now logged instead of displayed on frame
             
             # Encode frame to JPEG with quality adjustment based on source
             quality = self.quality

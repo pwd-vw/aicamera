@@ -98,3 +98,6 @@ edge/installation/venv_hailo/
 # Database files
 *.db
 edge/db/
+
+#images
+.jpg

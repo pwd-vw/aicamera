@@ -38,7 +38,7 @@ import atexit
 from contextlib import contextmanager
 
 from edge.src.core.utils.logging_config import get_logger
-from edge.src.core.config import DEFAULT_AUTOFOCUS_ENABLED
+from edge.src.core.config import DEFAULT_AUTOFOCUS_ENABLED, DEFAULT_AUTOFOCUS_MODE
 
 logger = get_logger(__name__)
 
@@ -688,14 +688,14 @@ class CameraHandler:
                 self.camera_properties = self.picam2.camera_properties
                 self.sensor_modes = self.picam2.sensor_modes
                 
-                # Create optimized dual-stream configuration
-                main_config = {"size": (1920, 1080)}  # Full HD main stream
-                lores_config = {"size": (640, 480)}   # VGA for web interface
+                # Create optimized dual-stream configuration with proper color format
+                main_config = {"size": (1920, 1080), "format": "RGB888"}  # Full HD main stream with RGB color
+                lores_config = {"size": (640, 480), "format": "RGB888"}   # VGA for web interface with RGB color
                 
                 config = self.picam2.create_video_configuration(
                     main=main_config,
-                    lores=lores_config,
-                    encode="lores"  # Encode lores stream for efficiency
+                    lores=lores_config
+                    # Remove encode="lores" to ensure proper color format
                 )
                 
                 # Apply configuration
@@ -720,12 +720,15 @@ class CameraHandler:
             if not self.picam2:
                 return
                 
-            # Basic quality controls
+            # Basic quality controls with enhanced color settings
             controls = {
                 "Brightness": 0.0,
                 "Contrast": 1.0,
-                "Saturation": 1.0,
-                "Sharpness": 1.0
+                "Saturation": 1.0,  # Ensure full color saturation
+                "Sharpness": 1.0,
+                "AwbMode": 0,  # Auto white balance for better color
+                "AeEnable": True,  # Auto exposure
+                "AwbEnable": True  # Auto white balance
             }
             
             # Try to apply libcamera-specific controls
