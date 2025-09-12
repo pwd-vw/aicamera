@@ -41,7 +41,7 @@ from collections import deque
 from dataclasses import dataclass
 from enum import Enum
 
-from edge.src.core.utils.logging_config import get_logger
+from edge.src.core.utils.logging_config import get_logger, get_detection_logger, RateLimitedLogger
 from edge.src.core.config import (
     VEHICLE_DETECTION_MODEL, LICENSE_PLATE_DETECTION_MODEL, LICENSE_PLATE_OCR_MODEL,
     HEF_MODEL_PATH, MODEL_ZOO_URL, EASYOCR_LANGUAGES,
@@ -139,7 +139,31 @@ class DetectionProcessor:
             logger: Logger instance
         """
         self.logger = logger or get_logger(__name__)
-        self.logger.info("🔍 [DETECTION_PROC] Starting Detection Processor initialization...")
+        self.opt_logger = get_detection_logger(self.logger)
+        self.rate_limited = RateLimitedLogger(self.logger, default_interval=5.0)
+        
+        # Track last logged states to avoid repetitive logging
+        self.last_logged_states = {
+            'vehicles_detected': 0,
+            'plates_detected': 0,
+            'ocr_successful': 0,
+            'processing_time': 0,
+            'last_detection_time': 0
+        }
+        
+        # Statistics for periodic logging
+        self.stats_start_time = time.time()
+        self.last_stats_log = 0
+        self.stats_interval = 60  # Log stats every 60 seconds
+        
+        # Detection activity tracking
+        self.detection_activity = {
+            'active_detections': 0,
+            'inactive_periods': 0,
+            'last_activity_time': time.time()
+        }
+        
+        self.opt_logger.log_initialization("Starting Detection Processor initialization...")
         
         # Model instances
         self.logger.info("🔍 [DETECTION_PROC] Initializing model instances...")
@@ -382,6 +406,30 @@ class DetectionProcessor:
         """
         return self.async_ocr_loader.wait_for_ready(timeout)
     
+    def _log_periodic_stats(self):
+        """Log periodic statistics with rate limiting."""
+        try:
+            current_time = time.time()
+            uptime = current_time - self.stats_start_time
+            
+            stats = {
+                'vehicles': self.processing_stats['vehicles_detected'],
+                'plates': self.processing_stats['plates_detected'],
+                'ocr_successful': self.processing_stats['ocr_successful'],
+                'active_detections': self.detection_activity['active_detections'],
+                'inactive_periods': self.detection_activity['inactive_periods'],
+                'uptime': round(uptime, 1)
+            }
+            
+            self.opt_logger.log_iteration_stats(stats)
+            
+        except Exception as e:
+            self.rate_limited.debug_rate_limited(
+                "stats_logging_error",
+                f"Error logging periodic stats: {e}",
+                interval=60.0
+            )
+
     def cleanup(self):
         """
         Clean up all resources including async OCR loader, parallel processor, and models.
@@ -650,36 +698,54 @@ class DetectionProcessor:
         self.logger.debug(f"🔧 [DETECTION_PROCESSOR] detect_vehicles called with frame shape: {frame.shape if frame is not None else 'None'}")
         
         if not self.models_loaded or not self.vehicle_model:
-            self.logger.warning(f"🔧 [DETECTION_PROCESSOR] detect_vehicles failed: models_loaded={self.models_loaded}, vehicle_model={self.vehicle_model is not None}")
+            self.rate_limited.warning_rate_limited(
+                "vehicle_model_missing",
+                f"Vehicle detection model not loaded: models_loaded={self.models_loaded}, vehicle_model={self.vehicle_model is not None}",
+                interval=30.0
+            )
             return []
         
         try:
-            self.logger.debug(f"🔧 [DETECTION_PROCESSOR] detect_vehicles: performing vehicle detection with confidence threshold: {self.confidence_threshold}")
+            start_time = time.time()
             
             # Perform detection
             results = self.vehicle_model(frame)
             vehicle_boxes = getattr(results, "results", [])
             
-            self.logger.debug(f"🔧 [DETECTION_PROCESSOR] detect_vehicles: raw detection results: {len(vehicle_boxes)} vehicles found")
-            
             # Filter by confidence threshold
             filtered_boxes = []
-            for i, box in enumerate(vehicle_boxes):
+            for box in vehicle_boxes:
                 confidence = box.get('score', 0)
                 if confidence >= self.confidence_threshold:
                     filtered_boxes.append(box)
-                    self.logger.debug(f"🔧 [DETECTION_PROCESSOR] detect_vehicles: vehicle {i} passed filter (confidence: {confidence:.3f})")
-                else:
-                    self.logger.debug(f"🔧 [DETECTION_PROCESSOR] detect_vehicles: vehicle {i} filtered out (confidence: {confidence:.3f} < {self.confidence_threshold})")
             
-            self.logger.info(f"🔧 [DETECTION_PROCESSOR] detect_vehicles: 🚗 Vehicles detected: {len(filtered_boxes)} (filtered from {len(vehicle_boxes)})")
-            self.processing_stats['vehicles_detected'] += len(filtered_boxes)
+            processing_time = (time.time() - start_time) * 1000
             
-            self.logger.debug(f"🔧 [DETECTION_PROCESSOR] detect_vehicles: returning {len(filtered_boxes)} filtered vehicle boxes")
+            # Only log significant changes in detection results
+            vehicles_count = len(filtered_boxes)
+            if vehicles_count != self.last_logged_states['vehicles_detected']:
+                self.opt_logger.logger.info(f"🚗 Vehicles detected: {vehicles_count} (filtered from {len(vehicle_boxes)})")
+                self.last_logged_states['vehicles_detected'] = vehicles_count
+            
+            # Update processing statistics
+            self.processing_stats['vehicles_detected'] += vehicles_count
+            self.processing_stats['processing_time_ms'] = processing_time
+            
+            # Track detection activity
+            if vehicles_count > 0:
+                self.detection_activity['active_detections'] += 1
+                self.detection_activity['last_activity_time'] = time.time()
+            else:
+                self.detection_activity['inactive_periods'] += 1
+            
             return filtered_boxes
             
         except Exception as e:
-            self.logger.error(f"🔧 [DETECTION_PROCESSOR] detect_vehicles error: {e}")
+            self.rate_limited.warning_rate_limited(
+                "vehicle_detection_error",
+                f"Vehicle detection error: {e}",
+                interval=30.0
+            )
             return []
     
     def detect_license_plates(self, frame: np.ndarray, vehicle_boxes: List[Dict]) -> List[Dict[str, Any]]:

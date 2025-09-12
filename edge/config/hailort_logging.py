@@ -3,16 +3,21 @@
 HailoRT Logging Configuration
 
 This module configures HailoRT logging to write to the edge/logs directory
-instead of the current working directory.
+instead of the current working directory. Includes log rotation support.
 """
 
 import os
 import sys
+import logging
+import logging.handlers
+import threading
+import time
 from pathlib import Path
+from datetime import datetime, timedelta
 
 def configure_hailort_logging():
     """
-    Configure HailoRT logging to write to edge/logs directory.
+    Configure HailoRT logging to write to edge/logs directory with rotation.
     
     This function must be called BEFORE importing any HailoRT-related modules
     (degirum, hailo, etc.) to ensure logs are written to the correct location.
@@ -34,7 +39,10 @@ def configure_hailort_logging():
         log_file = logs_dir / "hailort.log"
         os.environ["HAILORT_LOG_FILE"] = str(log_file)
         
-        print(f"✅ HailoRT logging configured to: {log_file}")
+        # Setup HailoRT log rotation
+        _setup_hailort_log_rotation(logs_dir)
+        
+        print(f"✅ HailoRT logging configured to: {log_file} (with rotation)")
         
     except Exception as e:
         print(f"⚠️  Failed to configure HailoRT logging: {e}")
@@ -51,6 +59,53 @@ def get_hailort_log_path():
     edge_dir = Path(__file__).parent.parent
     logs_dir = edge_dir / "logs"
     return str(logs_dir / "hailort.log")
+
+def _setup_hailort_log_rotation(logs_dir: Path):
+    """Setup HailoRT log rotation."""
+    def rotation_manager():
+        while True:
+            try:
+                # Wait until next 00:01
+                now = datetime.now()
+                next_rotation = now.replace(hour=0, minute=1, second=0, microsecond=0)
+                if next_rotation <= now:
+                    next_rotation += timedelta(days=1)
+                
+                sleep_seconds = (next_rotation - now).total_seconds()
+                time.sleep(sleep_seconds)
+                
+                # Perform HailoRT log rotation cleanup
+                _cleanup_old_hailort_logs(logs_dir)
+                
+            except Exception as e:
+                print(f"Error in HailoRT log rotation manager: {e}")
+                time.sleep(3600)  # Wait 1 hour before retrying
+    
+    # Start the rotation manager in a daemon thread
+    rotation_thread = threading.Thread(target=rotation_manager, daemon=True)
+    rotation_thread.start()
+
+def _cleanup_old_hailort_logs(logs_dir: Path, backup_count: int = 3):
+    """Clean up old HailoRT log files."""
+    try:
+        # Get all rotated HailoRT log files
+        rotated_files = list(logs_dir.glob("hailort.log.*"))
+        
+        if len(rotated_files) > backup_count:
+            # Sort by modification time (oldest first)
+            rotated_files.sort(key=lambda x: x.stat().st_mtime)
+            
+            # Remove oldest files beyond backup_count
+            files_to_remove = rotated_files[:-backup_count]
+            for log_file in files_to_remove:
+                try:
+                    log_file.unlink()
+                    print(f"Deleted old HailoRT log file: {log_file}")
+                except Exception as e:
+                    print(f"Failed to delete old HailoRT log file {log_file}: {e}")
+                    
+    except Exception as e:
+        print(f"Error during HailoRT log cleanup: {e}")
 
 def cleanup_old_logs():
     """

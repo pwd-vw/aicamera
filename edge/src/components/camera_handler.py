@@ -37,10 +37,11 @@ import weakref
 import atexit
 from contextlib import contextmanager
 
-from edge.src.core.utils.logging_config import get_logger
+from edge.src.core.utils.logging_config import get_logger, get_camera_logger, RateLimitedLogger
 from edge.src.core.config import DEFAULT_AUTOFOCUS_ENABLED, DEFAULT_AUTOFOCUS_MODE
 
 logger = get_logger(__name__)
+opt_logger = get_camera_logger(logger)
 
 # Type definitions
 CaptureSource = Literal["direct", "buffer"]
@@ -600,6 +601,8 @@ class CameraHandler:
             return
             
         self.logger = logger
+        self.opt_logger = opt_logger
+        self.rate_limited = RateLimitedLogger(logger, default_interval=5.0)
         
         # Camera state
         self.picam2 = None
@@ -822,10 +825,11 @@ class CameraHandler:
         """
         Optimized continuous frame capture loop with environmental adaptation.
         """
-        self.logger.info("Starting optimized frame capture loop")
+        self.opt_logger.log_operation_start("frame_capture_loop")
         
         enhancement_interval = 2.0  # Apply enhancements every 2 seconds
         last_enhancement = 0
+        last_stats_log = time.time()
         
         while self._capture_running:
             try:
@@ -857,20 +861,68 @@ class CameraHandler:
                         try:
                             enhancements = self.enhancement_engine.enhance_for_conditions(metadata)
                             if enhancements['applied']:
-                                self.logger.debug(f"Applied enhancements: {enhancements['applied']}")
+                                # Only log if enhancement actually changed
+                                enhancement_key = str(enhancements['applied'])
+                                if not hasattr(self, 'last_logged_states'):
+                                    self.last_logged_states = {'last_enhancement': None}
+                                if self.last_logged_states.get('last_enhancement') != enhancement_key:
+                                    self.rate_limited.debug_rate_limited(
+                                        "enhancement_applied",
+                                        f"Applied enhancements: {enhancements['applied']}",
+                                        interval=10.0
+                                    )
+                                    self.last_logged_states['last_enhancement'] = enhancement_key
                         except Exception as e:
-                            self.logger.debug(f"Enhancement application failed: {e}")
+                            self.rate_limited.debug_rate_limited(
+                                "enhancement_error",
+                                f"Enhancement application failed: {e}",
+                                interval=30.0
+                            )
                         
                         last_enhancement = current_time
+                    
+                    # Log periodic statistics
+                    if current_time - last_stats_log > 30:  # Every 30 seconds
+                        self._log_periodic_stats()
+                        last_stats_log = current_time
                     
                 finally:
                     request.release()
                 
             except Exception as e:
-                self.logger.error(f"Frame capture loop error: {e}")
+                self.rate_limited.warning_rate_limited(
+                    "capture_loop_error",
+                    f"Frame capture loop error: {e}",
+                    interval=10.0
+                )
                 time.sleep(0.1)
         
-        self.logger.info("Optimized frame capture loop stopped")
+        self.opt_logger.log_operation_success("frame_capture_loop", "stopped")
+    
+    def _log_periodic_stats(self):
+        """Log periodic statistics with rate limiting."""
+        try:
+            current_time = time.time()
+            uptime = current_time - self.stats_start_time
+            
+            # Calculate FPS
+            fps = self.frame_count / uptime if uptime > 0 else 0
+            
+            stats = {
+                'frames': self.frame_count,
+                'fps': round(fps, 2),
+                'uptime': round(uptime, 1),
+                'errors': self.error_count
+            }
+            
+            self.opt_logger.log_iteration_stats(stats)
+            
+        except Exception as e:
+            self.rate_limited.debug_rate_limited(
+                "stats_logging_error",
+                f"Error logging periodic stats: {e}",
+                interval=60.0
+            )
     
     def _update_frame_statistics(self):
         """Update frame capture statistics."""

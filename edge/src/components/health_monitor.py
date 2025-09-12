@@ -22,7 +22,7 @@ from datetime import datetime
 from typing import Dict, Any, Optional, List
 from threading import Thread, Event
 
-from edge.src.core.utils.logging_config import get_logger
+from edge.src.core.utils.logging_config import get_logger, get_health_logger, RateLimitedLogger
 from edge.src.core.config import (
     IMAGE_SAVE_DIR, VEHICLE_DETECTION_MODEL, LICENSE_PLATE_DETECTION_MODEL,
     EASYOCR_LANGUAGES, HEALTH_CHECK_INTERVAL, BASE_DIR
@@ -62,6 +62,9 @@ class HealthMonitor:
             logger: Logger instance
         """
         self.logger = logger or get_logger(__name__)
+        self.opt_logger = get_health_logger(self.logger)
+        self.rate_limited = RateLimitedLogger(self.logger, default_interval=10.0)
+        
         self.db_manager = None
         self.camera_manager = None
         self.detection_manager = None
@@ -69,7 +72,15 @@ class HealthMonitor:
         self.stop_event = Event()
         self.monitor_thread = None
         
-        self.logger.info("HealthMonitor initialized")
+        # Track last logged states to avoid repetitive logging
+        self.last_logged_states = {
+            'camera_status': None,
+            'detection_status': None,
+            'database_status': None,
+            'system_status': None
+        }
+        
+        self.opt_logger.log_initialization()
     
     def initialize(self) -> bool:
         """
@@ -187,30 +198,41 @@ class HealthMonitor:
             bool: True if camera is healthy, False otherwise
         """
         component = "Camera"
-        self.logger.debug(f"🔧 [HEALTH_MONITOR] check_camera called")
         
         try:
             if not self.camera_manager:
-                self.logger.debug(f"🔧 [HEALTH_MONITOR] check_camera failed: camera manager not available")
+                self.rate_limited.warning_rate_limited(
+                    "camera_manager_missing",
+                    "Camera manager not available",
+                    interval=30.0
+                )
                 self._log_result(component, "FAIL", "Camera manager not available")
                 return False
             
-            self.logger.debug(f"🔧 [HEALTH_MONITOR] check_camera: calling camera_manager.get_status()")
             status = self.camera_manager.get_status()
-            self.logger.debug(f"🔧 [HEALTH_MONITOR] check_camera: camera_manager.get_status() returned: {status is not None}")
             
             if not status:
-                self.logger.debug(f"🔧 [HEALTH_MONITOR] check_camera failed: unable to get camera status")
+                self.rate_limited.warning_rate_limited(
+                    "camera_status_unavailable",
+                    "Unable to get camera status",
+                    interval=30.0
+                )
                 self._log_result(component, "FAIL", "Unable to get camera status")
                 return False
             
             initialized = status.get('initialized', False)
             streaming = status.get('streaming', False)
             
-            self.logger.debug(f"🔧 [HEALTH_MONITOR] check_camera: camera status - initialized: {initialized}, streaming: {streaming}")
+            # Only log status changes
+            current_status = f"initialized:{initialized},streaming:{streaming}"
+            if self.last_logged_states['camera_status'] != current_status:
+                self.opt_logger.log_status_change(
+                    "healthy" if (initialized and streaming) else "warning" if initialized else "unhealthy",
+                    f"initialized: {initialized}, streaming: {streaming}"
+                )
+                self.last_logged_states['camera_status'] = current_status
             
             if initialized and streaming:
-                self.logger.debug(f"🔧 [HEALTH_MONITOR] check_camera: camera healthy - initialized and streaming")
                 self._log_result(component, "PASS", "Camera initialized and streaming", {
                     'initialized': initialized,
                     'streaming': streaming,
@@ -219,14 +241,12 @@ class HealthMonitor:
                 })
                 return True
             elif initialized and not streaming:
-                self.logger.debug(f"🔧 [HEALTH_MONITOR] check_camera: camera warning - initialized but not streaming")
                 self._log_result(component, "WARNING", "Camera initialized but not streaming", {
                     'initialized': initialized,
                     'streaming': streaming
                 })
                 return False
             else:
-                self.logger.debug(f"🔧 [HEALTH_MONITOR] check_camera: camera unhealthy - not initialized")
                 self._log_result(component, "FAIL", "Camera not initialized", {
                     'initialized': initialized,
                     'streaming': streaming
@@ -234,7 +254,11 @@ class HealthMonitor:
                 return False
                 
         except Exception as e:
-            self.logger.error(f"🔧 [HEALTH_MONITOR] check_camera error: {e}")
+            self.rate_limited.warning_rate_limited(
+                "camera_check_error",
+                f"Camera check error: {e}",
+                interval=30.0
+            )
             self._log_result(component, "FAIL", f"Camera check failed: {e}")
             return False
     
