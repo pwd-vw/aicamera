@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-4">
+  <h3>Application Config Setup</h3>
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+        <div class="alert alert-{{ category }}" role="alert">{{ message }}</div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  <form method="post">
+    <div class="row">
+      <div class="col-md-6">
+        <div class="mb-3">
+          <label class="form-label">SERVER_URL</label>
+          <input type="text" class="form-control" name="SERVER_URL" value="{{ values.SERVER_URL }}" />
+        </div>
+        <div class="mb-3">
+          <label class="form-label">WEBSOCKET_SERVER_URL</label>
+          <input type="text" class="form-control" name="WEBSOCKET_SERVER_URL" value="{{ values.WEBSOCKET_SERVER_URL }}" />
+        </div>
+        <div class="mb-3">
+          <label class="form-label">AICAMERA_ID</label>
+          <input type="text" class="form-control" name="AICAMERA_ID" value="{{ values.AICAMERA_ID }}" required />
+        </div>
+        <div class="mb-3">
+          <label class="form-label">CHECKPOINT_ID</label>
+          <input type="text" class="form-control" name="CHECKPOINT_ID" value="{{ values.CHECKPOINT_ID }}" />
+        </div>
+        <div class="mb-3">
+          <label class="form-label">MAIN_RESOLUTION (e.g., 1280x720)</label>
+          <input type="text" class="form-control" name="MAIN_RESOLUTION" value="{{ values.MAIN_RESOLUTION }}" />
+        </div>
+        <div class="mb-3">
+          <label class="form-label">LORES_RESOLUTION (e.g., 1280x720)</label>
+          <input type="text" class="form-control" name="LORES_RESOLUTION" value="{{ values.LORES_RESOLUTION }}" />
+        </div>
+        <div class="mb-3">
+          <label class="form-label">CAMERA_FPS</label>
+          <input type="number" class="form-control" name="CAMERA_FPS" value="{{ values.CAMERA_FPS }}" />
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="mb-3">
+          <label class="form-label">MQTT_ENABLED</label>
+          <select class="form-select" name="MQTT_ENABLED">
+            <option value="true" {% if values.MQTT_ENABLED == 'true' %}selected{% endif %}>true</option>
+            <option value="false" {% if values.MQTT_ENABLED != 'true' %}selected{% endif %}>false</option>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">MQTT_BROKER_HOST</label>
+          <input type="text" class="form-control" name="MQTT_BROKER_HOST" value="{{ values.MQTT_BROKER_HOST }}" />
+        </div>
+        <div class="mb-3">
+          <label class="form-label">MQTT_BROKER_PORT</label>
+          <input type="number" class="form-control" name="MQTT_BROKER_PORT" value="{{ values.MQTT_BROKER_PORT }}" />
+        </div>
+        <div class="mb-3">
+          <label class="form-label">MQTT_USERNAME</label>
+          <input type="text" class="form-control" name="MQTT_USERNAME" value="{{ values.MQTT_USERNAME }}" />
+        </div>
+        <div class="mb-3">
+          <label class="form-label">MQTT_PASSWORD</label>
+          <input type="password" class="form-control" name="MQTT_PASSWORD" value="{{ values.MQTT_PASSWORD }}" />
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-3">
+      <button class="btn btn-primary" type="submit">Save & Restart</button>
+      <a class="btn btn-secondary" href="{{ url_for('main.index') }}">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+

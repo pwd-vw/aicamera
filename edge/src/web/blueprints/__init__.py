@@ -27,6 +27,7 @@ from edge.src.web.blueprints.camera import camera_bp, register_camera_events
 from edge.src.web.blueprints.health import health_bp, register_health_events
 from edge.src.web.blueprints.streaming import streaming_bp, register_streaming_events
 from edge.src.web.blueprints.detection import detection_bp, register_detection_events
+from edge.src.web.blueprints.config import config_bp, register_config_events
 
 # Import experiments blueprint (optional)
 experiments_bp = None
@@ -106,6 +107,9 @@ def register_blueprints(app: Flask, socketio: SocketIO):
     app.register_blueprint(detection_bp)
     logger.info("   ✅ Detection blueprint registered")
     
+    app.register_blueprint(config_bp)
+    logger.info("   ✅ Config blueprint registered")
+    
     # Register experiments blueprint if available and enabled
     if experiments_bp and EXPERIMENT_ENABLED:
         app.register_blueprint(experiments_bp)
@@ -155,6 +159,9 @@ def register_blueprints(app: Flask, socketio: SocketIO):
     
     register_streaming_events(socketio)
     logger.info("   ✅ Streaming events registered")
+    
+    register_config_events(socketio)
+    logger.info("   ✅ Config events registered")
     
     # Register experiment events if available and enabled
     if register_experiment_events and EXPERIMENT_ENABLED:
