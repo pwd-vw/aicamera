@@ -39,6 +39,18 @@ def configure_hailort_logging():
         log_file = logs_dir / "hailort.log"
         os.environ["HAILORT_LOG_FILE"] = str(log_file)
         
+        # Force working directory to logs_dir to prevent root directory logging
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(str(logs_dir))
+            # Set additional environment variables to ensure correct path
+            os.environ["PWD"] = str(logs_dir)
+        except Exception as e:
+            print(f"Warning: Could not change working directory: {e}")
+        finally:
+            # Restore original working directory
+            os.chdir(original_cwd)
+        
         # Setup HailoRT log rotation
         _setup_hailort_log_rotation(logs_dir)
         

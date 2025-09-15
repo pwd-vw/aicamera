@@ -42,11 +42,12 @@ def setup_logging(
     Returns:
         logging.Logger: Configured logger
     """
-    # Use centralized log directory at project root
+    # Use centralized log directory at edge/logs (not edge/src/logs)
     if log_dir is None:
-        # Point to edge/logs directory
-        edge_dir = Path(__file__).parent.parent.parent
-        log_dir = edge_dir / "logs"
+        # Point to edge/logs directory (ไม่ใช่ edge/src/logs)
+        current_file = Path(__file__)  # edge/src/core/utils/logging_config.py
+        edge_dir = current_file.parent.parent.parent.parent  # ขึ้นไป 4 ระดับถึง /home/camuser/aicamera
+        log_dir = edge_dir / "edge" / "logs"
     
     log_dir = Path(log_dir)
     log_dir.mkdir(parents=True, exist_ok=True)
