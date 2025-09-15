@@ -46,8 +46,8 @@ def setup_logging(
     if log_dir is None:
         # Point to edge/logs directory (ไม่ใช่ edge/src/logs)
         current_file = Path(__file__)  # edge/src/core/utils/logging_config.py
-        edge_dir = current_file.parent.parent.parent.parent  # ขึ้นไป 4 ระดับถึง /home/camuser/aicamera
-        log_dir = edge_dir / "edge" / "logs"
+        edge_dir = current_file.parent.parent.parent  # ขึ้นไป 3 ระดับถึง /home/camuser/aicamera/edge
+        log_dir = edge_dir / "logs"
     
     log_dir = Path(log_dir)
     log_dir.mkdir(parents=True, exist_ok=True)
