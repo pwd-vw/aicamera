@@ -92,7 +92,7 @@ class WebSocketSender:
         # AI Camera Identification
         self.aicamera_id = AICAMERA_ID
         self.checkpoint_id = CHECKPOINT_ID
-        self.logger.info("WebSocketSender initialized")
+        self.logger.info("WebSocketSender Started")
     
     def initialize(self) -> bool:
         """
