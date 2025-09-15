@@ -54,6 +54,8 @@ def setup_logging(
     
     # Use single log file with date rotation
     log_file = log_dir / "aicamera.log"
+    # Dedicated communication log file (HTTP/WebSocket/Network comms)
+    comm_log_file = log_dir / "unified_comm.log"
 
     # Convert string level to logging constant
     numeric_level = getattr(logging, level.upper(), None)
@@ -114,6 +116,27 @@ def setup_logging(
         file_handler.setLevel(logging.INFO)
         file_handler.addFilter(StartStopInfoFilter())
         root_logger.addHandler(file_handler)
+
+        # Communication-specific file handler (separate file)
+        comm_file_handler = TimedRotatingFileHandler(
+            filename=str(comm_log_file),
+            when='midnight',
+            interval=1,
+            backupCount=backup_count,
+            encoding='utf-8',
+            atTime=datetime.strptime('00:01', '%H:%M').time()
+        )
+        comm_file_handler.setFormatter(detailed_formatter)
+        comm_file_handler.setLevel(logging.INFO)
+        comm_file_handler.addFilter(StartStopInfoFilter())
+        # Use a dedicated named logger for communication to avoid duplicating root logs
+        comm_logger = logging.getLogger('communication')
+        comm_logger.setLevel(logging.INFO)
+        comm_logger.propagate = False  # prevent double logging to aicamera.log
+        # Clear existing handlers to avoid duplicates on re-init
+        for h in comm_logger.handlers[:]:
+            comm_logger.removeHandler(h)
+        comm_logger.addHandler(comm_file_handler)
         
         # Start background thread for log rotation management
         _start_log_rotation_manager(log_dir, backup_count)
@@ -164,21 +187,22 @@ def _start_log_rotation_manager(log_dir: Path, backup_count: int):
 def _cleanup_old_logs(log_dir: Path, backup_count: int):
     """Clean up old log files beyond retention period."""
     try:
-        # Get all rotated log files
-        rotated_files = list(log_dir.glob("aicamera.log.*"))
-        
-        if len(rotated_files) > backup_count:
-            # Sort by modification time (oldest first)
-            rotated_files.sort(key=lambda x: x.stat().st_mtime)
-            
-            # Remove oldest files beyond backup_count
-            files_to_remove = rotated_files[:-backup_count]
-            for log_file in files_to_remove:
-                try:
-                    log_file.unlink()
-                    print(f"Deleted old log file: {log_file}")
-                except Exception as e:
-                    print(f"Failed to delete old log file {log_file}: {e}")
+        # Patterns to clean up (mirror rotation policy)
+        patterns = [
+            "aicamera.log.*",
+            "unified_comm.log.*",
+        ]
+        for pattern in patterns:
+            rotated_files = list(log_dir.glob(pattern))
+            if len(rotated_files) > backup_count:
+                rotated_files.sort(key=lambda x: x.stat().st_mtime)
+                files_to_remove = rotated_files[:-backup_count]
+                for log_file in files_to_remove:
+                    try:
+                        log_file.unlink()
+                        print(f"Deleted old log file: {log_file}")
+                    except Exception as e:
+                        print(f"Failed to delete old log file {log_file}: {e}")
                     
     except Exception as e:
         print(f"Error during log cleanup: {e}")

@@ -37,32 +37,32 @@ class WebSocketClient:
                 
             return self.connected
         except Exception as e:
-            logging.error(f"WebSocket connection failed: {e}")
+            logging.getLogger('communication').error(f"WebSocket connection failed: {e}")
             return False
             
     def on_open(self, ws):
         self.connected = True
         self.reconnect_attempts = 0
-        logging.info(f"WebSocket connected to {self.server_url}")
+        logging.getLogger('communication').info(f"WebSocket connected to {self.server_url}")
         
     def on_message(self, ws, message):
         try:
             data = json.loads(message)
-            logging.info(f"Received WebSocket message: {data}")
+            logging.getLogger('communication').info(f"Received WebSocket message: {data}")
         except json.JSONDecodeError:
-            logging.warning(f"Received non-JSON WebSocket message: {message}")
+            logging.getLogger('communication').warning(f"Received non-JSON WebSocket message: {message}")
             
     def on_error(self, ws, error):
-        logging.error(f"WebSocket error: {error}")
+        logging.getLogger('communication').error(f"WebSocket error: {error}")
         
     def on_close(self, ws, close_status_code, close_msg):
         self.connected = False
-        logging.info("WebSocket connection closed")
+        logging.getLogger('communication').info("WebSocket connection closed")
         
         # Attempt reconnection
         if self.reconnect_attempts < self.max_reconnect_attempts:
             self.reconnect_attempts += 1
-            logging.info(f"Attempting reconnection {self.reconnect_attempts}/{self.max_reconnect_attempts}")
+            logging.getLogger('communication').info(f"Attempting reconnection {self.reconnect_attempts}/{self.max_reconnect_attempts}")
             time.sleep(self.reconnect_delay)
             self.connect()
             
@@ -72,7 +72,7 @@ class WebSocketClient:
                 self.ws.send(json.dumps(metadata))
                 return True
             except Exception as e:
-                logging.error(f"Failed to send metadata: {e}")
+                logging.getLogger('communication').error(f"Failed to send metadata: {e}")
                 return False
         return False
         

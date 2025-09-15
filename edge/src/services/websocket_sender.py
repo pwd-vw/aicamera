@@ -37,7 +37,8 @@ from edge.src.core.config import (
     AICAMERA_ID, CHECKPOINT_ID
 )
 
-logger = get_logger(__name__)
+# Use dedicated communication logger to write into edge/logs/unified_comm.log
+logger = logging.getLogger('communication')
 
 
 class WebSocketSender:
