@@ -79,9 +79,25 @@ def setup_logging(
     # Add console handler
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setFormatter(console_formatter)
-    console_handler.setLevel(logging.INFO)  # Console shows INFO and above
+    # Console: แสดงเฉพาะ WARNING/ERROR เป็นค่าปริยาย เพื่อลด noise
+    console_handler.setLevel(logging.WARNING)
     root_logger.addHandler(console_handler)
     
+    # Custom filter: allow INFO in file only for start/stop events; always allow WARNING/ERROR
+    class StartStopInfoFilter(logging.Filter):
+        KEYWORDS = (
+            'Initialized', 'Initializing', 'Started', 'Starting',
+            'Stopped', 'Stopping', 'Shutting down', 'Shutdown',
+            'Start', 'Stop'
+        )
+        def filter(self, record: logging.LogRecord) -> bool:
+            if record.levelno >= logging.WARNING:
+                return True
+            if record.levelno == logging.INFO:
+                msg = str(record.getMessage())
+                return any(kw in msg for kw in self.KEYWORDS)
+            return False  # drop DEBUG and other INFO
+
     # Add file handler with daily rotation at 00:01
     try:
         file_handler = TimedRotatingFileHandler(
@@ -93,7 +109,9 @@ def setup_logging(
             atTime=datetime.strptime('00:01', '%H:%M').time()  # Rotate at 00:01
         )
         file_handler.setFormatter(detailed_formatter)
-        file_handler.setLevel(numeric_level)  # File gets all levels
+        # File logs: WARNING/ERROR by default; allow limited INFO via filter
+        file_handler.setLevel(logging.INFO)
+        file_handler.addFilter(StartStopInfoFilter())
         root_logger.addHandler(file_handler)
         
         # Start background thread for log rotation management
@@ -111,7 +129,8 @@ def setup_logging(
     logging.getLogger('werkzeug').setLevel(logging.WARNING)
     
     # Log initial message to verify logging is working
-    root_logger.info(f"Logging initialized - Level: {level}, Rotation: Daily at 00:01")
+    # ข้อความเริ่มต้นยังคงถูกบันทึก (เข้าข่าย start event)
+    root_logger.info("Application Initialized")  # รายงานเริ่มทำงาน
     
     return root_logger
 
