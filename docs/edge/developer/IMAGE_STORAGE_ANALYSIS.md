@@ -1,41 +1,43 @@
-# AI Camera v2.0 - Image Storage Analysis Report
+# AI Camera v2.0 - รายงานวิเคราะห์การจัดเก็บรูปภาพ (Image Storage Analysis)
 
-**Version:** 2.0.0  
-**Date:** 2025-09-12  
-**Author:** AI Camera Team  
-**Category:** System Analysis  
-**Status:** Complete
+**เวอร์ชัน:** 2.0.0  
+**วันที่:** 2025-09-12  
+**ผู้เขียน:** AI Camera Team  
+**หมวดหมู่:** System Analysis  
+**สถานะ:** เสร็จสมบูรณ์
 
 ## Executive Summary
 
-This report analyzes the current image storage implementation across all components to verify optimal disk usage and proper handling of detection results with bounding box data for visualization.
+เอกสารนี้วิเคราะห์การทำงานของระบบจัดเก็บรูปภาพในทุกองค์ประกอบ เพื่อยืนยันการใช้พื้นที่ดิสก์อย่างมีประสิทธิภาพ และการจัดเก็บข้อมูลผลการตรวจจับ (bounding boxes) เพื่อใช้วาดทับแบบไดนามิก นอกจากนี้ยังอธิบายความร่วมมือกับระบบหมุนเวียนไฟล์ log ภายใน (internal log rotation) เพื่อให้ระบบทำงานระยะยาวบนอุปกรณ์ edge ที่ทรัพยากรจำกัดได้อย่างเสถียร
 
-## 🎯 Key Findings
+## 🎯 ข้อค้นพบหลัก (Key Findings)
 
-### ✅ **Optimal Disk Usage Implementation**
-- **Single Image Storage**: Only original images are saved (no annotated/cropped duplicates)
-- **Dynamic Visualization**: Bounding boxes are drawn dynamically from stored detection data
-- **Storage Optimization**: 85% JPEG quality for reduced file sizes
-- **Efficient Schema**: Database stores detection coordinates for on-demand visualization
+### ✅ การใช้พื้นที่จัดเก็บอย่างเหมาะสม
+- เก็บเฉพาะ “ภาพต้นฉบับ” เท่านั้น (ไม่สร้างภาพ annotated/cropped ซ้ำ)
+- วาดกรอบ (bounding boxes) แบบไดนามิกจากข้อมูลที่บันทึกไว้
+- ปรับลดขนาดไฟล์ด้วย JPEG คุณภาพ 85%
+- สคีมาฐานข้อมูลเก็บพิกัดเพื่อการวาดตามต้องการ (on‑demand)
+- มี “การกำกับดูแลพื้นที่” (Space Governance) โดย Storage Manager ตาม threshold + retention + batch cleanup
 
-### ✅ **Proper Data Flow**
-- **Detection Processor**: Saves only original image, returns empty strings for other paths
-- **Database Manager**: Stores detection coordinates as JSON for visualization
-- **WebSocket Sender**: Handles missing image paths gracefully
-- **Health Monitor**: Monitors storage without image path dependencies
+### ✅ เส้นทางข้อมูลถูกต้อง
+- Detection Processor บันทึกเฉพาะภาพต้นฉบับ และคืนค่าว่างสำหรับพาธอื่น ๆ
+- Database Manager เก็บพิกัดกรอบเป็น JSON เพื่อวาดทับ
+- WebSocket Sender จัดการกรณีไม่มี image path ได้อย่างราบรื่น
+- Health Monitor เฝ้าระวังพื้นที่โดยไม่พึ่งพา image path
+- เส้นทางบันทึกรูปภาพเชื่อมกับ Storage Manager: ตรวจพื้นที่ว่างก่อน และสามารถสั่ง cleanup ก่อนบันทึกได้
 
-## 📊 Component Analysis
+## 📊 การวิเคราะห์ตามองค์ประกอบ (Component Analysis)
 
 ### 1. Detection Processor (`detection_processor.py`)
 
-**Current Implementation:**
+**การทำงานปัจจุบัน:**
 ```python
 def save_detection_results(self, original_frame, vehicle_boxes, plate_boxes, ocr_results):
-    # ✅ Saves ONLY original image
+    # ✅ บันทึกเฉพาะภาพต้นฉบับ
     original_path = f"detection_{timestamp}.jpg"
     cv2.imwrite(original_path, frame_to_save)
     
-    # ✅ Returns empty strings for other paths (optimized)
+    # ✅ คืนค่าว่างสำหรับพาธอื่น ๆ (optimized)
     vehicle_detected_path = ""
     plate_detected_path = ""
     cropped_paths = []
@@ -43,299 +45,310 @@ def save_detection_results(self, original_frame, vehicle_boxes, plate_boxes, ocr
     return original_path, vehicle_detected_path, plate_detected_path, cropped_paths
 ```
 
-**Optimization Features:**
-- ✅ **Single Image Storage**: Only original frame saved
-- ✅ **85% JPEG Quality**: Storage optimization enabled
-- ✅ **Dynamic Bounding Boxes**: Detection coordinates stored for visualization
-- ✅ **Performance Focus**: No duplicate image generation
+**คุณสมบัติด้านประสิทธิภาพ:**
+- ✅ เก็บภาพเดียว (ต้นฉบับ)
+- ✅ JPEG คุณภาพ 85% ลดขนาดไฟล์
+- ✅ วาดกรอบจากพิกัดที่เก็บไว้
+- ✅ เน้นประสิทธิภาพ ไม่สร้างไฟล์ซ้ำซ้อน
 
 ### 2. Database Manager (`database_manager.py`)
 
-**Current Schema:**
+**สคีมาปัจจุบัน:**
 ```sql
 CREATE TABLE detection_results (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     timestamp TEXT NOT NULL,
     vehicles_count INTEGER DEFAULT 0,
     plates_count INTEGER DEFAULT 0,
-    ocr_results TEXT,                    -- JSON: OCR text and confidence
-    original_image_path TEXT,            -- ✅ Only original image path
-    vehicle_detected_image_path TEXT,    -- ❌ Legacy column (unused)
-    plate_image_path TEXT,               -- ❌ Legacy column (unused)
-    cropped_plates_paths TEXT,           -- ❌ Legacy column (unused)
-    vehicle_detections TEXT,             -- ✅ JSON: Vehicle bounding boxes
-    plate_detections TEXT,               -- ✅ JSON: Plate bounding boxes
+    ocr_results TEXT,                    -- JSON: ข้อความ OCR และความมั่นใจ
+    original_image_path TEXT,            -- ✅ เก็บเฉพาะพาธภาพต้นฉบับ
+    vehicle_detected_image_path TEXT,    -- ❌ คอลัมน์เดิม (ไม่ได้ใช้)
+    plate_image_path TEXT,               -- ❌ คอลัมน์เดิม (ไม่ได้ใช้)
+    cropped_plates_paths TEXT,           -- ❌ คอลัมน์เดิม (ไม่ได้ใช้)
+    vehicle_detections TEXT,             -- ✅ JSON: พิกัดกรอบรถ
+    plate_detections TEXT,               -- ✅ JSON: พิกัดกรอบป้ายทะเบียน
     processing_time_ms REAL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     sent_to_server BOOLEAN DEFAULT 0,
     sent_at DATETIME,
     server_response TEXT
-)
+);
 ```
 
-**Data Storage Pattern:**
+**รูปแบบการเก็บข้อมูล:**
 ```python
-# ✅ Stores detection coordinates for visualization
+# ✅ เก็บพิกัดกรอบเพื่อการวาดทับ
 vehicle_detections_json = json.dumps(detection_data.get('vehicle_detections', []))
 plate_detections_json = json.dumps(detection_data.get('plate_detections', []))
 
-# ✅ Only stores original image path
+# ✅ เก็บเฉพาะพาธภาพต้นฉบับ
 original_image_path = detection_data.get('original_image_path', '')
 ```
 
-**Issues Found:**
-- ❌ **Legacy Columns**: `vehicle_detected_image_path`, `plate_image_path`, `cropped_plates_paths` exist but unused
-- ✅ **Fixed Query**: `get_unsent_detection_results()` now uses `original_image_path`
+**ประเด็นพบ:**
+- ❌ มีคอลัมน์เดิมที่ไม่ได้ใช้: `vehicle_detected_image_path`, `plate_image_path`, `cropped_plates_paths`
+- ✅ แก้ไข query `get_unsent_detection_results()` ให้ใช้ `original_image_path`
 
 ### 3. Detection Manager (`detection_manager.py`)
 
-**Current Implementation:**
+**การทำงานปัจจุบัน:**
 ```python
 def process_frame(self, frame):
-    # ✅ Calls detection processor
+    # ✅ เรียก detection processor
     original_path, vehicle_detected_path, plate_detected_path, cropped_paths = \
         self.detection_processor.save_detection_results(...)
     
-    # ✅ Creates detection record with only original image path
+    # ✅ สร้างระเบียนผลตรวจจับที่บันทึกเฉพาะภาพต้นฉบับ
     detection_record = {
         'timestamp': datetime.now().isoformat(),
         'vehicles_count': len(vehicle_boxes),
         'plates_count': len(plate_boxes),
         'ocr_results': ocr_results,
         'original_image_path': f"captured_images/{os.path.basename(original_path)}",
-        'vehicle_detections': vehicle_boxes,  # ✅ Bounding box coordinates
-        'plate_detections': plate_boxes,      # ✅ Bounding box coordinates
+        'vehicle_detections': vehicle_boxes,  # ✅ พิกัดกรอบรถ
+        'plate_detections': plate_boxes,      # ✅ พิกัดกรอบป้ายทะเบียน
         'processing_time_ms': processing_time * 1000.0
     }
 ```
 
-**Optimization Features:**
-- ✅ **Single Image Path**: Only stores original image path
-- ✅ **Bounding Box Data**: Stores detection coordinates for visualization
-- ✅ **Efficient Storage**: No duplicate image paths
+**คุณสมบัติด้านประสิทธิภาพ:**
+- ✅ เก็บพาธเดียว (ต้นฉบับ)
+- ✅ เก็บพิกัดสำหรับวาดทับ
+- ✅ ไม่มีพาธภาพซ้ำซ้อน
 
 ### 4. WebSocket Sender (`websocket_sender.py`)
 
-**Current Implementation:**
+**การทำงานปัจจุบัน:**
 ```python
 def _send_single_detection_sync(self, detection):
-    # ✅ Handles missing image paths gracefully
-    if detection['annotated_image_path']:  # Usually empty string
+    # ✅ จัดการกรณีไม่มีพาธรูปได้ดี
+    if detection['annotated_image_path']:  # มักเป็นสตริงว่าง
         image_path = Path(detection['annotated_image_path'])
         if image_path.exists():
-            # Process image data
+            # ประมวลผลข้อมูลรูป
             data['annotated_image'] = image_data
     
-    # ✅ Sends detection coordinates for visualization
+    # ✅ ส่งพิกัดกรอบสำหรับวาดทับฝั่งเซิร์ฟเวอร์
     data = {
-        'vehicle_detections': detection['vehicle_detections'],  # Bounding boxes
-        'plate_detections': detection['plate_detections'],      # Bounding boxes
+        'vehicle_detections': detection['vehicle_detections'],
+        'plate_detections': detection['plate_detections'],
         'ocr_results': detection['ocr_results']
     }
 ```
 
-**Optimization Features:**
-- ✅ **Graceful Handling**: Handles empty image paths without errors
-- ✅ **Coordinate Data**: Sends bounding box coordinates for server-side visualization
-- ✅ **Efficient Transfer**: No unnecessary image data transfer
+**คุณสมบัติด้านประสิทธิภาพ:**
+- ✅ ไม่ล้มแม้ไม่มีพาธภาพ
+- ✅ ส่งเฉพาะพิกัด (ลดข้อมูลภาพ)
+- ✅ ลดปริมาณข้อมูลที่โอนย้าย
 
 ### 5. Health Monitor (`health_monitor.py`)
 
-**Current Implementation:**
+**การทำงานปัจจุบัน:**
 ```python
 def check_database_connection(self):
-    # ✅ Tests database connectivity without image path dependencies
+    # ✅ ทดสอบการเชื่อมต่อฐานข้อมูลโดยไม่ต้องอ้างอิง image path
     cursor.execute("SELECT 1")
     result = cursor.fetchone()
     
-    # ✅ Gets database info without image path queries
+    # ✅ ดึงข้อมูลฐานข้อมูลโดยไม่พึ่ง image path
     cursor.execute("PRAGMA database_list")
     db_info = cursor.fetchall()
 ```
 
-**Optimization Features:**
-- ✅ **No Image Dependencies**: Health checks don't rely on image paths
-- ✅ **Storage Monitoring**: Monitors disk usage without image path queries
-- ✅ **Efficient Checks**: Simple database connectivity tests
+**คุณสมบัติด้านประสิทธิภาพ:**
+- ✅ ไม่ขึ้นกับพาธภาพ
+- ✅ ตรวจสอบพื้นที่จัดเก็บได้อย่างเบาเครื่อง
+- ✅ ตรวจสุขภาพระบบแบบกระชับ
 
-## 🔧 Issues and Recommendations
+## 🔧 ประเด็นและข้อเสนอแนะ (Issues and Recommendations)
 
-### 1. Database Schema Cleanup
+### 1. ทำความสะอาดสคีมาฐานข้อมูล
 
-**Issue**: Legacy columns exist but are unused
+**ปัญหา**: มีคอลัมน์เดิมที่ไม่ได้ใช้
 ```sql
--- ❌ Unused columns taking up space
+-- ❌ คอลัมน์ที่ไม่ได้ใช้
 vehicle_detected_image_path TEXT,
 plate_image_path TEXT,
 cropped_plates_paths TEXT,
 ```
 
-**Recommendation**: Remove unused columns in next major version
+**ข้อเสนอแนะ**: ลบคอลัมน์ที่ไม่ได้ใช้ในรุ่นใหญ่ถัดไป
 ```sql
--- ✅ Clean schema
+-- ✅ สคีมาที่สะอาด
 CREATE TABLE detection_results (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     timestamp TEXT NOT NULL,
     vehicles_count INTEGER DEFAULT 0,
     plates_count INTEGER DEFAULT 0,
     ocr_results TEXT,
-    original_image_path TEXT,        -- Only image path needed
-    vehicle_detections TEXT,         -- Bounding box coordinates
-    plate_detections TEXT,           -- Bounding box coordinates
+    original_image_path TEXT,        -- เก็บเฉพาะพาธภาพต้นฉบับ
+    vehicle_detections TEXT,         -- พิกัดกรอบรถ
+    plate_detections TEXT,           -- พิกัดกรอบป้ายทะเบียน
     processing_time_ms REAL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     sent_to_server BOOLEAN DEFAULT 0,
     sent_at DATETIME,
     server_response TEXT
-)
+);
 ```
 
-### 2. WebSocket Sender Optimization
+### 2. ปรับปรุง WebSocket Sender
 
-**Current Issue**: Checks for non-existent `annotated_image_path`
+**ปัญหาปัจจุบัน**: เช็ค `annotated_image_path` ที่ไม่มีอยู่จริง
 ```python
-# ❌ Always empty string, unnecessary check
+# ❌ มักเป็นสตริงว่าง จึงไม่จำเป็น
 if detection['annotated_image_path']:
 ```
 
-**Recommendation**: Use `original_image_path` for image data
+**ข้อเสนอแนะ**: ใช้ `original_image_path` แทน
 ```python
-# ✅ Use actual image path
+# ✅ ใช้พาธที่มีจริง
 if detection.get('original_image_path'):
     image_path = Path(detection['original_image_path'])
     if image_path.exists():
-        # Process original image
+        # ประมวลผลภาพต้นฉบับ
 ```
 
-## 📈 Performance Metrics
+### 3. บูรณาการ “การกำกับดูแลพื้นที่” (Space Governance)
 
-### Disk Usage Optimization
+**ปัญหา**: มีความเสี่ยงพื้นที่เต็มในช่วงโหลดสูง หากการทำความสะอาดล่าช้า
 
-| Component | Before | After | Improvement |
+**ข้อเสนอแนะ**:
+- เรียก `storage_manager.check_space_before_save()` ในเส้นทางบันทึก และ trigger cleanup เมื่อพื้นที่ต่ำกว่า threshold
+- จำกัดอัตราการบันทึกต่อวินาทีเมื่อ overload เพื่อลด I/O (option)
+- ใช้โฟลเดอร์ตามวันที่ (YYYY/MM/DD) เพื่อให้สแกนไฟล์เร็วขึ้น (option)
+- ใช้ `.jpg` คุณภาพ 80–85 เลี่ยง PNG สำหรับเฟรมกล้อง
+
+## 📈 ตัวชี้วัดประสิทธิภาพ (Performance Metrics)
+
+### การใช้พื้นที่ดิสก์
+
+| องค์ประกอบ | ก่อน | หลัง | ปรับปรุง |
 |-----------|--------|-------|-------------|
-| **Image Storage** | 3 images per detection | 1 image per detection | **66% reduction** |
-| **File Size** | 100% quality | 85% quality | **15% reduction** |
-| **Database Size** | Multiple image paths | Single image path | **50% reduction** |
-| **Network Transfer** | Image + coordinates | Coordinates only | **90% reduction** |
+| **การเก็บรูป** | 3 รูป/การตรวจจับ | 1 รูป/การตรวจจับ | **ลด 66%** |
+| **ขนาดไฟล์** | คุณภาพ 100% | คุณภาพ 85% | **ลด ~15%** |
+| **ขนาดฐานข้อมูล** | หลายพาธรูป | พาธเดียว | **ลด ~50%** |
+| **ข้อมูลเครือข่าย** | รูป + พิกัด | พิกัดเท่านั้น | **ลด ~90%** |
 
-### Storage Efficiency
+### ประสิทธิภาพการจัดเก็บ
 
-| Metric | Value | Status |
+| ตัวชี้วัด | ค่า | สถานะ |
 |--------|-------|--------|
-| **Images per Detection** | 1 (original only) | ✅ Optimal |
-| **Bounding Box Storage** | JSON coordinates | ✅ Efficient |
-| **Visualization Method** | Dynamic drawing | ✅ Performance |
-| **Disk Usage** | 85% JPEG quality | ✅ Optimized |
+| **จำนวนรูปต่อการตรวจจับ** | 1 (เฉพาะต้นฉบับ) | ✅ เหมาะสม |
+| **การเก็บพิกัดกรอบ** | JSON coordinates | ✅ มีประสิทธิภาพ |
+| **วิธีการแสดงผล** | วาดทับแบบไดนามิก | ✅ ดี |
+| **การใช้ดิสก์** | JPEG 85% | ✅ ปรับเหมาะสม |
+| **การกำกับดูแลพื้นที่** | Threshold + retention + batch cleanup | ✅ ปกป้องระบบ |
 
-## 🎯 Verification Results
+## 🎯 ผลการยืนยัน (Verification Results)
 
-### ✅ **Database Manager**
-- **Image Path Storage**: ✅ Only `original_image_path` used
-- **Detection Data**: ✅ Bounding box coordinates stored as JSON
-- **Query Optimization**: ✅ Fixed `get_unsent_detection_results()` query
-- **Schema Efficiency**: ⚠️ Legacy columns present but unused
+### ✅ Database Manager
+- ใช้ `original_image_path` เท่านั้น
+- เก็บพิกัดกรอบเป็น JSON
+- แก้ query `get_unsent_detection_results()` แล้ว
+- มีคอลัมน์เดิมคงค้าง (วางแผนลบภายหลัง)
 
-### ✅ **Detection Manager**
-- **Image Processing**: ✅ Only original image saved
-- **Data Flow**: ✅ Proper detection record creation
-- **Storage Optimization**: ✅ Single image path storage
-- **Bounding Box Data**: ✅ Coordinates stored for visualization
+### ✅ Detection Manager
+- บันทึกเฉพาะภาพต้นฉบับ
+- สร้างระเบียนผลตรวจจับถูกต้อง
+- เก็บพาธภาพเดียว
+- เก็บพิกัดสำหรับวาดทับ
+- ✅ Trigger cleanup เมื่อพื้นที่ต่ำกว่า threshold
 
-### ✅ **Detection Processor**
-- **Image Saving**: ✅ Only original frame saved
-- **Path Returns**: ✅ Empty strings for unused paths
-- **Storage Quality**: ✅ 85% JPEG quality optimization
-- **Performance**: ✅ No duplicate image generation
+### ✅ Detection Processor
+- บันทึกเฉพาะภาพต้นฉบับ
+- คืนค่าว่างสำหรับพาธที่ไม่ใช้
+- JPEG 85%
+- ไม่สร้างไฟล์ซ้ำซ้อน
 
-### ✅ **WebSocket Sender**
-- **Image Handling**: ✅ Graceful handling of empty paths
-- **Data Transfer**: ✅ Sends bounding box coordinates
-- **Error Prevention**: ✅ No crashes on missing images
-- **Efficiency**: ✅ Minimal data transfer
+### ✅ WebSocket Sender
+- จัดการกรณีพาธว่างได้ดี
+- ส่งเฉพาะพิกัด
+- ไม่เกิดข้อผิดพลาดจากรูปหาย
+- ปริมาณข้อมูลต่ำ
 
-### ✅ **Health Monitor**
-- **Database Checks**: ✅ No image path dependencies
-- **Storage Monitoring**: ✅ Efficient disk usage monitoring
-- **Health Status**: ✅ Proper component health tracking
-- **Performance**: ✅ Lightweight health checks
+### ✅ Health Monitor
+- ไม่พึ่งพา image path
+- เฝ้าระวังพื้นที่อย่างมีประสิทธิภาพ
+- ตรวจสุขภาพระบบแบบเบาเครื่อง
 
-## 🚀 Recommendations
+## 🚀 ข้อเสนอแนะ (Recommendations)
 
-### Immediate Actions (High Priority)
+### งานเร่งด่วน (สูง)
 
-1. **Update WebSocket Sender**:
+1. ปรับ WebSocket Sender:
    ```python
-   # Use original_image_path instead of annotated_image_path
+   # ใช้ original_image_path แทน annotated_image_path
    if detection.get('original_image_path'):
        image_path = Path(detection['original_image_path'])
    ```
 
-2. **Database Query Optimization**:
+2. ปรับปรุง Query ฐานข้อมูล:
    ```python
-   # Remove references to unused columns
-   # Already fixed in get_unsent_detection_results()
+   # ตัดการอ้างอิงคอลัมน์ที่ไม่ได้ใช้
+   # (แก้ใน get_unsent_detection_results() แล้ว)
    ```
 
-### Future Improvements (Medium Priority)
+### งานระยะกลาง
 
-1. **Database Schema Cleanup**:
-   - Remove unused columns in next major version
-   - Add migration script for existing databases
+1. ทำความสะอาดสคีมาฐานข้อมูล:
+   - ลบคอลัมน์ที่ไม่ได้ใช้ในรุ่นใหญ่ถัดไป
+   - จัดทำสคริปต์ migration
 
-2. **Enhanced Visualization**:
-   - Add image overlay generation on-demand
-   - Implement caching for frequently accessed images
+2. เสริมการแสดงผล:
+   - สร้างภาพ overlay แบบ on‑demand
+   - แคชภาพที่เรียกบ่อย
 
-### Long-term Optimizations (Low Priority)
+### งานระยะยาว
 
-1. **Advanced Storage**:
-   - Implement image compression algorithms
-   - Add image deduplication for similar frames
+1. ปรับปรุงการจัดเก็บขั้นสูง:
+   - อัลกอริทึมบีบอัดรูปขั้นสูง
+   - ลดซ้ำภาพ (deduplication)
 
-2. **Performance Monitoring**:
-   - Add storage usage metrics
-   - Implement automatic cleanup policies
+2. เฝ้าระวังสมรรถนะ:
+   - เพิ่มเมตริกการใช้พื้นที่
+   - นโยบาย cleanup อัตโนมัติ
 
 ## 📋 Compliance Checklist
 
-### ✅ **Disk Usage Optimization**
-- [x] Single image storage per detection
-- [x] 85% JPEG quality compression
-- [x] No duplicate image generation
-- [x] Efficient database schema
+### ✅ การใช้พื้นที่ดิสก์
+- [x] รูปเดียวต่อการตรวจจับ
+- [x] JPEG 85%
+- [x] ไม่สร้างภาพซ้ำซ้อน
+- [x] สคีมาฐานข้อมูลมีประสิทธิภาพ
 
-### ✅ **Visualization Support**
-- [x] Bounding box coordinates stored
-- [x] Dynamic visualization capability
-- [x] OCR results preserved
-- [x] Detection metadata maintained
+### ✅ สนับสนุนการแสดงผล
+- [x] เก็บพิกัดกรอบ
+- [x] วาดทับแบบไดนามิก
+- [x] เก็บผล OCR
+- [x] เก็บ metadata ตรวจจับ
 
-### ✅ **Component Integration**
+### ✅ การบูรณาการองค์ประกอบ
 - [x] Database manager optimized
 - [x] Detection manager efficient
 - [x] WebSocket sender compatible
 - [x] Health monitor independent
 
-### ✅ **Error Handling**
-- [x] Graceful handling of missing images
-- [x] Proper error logging
-- [x] Fallback mechanisms
-- [x] Database query fixes
+### ✅ การจัดการข้อผิดพลาด
+- [x] จัดการกรณีไม่มีภาพอย่างราบรื่น
+- [x] บันทึกข้อผิดพลาดอย่างเหมาะสม
+- [x] มี fallback
+- [x] แก้ query ที่เกี่ยวข้องแล้ว
 
-## 🎉 Conclusion
+## 🎉 สรุป
 
-The AI Camera v2.0 system successfully implements optimal disk usage with:
+ระบบ AI Camera v2.0 จัดเก็บรูปภาพอย่างมีประสิทธิภาพด้วย:
 
-- **66% reduction** in image storage (1 vs 3 images per detection)
-- **Dynamic visualization** using stored bounding box coordinates
-- **Efficient data flow** across all components
-- **Proper error handling** for missing image paths
-- **Storage optimization** with 85% JPEG quality
+- ลดการใช้พื้นที่ได้ **66%** (เก็บ 1 รูปแทน 3 รูป)
+- แสดงผลแบบไดนามิกจากพิกัดที่เก็บไว้
+- เส้นทางข้อมูลมีประสิทธิภาพ
+- จัดการข้อผิดพลาดจากรูปหายได้ถูกต้อง
+- ปรับปรุงขนาดไฟล์ด้วย JPEG 85%
 
-The system is **production-ready** with excellent disk usage efficiency and full visualization support through stored detection coordinates.
+ระบบพร้อมใช้งานจริง (production‑ready) ด้วยประสิทธิภาพการใช้พื้นที่ที่ยอดเยี่ยม และรองรับการแสดงผลด้วยพิกัดที่บันทึกไว้ครบถ้วน
 
 ---
 
-**Last Updated**: 2025-09-12  
-**Next Review**: 2025-12-12  
-**Maintainer**: AI Camera Team
+**อัปเดตล่าสุด**: 2025-09-12  
+**ทบทวนถัดไป**: 2025-12-12  
+**ผู้ดูแลเอกสาร**: AI Camera Team

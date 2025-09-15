@@ -1,34 +1,40 @@
-# AI Camera Internal Log Rotation Configuration
+# การกำหนดค่าหมุนเวียนไฟล์ Log ภายใน (AI Camera Internal Log Rotation)
 
-## Overview
+## ภาพรวม (Overview)
 
-This document describes the internal log rotation setup for AI Camera application logs. The system uses Python's built-in logging rotation mechanisms to automatically rotate log files daily at 00:01 and maintains a 3-day retention policy to prevent disk space issues.
+เอกสารนี้อธิบายการตั้งค่าการหมุนเวียนไฟล์ log (log rotation) ภายในของระบบ AI Camera โดยใช้กลไกการหมุนเวียนของ Python เอง ระบบจะหมุนไฟล์ log อัตโนมัติทุกวันเวลา 00:01 และเก็บสำเนาสำรองไว้ 3 วัน เพื่อลดความเสี่ยงพื้นที่ดิสก์เต็ม นอกจากนี้ ชั้นการบันทึก log ของแอปยังลด noise ด้วยการจำกัดอัตรา (rate‑limit) และบันทึกเฉพาะเมื่อสถานะมีการเปลี่ยนแปลง (state‑change) เพื่อให้ระบบทำงานได้เบาเครื่อง
 
-## Log Files Managed
+## ไฟล์ Log ที่ดูแล (Log Files Managed)
 
-The following log files are automatically rotated using internal Python logging:
+ไฟล์ต่อไปนี้ถูกหมุนเวียนโดยระบบบันทึก log ภายในของ Python:
 
-1. **aicamera.log** - Main application logs (via `logging_config.py`)
-2. **gunicorn_access.log** - Gunicorn web server access logs (via `setup_gunicorn_log_rotation.py`)
-3. **gunicorn_error.log** - Gunicorn web server error logs (via `setup_gunicorn_log_rotation.py`)
-4. **hailort.log** - HailoRT runtime logs (via `hailort_logging.py`)
+1. **aicamera.log** - Log หลักของแอปพลิเคชัน (ดู `logging_config.py`)
+2. **gunicorn_access.log** - Log การเข้าถึงของเว็บเซิร์ฟเวอร์ Gunicorn (ดู `setup_gunicorn_log_rotation.py`)
+3. **gunicorn_error.log** - Log ข้อผิดพลาดของ Gunicorn (ดู `setup_gunicorn_log_rotation.py`)
+4. **hailort.log** - Log ของ HailoRT runtime (ดู `hailort_logging.py`)
 
-## Configuration Details
+## รายละเอียดการกำหนดค่า (Configuration Details)
 
-### Rotation Schedule
-- **Frequency**: Daily at 00:01 (midnight + 1 minute)
-- **Retention**: 3 days of backups
-- **Method**: Python TimedRotatingFileHandler
-- **Archive Location**: Same directory with `.1`, `.2`, `.3` suffixes
+### ตารางการหมุนเวียน (Rotation Schedule)
+- **ความถี่**: ทุกวันเวลา 00:01 (เที่ยงคืน + 1 นาที)
+- **ระยะเก็บสำรอง**: 3 วัน
+- **วิธีการ**: Python `TimedRotatingFileHandler`
+- **ที่เก็บสำรอง**: ไดเรกทอรีเดียวกัน ต่อท้ายด้วย `.1`, `.2`, `.3`
+- **ลด Noise**: ใช้ `RateLimitedLogger` และสรุปแบบเป็นช่วง ๆ (periodic summaries)
 
-### Internal Configuration
+### ตำแหน่งไฟล์การตั้งค่าภายใน (Internal Configuration)
 - **Main Logs**: `edge/src/core/utils/logging_config.py`
 - **Gunicorn Logs**: `edge/scripts/setup_gunicorn_log_rotation.py`
 - **HailoRT Logs**: `edge/config/hailort_logging.py`
 
-## Manual Commands
+### การเพิ่มประสิทธิภาพการ Log ของแอป (Application Log Optimizations)
+- จำกัดอัตราการบันทึกข้อความซ้ำ (rate‑limited info/warning/error)
+- บันทึกเฉพาะเมื่อสถานะเปลี่ยน (state‑change‑only)
+- รายงานสถิติเป็นระยะ (เช่น ทุก 30 วินาที) แทนการบันทึกทุก iteration
 
-### Test Logging System
+## คำสั่งใช้งาน (Manual Commands)
+
+### ทดสอบระบบบันทึก Log หลัก (Test Logging System)
 ```bash
 cd /home/camuser/aicamera
 python3 -c "
@@ -40,7 +46,7 @@ logger.info('Testing internal log rotation system')
 "
 ```
 
-### Test HailoRT Logging
+### ทดสอบ HailoRT Logging
 ```bash
 cd /home/camuser/aicamera
 python3 -c "
@@ -51,90 +57,95 @@ configure_hailort_logging()
 "
 ```
 
-### Test Gunicorn Log Rotation
+### ทดสอบ Gunicorn Log Rotation
 ```bash
 cd /home/camuser/aicamera/edge
 python3 scripts/setup_gunicorn_log_rotation.py
 ```
 
-## File Structure
+## โครงสร้างไฟล์ (File Structure)
 
 ```
 /home/camuser/aicamera/edge/logs/
-├── aicamera.log                    # Current main log
-├── aicamera.log.1                 # Yesterday's log
-├── aicamera.log.2                 # Day before yesterday
-├── aicamera.log.3                 # 3 days ago
-├── gunicorn_access.log            # Current access log
-├── gunicorn_access.log.1          # Yesterday's access log
-├── gunicorn_error.log             # Current error log
-├── gunicorn_error.log.1           # Yesterday's error log
-├── hailort.log                    # Current HailoRT log
-├── hailort.log.1                  # Yesterday's HailoRT log
-└── archive/                       # Archive directory (legacy)
+├── aicamera.log                    # Log หลักปัจจุบัน
+├── aicamera.log.1                 # ของเมื่อวาน
+├── aicamera.log.2                 # ย้อนหลัง 2 วัน
+├── aicamera.log.3                 # ย้อนหลัง 3 วัน
+├── gunicorn_access.log            # Access log ปัจจุบัน
+├── gunicorn_access.log.1          # Access log ของเมื่อวาน
+├── gunicorn_error.log             # Error log ปัจจุบัน
+├── gunicorn_error.log.1           # Error log ของเมื่อวาน
+├── hailort.log                    # HailoRT log ปัจจุบัน
+├── hailort.log.1                  # HailoRT log ของเมื่อวาน
+└── archive/                       # ไดเรกทอรีเก็บถาวร (legacy)
 ```
 
-## Monitoring
+## การติดตาม (Monitoring)
 
-### Check Log Sizes
+### ตรวจสอบขนาดไฟล์ Log
 ```bash
 ls -lh /home/camuser/aicamera/edge/logs/*.log
 ```
 
-### View Recent Log Entries
+### ดูบรรทัดล่าสุดของ Log
 ```bash
 tail -f /home/camuser/aicamera/edge/logs/aicamera.log
 tail -f /home/camuser/aicamera/edge/logs/gunicorn_error.log
 ```
 
-### Check Rotation Status
+### ตรวจสอบสถานะการหมุนเวียน (Rotation Status)
 ```bash
-# Check if rotation threads are running
+# ตรวจสอบว่ามีเธรด/โปรเซสเกี่ยวกับ rotation ทำงานหรือไม่
 ps aux | grep -i rotation
 ```
 
-## Troubleshooting
+### ประเมินการลด Noise ของ Log
+```bash
+grep -c "\[CAMERA\]" /home/camuser/aicamera/edge/logs/aicamera.log
+grep -c "summary:" /home/camuser/aicamera/edge/logs/aicamera.log
+```
 
-### Log Rotation Not Working
-1. Check if logging is initialized: Test with the manual commands above
-2. Check permissions: `ls -la /home/camuser/aicamera/edge/logs/`
-3. Check Python logging configuration: Verify `logging_config.py` is being imported
+## การแก้ปัญหา (Troubleshooting)
 
-### Large Log Files
-If log files are growing too large:
-1. Restart the application to trigger log rotation
-2. Manually clean up old files: `rm /home/camuser/aicamera/edge/logs/*.log.*`
+### หมุนเวียน Log ไม่ทำงาน
+1. ตรวจสอบว่ามีการ initialize ระบบ logging หรือไม่: ทดสอบด้วยคำสั่งด้านบน
+2. ตรวจสิทธิ์ไฟล์: `ls -la /home/camuser/aicamera/edge/logs/`
+3. ตรวจสอบการตั้งค่า Python logging: ไฟล์ `logging_config.py` ถูก import หรือไม่
 
-### Permission Issues
+### ไฟล์ Log ใหญ่มาก
+1. รีสตาร์ตแอปเพื่อกระตุ้นการหมุนเวียน
+2. ลบไฟล์สำรองเก่าแบบแมนนวล: `rm /home/camuser/aicamera/edge/logs/*.log.*`
+
+### ปัญหาสิทธิ์ (Permission Issues)
 ```bash
 sudo chown -R camuser:camuser /home/camuser/aicamera/edge/logs/
 sudo chmod 644 /home/camuser/aicamera/edge/logs/*.log
 ```
 
-## Configuration Files
+## ไฟล์การตั้งค่า (Configuration Files)
 
 ### Main Logging Config (`edge/src/core/utils/logging_config.py`)
 ```python
 file_handler = TimedRotatingFileHandler(
     filename=str(log_file),
-    when='midnight',        # Rotate at midnight
-    interval=1,             # Daily
-    backupCount=3,          # Keep 3 backups
+    when='midnight',        # หมุนเวียนตอนเที่ยงคืน
+    interval=1,             # รายวัน
+    backupCount=3,          # เก็บสำรอง 3 ชุด
     encoding='utf-8',
-    atTime=datetime.strptime('00:01', '%H:%M').time()  # Rotate at 00:01
+    atTime=datetime.strptime('00:01', '%H:%M').time()  # เวลา 00:01
 )
 ```
 
 ### HailoRT Logging Config (`edge/config/hailort_logging.py`)
 ```python
-# Sets environment variables for HailoRT logging
+# ตั้ง environment variables ให้ HailoRT เขียน log ไปยังโฟลเดอร์ logs
 os.environ["HAILORT_LOGGER_PATH"] = str(logs_dir)
 os.environ["HAILORT_LOG_FILE"] = str(log_file)
 ```
 
 ### Gunicorn Logging Config (`edge/scripts/setup_gunicorn_log_rotation.py`)
 ```python
-# Sets up TimedRotatingFileHandler for gunicorn logs
+# ตั้ง TimedRotatingFileHandler สำหรับ gunicorn logs
 access_handler = TimedRotatingFileHandler(
     filename=str(access_log_file),
     when='midnight',
@@ -144,39 +155,39 @@ access_handler = TimedRotatingFileHandler(
 )
 ```
 
-## Integration with Application
+## การผสานรวมกับแอปพลิเคชัน (Integration with Application)
 
-The log rotation is integrated with the application through:
+การหมุนเวียน log ผสานรวมกับแอปดังนี้:
 
-1. **Python Logging**: Uses `TimedRotatingFileHandler` with daily rotation at 00:01
-2. **Background Threads**: Daemon threads manage log rotation and cleanup
-3. **HailoRT Logging**: Configured to write to the logs directory with rotation support
-4. **Gunicorn Logging**: Separate rotation handler for web server logs
+1. **Python Logging**: ใช้ `TimedRotatingFileHandler` หมุนเวียนรายวันเวลา 00:01
+2. **Background Threads**: เธรด daemon จัดการการหมุนเวียน/ล้างไฟล์เก่า
+3. **HailoRT Logging**: ตั้งค่าให้เขียนลงโฟลเดอร์ logs พร้อมรองรับการหมุนเวียน
+4. **Gunicorn Logging**: ตัวจัดการหมุนเวียนแยกต่างหากสำหรับเว็บเซิร์ฟเวอร์
 
-## Maintenance
+## การบำรุงรักษา (Maintenance)
 
-### Regular Maintenance
-- Monitor disk space usage
-- Check log file sizes weekly
-- Verify rotation is working monthly
+### งานบำรุงรักษาประจำ
+- เฝ้าระวังการใช้พื้นที่ดิสก์
+- ตรวจขนาดไฟล์ log รายสัปดาห์
+- ตรวจสอบการหมุนเวียนรายเดือน
 
-### Emergency Cleanup
-If disk space is critically low:
+### การล้างฉุกเฉิน (Emergency Cleanup)
+หากพื้นที่ดิสก์ใกล้เต็ม:
 ```bash
-# Emergency cleanup - removes all rotated logs
+# ลบไฟล์หมุนเวียนทั้งหมด
 rm /home/camuser/aicamera/edge/logs/*.log.*
 rm -rf /home/camuser/aicamera/edge/logs/archive/
 ```
 
-## Version History
+## ประวัติรุ่น (Version History)
 
-- **v2.0** (2025-09-12): Internal log rotation system
-  - Daily rotation at 00:01 using Python TimedRotatingFileHandler
-  - 3-day retention with automatic cleanup
-  - Background thread management
-  - Integration with all log types (aicamera, gunicorn, hailort)
+- **v2.0** (2025-09-12): ระบบหมุนเวียน log ภายใน
+  - หมุนเวียนรายวัน 00:01 ด้วย TimedRotatingFileHandler
+  - เก็บสำรอง 3 วัน พร้อมล้างอัตโนมัติ
+  - เธรดพื้นหลังจัดการหมุนเวียน
+  - ผสานกับ log ทุกประเภท (aicamera, gunicorn, hailort)
 
-- **v1.0** (2025-09-12): External logrotate system (reverted)
-  - Daily rotation at 2:00 AM using system logrotate
-  - Compression enabled
-  - Integration with Gunicorn and HailoRT logging
+- **v1.0** (2025-09-12): ระบบ logrotate ภายนอก (ยกเลิกใช้)
+  - หมุนเวียนทุกวัน 02:00 ด้วยระบบ logrotate
+  - เปิดการบีบอัดไฟล์
+  - ผสานกับ Gunicorn และ HailoRT logging
