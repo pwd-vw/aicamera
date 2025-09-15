@@ -417,22 +417,7 @@ class CameraEnhancementEngine:
         except Exception:
             return False
     
-    def _get_af_mode_name(self, mode: int) -> str:
-        """
-        Convert numeric AF mode to descriptive name.
-        
-        Args:
-            mode: Numeric AF mode (0, 1, 2)
-            
-        Returns:
-            str: Descriptive name of AF mode
-        """
-        af_modes = {
-            0: "Manual",
-            1: "Auto", 
-            2: "Continuous"
-        }
-        return af_modes.get(mode, f"Unknown({mode})")
+    
     
     def _apply_autofocus(self, current_fom: float) -> Optional[str]:
         """
@@ -556,6 +541,11 @@ class CameraHandler:
     _capture_thread = None
     _capture_running = False
     _capture_interval = 0.033  # 30 FPS
+
+    def _get_af_mode_name(self, mode: int) -> str:
+        """Convert numeric AF mode to descriptive name."""
+        af_modes = {0: "Manual", 1: "Auto", 2: "Continuous"}
+        return af_modes.get(mode, f"Unknown({mode})")
     
     @classmethod
     def get_instance(cls, *args, **kwargs):
@@ -709,13 +699,13 @@ class CameraHandler:
                 
                 try:
                     # Try H.264 encoder first (more efficient)
-                    if H264Encoder._hw_encoder_available:
-                        self.h264_encoder = H264Encoder(bitrate=1000000, quality=85)  # 1Mbps, quality 85
-                        self.h264_output = CircularOutput(size=10)
-                        self.h264_encoder.output = self.h264_output
-                        self.logger.info("Hardware H.264 encoder initialized successfully")
-                        self.primary_encoder = "h264"
-                    elif MJPEGEncoder._hw_encoder_available:
+                    #if H264Encoder._hw_encoder_available:
+                    #    self.h264_encoder = H264Encoder(bitrate=1000000, quality=85)  # 1Mbps, quality 85
+                    #    self.h264_output = CircularOutput(size=10)
+                    #    self.h264_encoder.output = self.h264_output
+                    #    self.logger.info("Hardware H.264 encoder initialized successfully")
+                    #    self.primary_encoder = "h264"
+                    if MJPEGEncoder._hw_encoder_available:
                         self.mjpeg_encoder = MJPEGEncoder(bitrate=2000000, quality=85)  # 2Mbps, quality 85
                         self.mjpeg_output = CircularOutput(size=10)
                         self.mjpeg_encoder.output = self.mjpeg_output
