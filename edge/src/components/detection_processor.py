@@ -367,7 +367,7 @@ class DetectionProcessor:
                 self.parallel_ocr_processor = None
             
             self.models_loaded = models_loaded >= 2  # At least vehicle + LP detection
-            self.logger.info(f"🔧 [DETECTION_PROC] Models loaded: {models_loaded}, Ready: {self.models_loaded}")
+            # self.logger.info(f"🔧 [DETECTION_PROC] Models loaded: {models_loaded}, Ready: {self.models_loaded}")  # INFO: ปิดรายละเอียด
             
             self.logger.info("🔧 [DETECTION_PROC] Model loading process completed successfully")
             return self.models_loaded
@@ -622,7 +622,7 @@ class DetectionProcessor:
         Returns:
             Optional[np.ndarray]: Enhanced frame or None if validation fails
         """
-        self.logger.debug(f"🔧 [DETECTION_PROCESSOR] validate_and_enhance_frame called with frame type: {type(frame)}")
+        # self.logger.debug(f"🔧 [DETECTION_PROCESSOR] validate_and_enhance_frame called with frame type: {type(frame)}")  # DEBUG: ปิดรายละเอียด
         
         if frame is None:
             self.logger.warning(f"🔧 [DETECTION_PROCESSOR] validate_and_enhance_frame failed: frame is None")
@@ -651,7 +651,7 @@ class DetectionProcessor:
             self.logger.warning(f"🔧 [DETECTION_PROCESSOR] validate_and_enhance_frame failed: empty array")
             return None
         
-        self.logger.debug(f"🔧 [DETECTION_PROCESSOR] validate_and_enhance_frame: frame shape: {frame.shape}, dtype: {frame.dtype}")
+        # self.logger.debug(f"🔧 [DETECTION_PROCESSOR] validate_and_enhance_frame: frame shape: {frame.shape}, dtype: {frame.dtype}")  # DEBUG: ปิดรายละเอียด
         
         try:
             # Ensure frame is in BGR format for detection models
@@ -695,7 +695,7 @@ class DetectionProcessor:
         Returns:
             List[Dict[str, Any]]: List of detected vehicle objects
         """
-        self.logger.debug(f"🔧 [DETECTION_PROCESSOR] detect_vehicles called with frame shape: {frame.shape if frame is not None else 'None'}")
+        # self.logger.debug(f"🔧 [DETECTION_PROCESSOR] detect_vehicles called with frame shape: {frame.shape if frame is not None else 'None'}")  # DEBUG: ปิดรายละเอียด
         
         if not self.models_loaded or not self.vehicle_model:
             self.rate_limited.warning_rate_limited(
@@ -759,7 +759,7 @@ class DetectionProcessor:
         Returns:
             List[Dict[str, Any]]: List of detected license plates
         """
-        self.logger.debug(f"🔧 [DETECTION_PROCESSOR] detect_license_plates called with frame shape: {frame.shape if frame is not None else 'None'}, vehicle_boxes: {len(vehicle_boxes)}")
+        # self.logger.debug(f"🔧 [DETECTION_PROCESSOR] detect_license_plates called with frame shape: {frame.shape if frame is not None else 'None'}, vehicle_boxes: {len(vehicle_boxes)}")  # DEBUG: ปิดรายละเอียด
         
         if not self.models_loaded or not self.lp_detection_model:
             self.logger.warning(f"🔧 [DETECTION_PROCESSOR] detect_license_plates failed: models_loaded={self.models_loaded}, lp_detection_model={self.lp_detection_model is not None}")
@@ -820,7 +820,7 @@ class DetectionProcessor:
                 self.logger.warning(f"🔧 [DETECTION_PROCESSOR] detect_license_plates: error detecting plates in vehicle {i}: {e}")
                 continue
         
-        self.logger.info(f"🔧 [DETECTION_PROCESSOR] detect_license_plates: 🔢 License plates detected: {len(detected_plates)} from {len(vehicle_boxes)} vehicles")
+        # self.logger.info(f"🔧 [DETECTION_PROCESSOR] detect_license_plates: 🔢 License plates detected: {len(detected_plates)} from {len(vehicle_boxes)} vehicles")  # INFO: ปิดรายละเอียด
         self.processing_stats['plates_detected'] += len(detected_plates)
         
         self.logger.debug(f"🔧 [DETECTION_PROCESSOR] detect_license_plates: returning {len(detected_plates)} detected plates")
@@ -837,7 +837,7 @@ class DetectionProcessor:
         Returns:
             List[Dict[str, Any]]: OCR results with text and confidence
         """
-        self.logger.debug(f"🔧 [DETECTION_PROCESSOR] perform_ocr called with frame shape: {frame.shape if frame is not None else 'None'}, plate_boxes: {len(plate_boxes)}")
+        # self.logger.debug(f"🔧 [DETECTION_PROCESSOR] perform_ocr called with frame shape: {frame.shape if frame is not None else 'None'}, plate_boxes: {len(plate_boxes)}")  # DEBUG: ปิดรายละเอียด
         
         ocr_results = []
         
@@ -973,7 +973,7 @@ class DetectionProcessor:
                 self.logger.warning(f"🔧 [DETECTION_PROCESSOR] perform_ocr: error performing OCR on plate {i}: {e}")
                 continue
         
-        self.logger.info(f"🔧 [DETECTION_PROCESSOR] perform_ocr: 📝 OCR successful: {len(ocr_results)} from {len(plate_boxes)} plates")
+        # self.logger.info(f"🔧 [DETECTION_PROCESSOR] perform_ocr: 📝 OCR successful: {len(ocr_results)} from {len(plate_boxes)} plates")  # INFO: ปิดรายละเอียด
         self.logger.debug(f"🔧 [DETECTION_PROCESSOR] perform_ocr: returning {len(ocr_results)} OCR results")
         return ocr_results
     
@@ -1050,7 +1050,7 @@ class DetectionProcessor:
         Returns:
             Dict containing detection processor status information
         """
-        self.logger.debug(f"🔧 [DETECTION_PROCESSOR] get_status called")
+        # self.logger.debug(f"🔧 [DETECTION_PROCESSOR] get_status called")  # DEBUG: ปิดรายละเอียด
         
         try:
             # Check model availability

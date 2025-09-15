@@ -90,7 +90,7 @@ class WebSocketSender:
         # AI Camera Identification
         self.aicamera_id = AICAMERA_ID
         self.checkpoint_id = CHECKPOINT_ID
-        self.logger.info(f"WebSocketSender initialized - AI Camera ID: {self.aicamera_id}, Checkpoint ID: {self.checkpoint_id}")
+        self.logger.info("WebSocketSender initialized")
     
     def initialize(self) -> bool:
         """
@@ -152,7 +152,7 @@ class WebSocketSender:
             if self._test_socketio_connection(socketio_url):
                 self.server_url = socketio_url
                 self.server_type = 'socketio'
-                self.logger.info(f"Detected Socket.IO server: {self.server_url}")
+                # self.logger.info(f"Detected Socket.IO server: {self.server_url}")  # INFO: ปิดรายละเอียด
                 return
             
             # Fallback to REST API
@@ -202,7 +202,7 @@ class WebSocketSender:
                 return False
             
         except Exception as e:
-            self.logger.debug(f"Socket.IO test failed: {e}")
+            # self.logger.debug(f"Socket.IO test failed: {e}")  # DEBUG: ปิดรายละเอียด
             return False
 
     def _test_rest_connection(self, test_url: str = None) -> bool:
@@ -226,7 +226,7 @@ class WebSocketSender:
             return response.status_code == 200
             
         except Exception as e:
-            self.logger.debug(f"REST API test failed: {e}")
+            # self.logger.debug(f"REST API test failed: {e}")  # DEBUG: ปิดรายละเอียด
             return False
     
     def connect(self) -> bool:
@@ -278,7 +278,7 @@ class WebSocketSender:
             bool: True if connection successful, False otherwise
         """
         try:
-            self.logger.info(f"Connecting to Socket.IO server: {self.server_url}")
+            self.logger.info("Connecting to Socket.IO")
             
             # Create Socket.IO client
             self.sio = socketio.Client()
@@ -338,7 +338,7 @@ class WebSocketSender:
 
     def _on_lpr_response(self, data):
         """Handle LPR response from server"""
-        self.logger.info(f"LPR response received: {data}")
+        # self.logger.info(f"LPR response received: {data}")  # INFO: ไม่บันทึกรายละเอียด payload
 
     def _on_error(self, data):
         """Handle error from server"""
@@ -358,12 +358,12 @@ class WebSocketSender:
             # Send pending detection data
             detection_count = self._send_detection_data()
             if detection_count > 0:
-                self.logger.info(f"Sent {detection_count} pending detection records")
+                self.logger.info("Sent pending detection records")
             
             # Send pending health data
             health_count = self._send_health_data()
             if health_count > 0:
-                self.logger.info(f"Sent {health_count} pending health records")
+                self.logger.info("Sent pending health records")
             
             if detection_count > 0 or health_count > 0:
                 self.logger.info("Successfully sent all pending data")
@@ -515,7 +515,7 @@ class WebSocketSender:
             else:
                 self.sio.emit('lpr_data', data)
             
-            self.logger.debug(f"Data sent via Socket.IO: {data}")
+            # self.logger.debug(f"Data sent via Socket.IO: {data}")  # DEBUG: ปิดรายละเอียด payload
             return True
             
         except Exception as e:
@@ -567,7 +567,7 @@ class WebSocketSender:
                 )
             
             if response.status_code in [200, 201]:
-                self.logger.debug(f"REST API response: {response.text}")
+                # self.logger.debug(f"REST API response: {response.text}")  # DEBUG: ปิดรายละเอียด payload
                 return True
             else:
                 self.logger.error(f"REST API send failed: HTTP {response.status_code} - {response.text}")

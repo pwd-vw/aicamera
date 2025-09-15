@@ -171,7 +171,7 @@ class HealthMonitor:
             timestamp = datetime.now().isoformat()
             
             # Log to logger
-            self.logger.info(f"Health Check - {component}: {status} - {message}")
+            # self.logger.info(f"Health Check - {component}: {status} - {message}")  # INFO: ปิดรายละเอียดต่อเนื่อง
             
             # Store in database
             if self.db_manager and self.db_manager.connection:
@@ -719,7 +719,7 @@ class HealthMonitor:
             Dict containing overall health status and component details
         """
         try:
-            self.logger.info("Starting comprehensive health check")
+            self.logger.info("Health check started")
             
             # Run all checks
             checks = {
@@ -772,7 +772,7 @@ class HealthMonitor:
                 'timestamp': datetime.now().isoformat()
             }
             
-            self.logger.info(f"Health check completed: {overall_status} ({total_checks - failed_checks}/{total_checks} passed)")
+            self.logger.info(f"Health check completed: {overall_status}")
             return result
             
         except Exception as e:
@@ -904,7 +904,7 @@ class HealthMonitor:
             self.monitor_thread.daemon = True
             self.monitor_thread.start()
             
-            self.logger.info(f"Health monitoring started with {monitor_interval}s interval")
+            self.logger.info("Health monitoring started")
             return True
             
         except Exception as e:
@@ -931,7 +931,7 @@ class HealthMonitor:
     def _monitor_loop(self, interval: int):
         """Background monitoring loop - OPTIMIZED for reduced resource usage."""
         try:
-            self.logger.info(f"Health monitoring started with {interval}s interval (optimized for core components)")
+            self.logger.info("Health monitoring started (core components)")
             
             # Add staggered check intervals to reduce resource usage
             check_count = 0
