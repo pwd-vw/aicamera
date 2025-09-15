@@ -60,7 +60,7 @@ def camera_dashboard():
                              camera_settings=camera_settings,
                              auto_start_info=auto_start_info,
                              title="Camera Dashboard",
-                             use_socketio=True,
+                             use_socketio=False,
                              timestamp=int(time.time()))
         return response
     except Exception as e:
@@ -1123,19 +1123,21 @@ def _generate_frames_from_service_improved(video_streaming):
         
         while True:
             try:
-                # Get frame from service with shorter timeout
-                frame_data = video_streaming.get_frame(timeout=1.0)  # Reduced from 2.0 to 1.0
+                # Get frame from service with no timeout
+                frame_data = video_streaming.get_frame()  # Reduced from 2.0 to 1.0 video_streaming.get_frame(timeout=1.0)
                 
-                if frame_data and 'frame' in frame_data:
-                    # Decode base64 frame
-                    import base64
+                if frame_data and 'frame_bytes' in frame_data:
+                    # Use MJPEG bytes directly (no base64 decode needed)
                     try:
-                        frame_bytes = base64.b64decode(frame_data['frame'])
+                        frame_bytes = frame_data['frame_bytes']
                         # Log frame information for debugging
                         source = frame_data.get('source', 'unknown')
                         width = frame_data.get('width', 'unknown')
                         height = frame_data.get('height', 'unknown')
                         quality = frame_data.get('quality', 'unknown')
+                        timestamp_capture = frame_data.get('timestamp_capture', 0)
+                        timestamp_enqueue = frame_data.get('timestamp_enqueue', 0)
+                        
                         # Validate frame data
                         if len(frame_bytes) > 100:  # Ensure frame has reasonable size
                             # Reset error counter on success
@@ -1143,10 +1145,14 @@ def _generate_frames_from_service_improved(video_streaming):
                             frame_count += 1
                             current_time = time.time()
                             
-                            # Log success periodically with frame details
+                            # Calculate latency metrics
+                            latency_capture_to_yield = current_time - timestamp_capture if timestamp_capture > 0 else 0
+                            latency_enqueue_to_yield = current_time - timestamp_enqueue if timestamp_enqueue > 0 else 0
+                            
+                            # Log success periodically with frame details and latency
                             if frame_count % 30 == 0:  # Every 30 frames
                                 fps = 30.0 / (current_time - last_frame_time) if current_time > last_frame_time else 0
-                                logger.info(f"Video feed: {frame_count} frames sent successfully - Source: {source}, Size: {width}x{height}, Quality: {quality}, Frame bytes: {len(frame_bytes)}, FPS: {fps:.1f}")
+                                logger.info(f"Video feed: {frame_count} frames sent - Source: {source}, Size: {width}x{height}, Quality: {quality}, Frame bytes: {len(frame_bytes)}, FPS: {fps:.1f}, Latency: {latency_capture_to_yield*1000:.1f}ms")
                                 last_frame_time = current_time
                             
                             # Send frame with proper MJPEG formatting
@@ -1159,8 +1165,7 @@ def _generate_frames_from_service_improved(video_streaming):
                             # Ensure proper encoding and yield
                             yield frame_data
                             
-                            # Small delay to prevent overwhelming the client
-                            time.sleep(0.033)  # ~30 FPS
+                            # No sleep here - FPS is controlled by the worker thread
                             
                         else:
                             consecutive_errors += 1

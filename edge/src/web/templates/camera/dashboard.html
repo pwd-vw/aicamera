@@ -24,7 +24,8 @@
     position: relative;
     background: #000;
     border-radius: 0.5rem;
-    overflow: hidden;
+    /* Allow metadata below to expand fully */
+    overflow: visible;
     box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
 }
 
@@ -454,8 +455,9 @@
 }
 
 .metadata-content {
-    max-height: 400px;
-    overflow-y: auto;
+    max-height: none;
+    overflow-y: visible;
+    min-height: 200px;
 }
 
 @media (max-width: 768px) {
@@ -464,7 +466,8 @@
     }
     
     .metadata-content {
-        max-height: 300px;
+        max-height: none;
+        min-height: 150px;
     }
 }
 </style>
@@ -545,41 +548,41 @@
                         </div>
                     </div>
                 </div>
-                
-                <!-- Metadata Viewer Section (Collapsible) -->
-                <div id="metadata-section" class="mt-2" style="display: none;">
-                    <div class="card compact-card">
-                        <div class="card-header compact-header metadata-toggle" onclick="toggleMetadata()">
-                            <div class="d-flex align-items-center justify-content-between">
-                                <div class="d-flex align-items-center">
-                                    <i class="fas fa-chart-bar me-1"></i>
-                                    <span class="fw-bold">Camera Metadata (Cached)</span>
-                                </div>
-                                <div class="d-flex gap-1">
-                                    <button id="refresh-metadata-btn" class="btn btn-sm btn-outline-secondary" 
-                                            onclick="event.stopPropagation(); refreshMetadata()"
-                                            title="Refresh metadata" 
-                                            aria-label="Refresh metadata">
-                                        <i class="fas fa-sync-alt"></i>
-                                    </button>
-                                    <button id="export-metadata-btn" class="btn btn-sm btn-outline-success" 
-                                            onclick="event.stopPropagation(); exportMetadata()"
-                                            title="Export metadata" 
-                                            aria-label="Export metadata">
-                                        <i class="fas fa-download"></i>
-                                    </button>
-                                    <i class="fas fa-chevron-down" id="metadata-toggle-icon"></i>
-                                </div>
-                            </div>
+            </div>
+        </div>
+        
+        <!-- Metadata Viewer Section (Collapsible) - moved OUTSIDE the video card to avoid clipping -->
+        <div id="metadata-section" class="mt-2" style="display: block;">
+            <div class="card compact-card">
+                <div class="card-header compact-header metadata-toggle" onclick="toggleMetadata()">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-chart-bar me-1"></i>
+                            <span class="fw-bold">Camera Metadata (Cached)</span>
                         </div>
-                        <div class="card-body compact-body metadata-content" id="metadata-content">
-                            <div class="text-center">
-                                <div class="spinner-border spinner-border-sm" role="status">
-                                    <span class="sr-only">Loading metadata...</span>
-                                </div>
-                                <p class="mt-2 small">Loading cached camera metadata...</p>
-                            </div>
+                        <div class="d-flex gap-1">
+                            <button id="refresh-metadata-btn" class="btn btn-sm btn-outline-secondary" 
+                                    onclick="event.stopPropagation(); refreshMetadata()"
+                                    title="Refresh metadata" 
+                                    aria-label="Refresh metadata">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                            <button id="export-metadata-btn" class="btn btn-sm btn-outline-success" 
+                                    onclick="event.stopPropagation(); exportMetadata()"
+                                    title="Export metadata" 
+                                    aria-label="Export metadata">
+                                <i class="fas fa-download"></i>
+                            </button>
+                            <i class="fas fa-chevron-up" id="metadata-toggle-icon"></i>
                         </div>
+                    </div>
+                </div>
+                <div class="card-body compact-body metadata-content" id="metadata-content" style="display: block;">
+                    <div class="text-center">
+                        <div class="spinner-border spinner-border-sm" role="status">
+                            <span class="sr-only">Loading metadata...</span>
+                        </div>
+                        <p class="mt-2 small">Loading cached camera metadata...</p>
                     </div>
                 </div>
             </div>
@@ -689,29 +692,50 @@
     <script src="{{ url_for('static', filename='js/camera.js', v=timestamp) }}"></script>
 <script>
 // Metadata Viewer functionality
-let metadataVisible = false;
+let metadataVisible = true;
 let metadataData = null;
 
 // Toggle metadata section
 function toggleMetadata() {
     const metadataSection = document.getElementById('metadata-section');
+    const metadataContent = document.getElementById('metadata-content');
     const toggleIcon = document.getElementById('metadata-toggle-icon');
     
-    if (metadataVisible) {
-        metadataSection.style.display = 'none';
+    if (!metadataSection || !metadataContent || !toggleIcon) {
+        console.error('Metadata elements not found');
+        return;
+    }
+    
+    const isVisible = metadataContent.style.display !== 'none' && metadataContent.style.display !== '';
+    
+    if (isVisible) {
+        // Hide content
+        metadataContent.style.display = 'none';
         toggleIcon.className = 'fas fa-chevron-down';
         metadataVisible = false;
+        console.log('Metadata content hidden');
     } else {
-        metadataSection.style.display = 'block';
+        // Show content
+        metadataContent.style.display = 'block';
         toggleIcon.className = 'fas fa-chevron-up';
         metadataVisible = true;
-        loadMetadata();
+        console.log('Metadata content shown');
+        
+        // Load metadata if not already loaded
+        if (!metadataData) {
+            loadMetadata();
+        }
     }
 }
 
 // Load metadata from cached data
 function loadMetadata() {
     const container = document.getElementById('metadata-content');
+    if (!container) {
+        console.error('Metadata container not found');
+        return;
+    }
+    
     container.innerHTML = `
         <div class="text-center">
             <div class="spinner-border spinner-border-sm" role="status">
@@ -723,12 +747,16 @@ function loadMetadata() {
     
     // Use cached data from CameraManager if available
     if (typeof CameraManager !== 'undefined' && CameraManager.cachedStatus) {
+        console.log('Loading metadata from CameraManager cached data');
+        const cs = CameraManager.cachedStatus || {};
+        // Support both flat and nested structures
+        const ch = (cs.camera_handler || {});
         metadataData = {
-            camera_properties: CameraManager.cachedStatus.camera_properties || {},
-            current_config: CameraManager.cachedStatus.current_config || {},
-            camera_status: CameraManager.cachedStatus.camera_status || {},
-            manager_status: CameraManager.cachedStatus,
-            debug_info: CameraManager.cachedStatus.debug_info || null,
+            camera_properties: cs.camera_properties || ch.camera_properties || {},
+            current_config: cs.current_config || ch.current_config || cs.configuration || {},
+            camera_status: cs.camera_status || cs, // fall back to entire status object
+            manager_status: cs,
+            debug_info: cs.debug_info || null,
             timestamp: new Date().toISOString()
         };
         displayMetadata(metadataData);
@@ -737,8 +765,13 @@ function loadMetadata() {
         AICameraUtils.apiRequest('/camera/debug_metadata')
             .then(data => {
                 if (data && data.success) {
-                    metadataData = data.metadata;
-                    displayMetadata(data.metadata);
+                    // Endpoint returns { success, debug_info, timestamp }
+                    const md = {
+                        debug_info: data.debug_info || {},
+                        timestamp: data.timestamp || new Date().toISOString()
+                    };
+                    metadataData = md;
+                    displayMetadata(md);
                 } else {
                     displayMetadataError('Failed to load metadata');
                 }
@@ -956,6 +989,28 @@ document.addEventListener('DOMContentLoaded', function() {
     if (toggleBtn) {
         toggleBtn.addEventListener('click', toggleMetadata);
     }
+});
+// Auto-load metadata when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded, initializing metadata...');
+    
+    // Wait for CameraManager to be available
+    const checkCameraManager = setInterval(() => {
+        if (typeof CameraManager !== 'undefined' && CameraManager.cachedStatus) {
+            clearInterval(checkCameraManager);
+            console.log('CameraManager found, loading metadata...');
+            loadMetadata();
+        }
+    }, 100);
+    
+    // Fallback timeout
+    setTimeout(() => {
+        clearInterval(checkCameraManager);
+        if (!metadataData) {
+            console.log('CameraManager timeout, loading metadata anyway...');
+            loadMetadata();
+        }
+    }, 5000);
 });
 </script>
 {% endblock %}

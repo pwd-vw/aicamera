@@ -24,7 +24,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 # Use absolute imports
 from edge.src.core.utils.logging_config import get_logger
-from edge.src.core.config import DEFAULT_RESOLUTION, DEFAULT_FRAMERATE
+from edge.src.core.config import DEFAULT_RESOLUTION, DEFAULT_FRAMERATE, LORES_RESOLUTION
 
 logger = get_logger(__name__)
 
@@ -59,14 +59,13 @@ class VideoStreamingService:
         self.streaming_thread = None
         self.stop_event = threading.Event()
         
-        # Video settings - Use MAIN_RESOLUTION for video feed
-        from edge.src.core.config import MAIN_RESOLUTION
-        self.width, self.height = MAIN_RESOLUTION
+        # Video settings - Use lores resolution for video feed (no resize needed)
+        self.width, self.height = LORES_RESOLUTION  # Use config resolution
         self.fps = DEFAULT_FRAMERATE
         self.quality = 80
         
-        # Frame queue for processing
-        self.frame_queue = queue.Queue(maxsize=10)
+        # Frame queue for processing - reduced size for low latency
+        self.frame_queue = queue.Queue(maxsize=1)  # Single frame buffer to prevent overlap
         
         # Fallback mechanisms
         self.fallback_mode = False
@@ -98,11 +97,17 @@ class VideoStreamingService:
     def _initialize_fallback_frame(self):
         """Initialize fallback frame for error states."""
         try:
-            # Create a simple fallback frame
+            # Create a fallback frame with proper color and resolution
             fallback_img = np.zeros((self.height, self.width, 3), dtype=np.uint8)
             fallback_img[:] = (50, 50, 50)  # Dark gray background
             
-            # Add text
+            # Add a subtle pattern to make it more visible
+            for i in range(0, self.height, 20):
+                for j in range(0, self.width, 20):
+                    if (i // 20 + j // 20) % 2 == 0:
+                        fallback_img[i:i+20, j:j+20] = [40, 40, 40]  # Slightly darker
+            
+            # Add text with better visibility
             font = cv2.FONT_HERSHEY_SIMPLEX
             cv2.putText(fallback_img, "AI Camera", (self.width//2 - 100, self.height//2 - 50), 
                        font, 1.5, (255, 255, 255), 2)
@@ -110,21 +115,23 @@ class VideoStreamingService:
                        font, 1.0, (200, 200, 200), 2)
             cv2.putText(fallback_img, "Initializing...", (self.width//2 - 70, self.height//2 + 50), 
                        font, 0.8, (150, 150, 150), 1)
+            cv2.putText(fallback_img, f"{self.width}x{self.height}", (self.width//2 - 60, self.height//2 + 80), 
+                       font, 0.6, (100, 100, 100), 1)
             
             self.fallback_frame = fallback_img
-            self.logger.info("Fallback frame initialized")
+            self.logger.info(f"Fallback frame initialized with resolution {self.width}x{self.height}")
             
         except Exception as e:
             self.logger.error(f"Error initializing fallback frame: {e}")
-            # Create minimal fallback
-            self.fallback_frame = np.zeros((480, 640, 3), dtype=np.uint8)
+            # Create minimal fallback using config resolution
+            self.fallback_frame = np.zeros((LORES_RESOLUTION[1], LORES_RESOLUTION[0], 3), dtype=np.uint8)
     
-    def _get_frame_with_fallback(self) -> Tuple[Optional[np.ndarray], str]:
+    def _get_frame_with_fallback(self) -> Tuple[Optional[bytes], str]:
         """
         Get frame with comprehensive fallback mechanisms.
         
         Returns:
-            Tuple[Optional[np.ndarray], str]: Frame data and source description
+            Tuple[Optional[bytes], str]: Frame data (MJPEG bytes) and source description
         """
         current_time = time.time()
         
@@ -139,50 +146,55 @@ class VideoStreamingService:
                 try:
                     frame = self.camera_manager.camera_handler.capture_frame(source="buffer", stream_type="lores", include_metadata=False)
                     if frame is not None:
-                        # Validate frame                        if isinstance(frame, np.ndarray) and frame.size > 0:
-                            # Handle 2D frames (grayscale) by converting to 3D
-                            if len(frame.shape) == 2:
-                                # Convert grayscale to RGB
-                                frame = np.stack([frame, frame, frame], axis=2)
-                                self.logger.debug(f"Converted grayscale frame to RGB: {frame.shape}")
+                        # Handle hardware-encoded frames (H.264 or MJPEG) and RGB888 arrays
+                        if isinstance(frame, bytes) and len(frame) > 100:  # Hardware-encoded bytes
+                            self.error_count = 0
+                            self.fallback_mode = False
+                            self.last_successful_frame = frame  # Store encoded bytes directly
+                            self.frames_from_camera += 1
                             
-                            if len(frame.shape) == 3:
-                                # Handle different channel formats
-                                if frame.shape[2] == 4:  # RGBA or BGRA
-                                    # Convert 4-channel to 3-channel RGB
-                                    try:
-                                        # Convert RGBA to RGB by removing alpha channel
-                                        frame_rgb = frame[:, :, :3]
-                                        self.logger.debug(f"Converted 4-channel frame to RGB: {frame_rgb.shape}")
-                                        
-                                        # Validate converted frame
-                                        if frame_rgb.shape[0] > 0 and frame_rgb.shape[1] > 0 and frame_rgb.shape[2] == 3:
-                                            self.error_count = 0
-                                            self.fallback_mode = False
-                                            self.last_successful_frame = frame_rgb.copy()
-                                            self.frames_from_camera += 1
-                                            self.logger.debug(f"Frame captured and converted successfully: {frame_rgb.shape}")
-                                            return frame_rgb, "camera_lores_converted"
-                                        else:
-                                            self.logger.warning(f"Invalid converted frame dimensions: {frame_rgb.shape}")
-                                    except Exception as convert_error:
-                                        self.logger.error(f"Error converting 4-channel frame: {convert_error}")
-                                        raise convert_error
-                                elif frame.shape[2] == 3:  # RGB
-                                    # Validate frame dimensions
-                                    if frame.shape[0] > 0 and frame.shape[1] > 0:
-                                        self.error_count = 0
-                                        self.fallback_mode = False
-                                        self.last_successful_frame = frame.copy()
-                                        self.frames_from_camera += 1
-                                        self.logger.debug(f"Frame captured successfully: {frame.shape}")
-                                        return frame, "camera_lores"
-                                    else:
-                                        self.logger.warning(f"Invalid frame dimensions: {frame.shape}")
-                                else:
-                                    self.logger.warning(f"Unsupported frame format: {frame.shape} channels")
+                            # Determine encoder type based on frame header
+                            if frame.startswith(b'\x00\x00\x00\x01') or frame.startswith(b'\x00\x00\x01'):
+                                # H.264 NAL unit header
+                                self.logger.debug(f"Hardware H.264 frame: {len(frame)} bytes")
+                                return frame, "camera_lores_h264"
                             else:
-                                self.logger.warning(f"Invalid frame type or size: {type(frame)}, size: {frame.size if hasattr(frame, 'size') else 'unknown'}")
+                                # MJPEG frame
+                                self.logger.debug(f"Hardware MJPEG frame: {len(frame)} bytes")
+                                return frame, "camera_lores_mjpeg"
+                        elif isinstance(frame, np.ndarray) and frame.size > 0:  # RGB888 array fallback
+                            # Convert array to MJPEG bytes (software encoding)
+                            try:
+                                # Ensure frame has correct shape and color format
+                                if len(frame.shape) == 3 and frame.shape[2] == 3:
+                                    # Convert RGB to BGR for OpenCV
+                                    frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+                                else:
+                                    # Handle grayscale or other formats
+                                    if len(frame.shape) == 2:
+                                        frame_bgr = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
+                                    else:
+                                        frame_bgr = frame
+
+                                # Ensure frame matches expected resolution
+                                if frame_bgr.shape[:2] != (self.height, self.width):
+                                    frame_bgr = cv2.resize(frame_bgr, (self.width, self.height))
+
+                                # Encode to MJPEG
+                                _, buffer = cv2.imencode('.jpg', frame_bgr, [cv2.IMWRITE_JPEG_QUALITY, 85])
+                                mjpeg_bytes = buffer.tobytes()
+                                
+                                self.error_count = 0
+                                self.fallback_mode = False
+                                self.last_successful_frame = mjpeg_bytes
+                                self.frames_from_camera += 1
+                                self.logger.debug(f"Software MJPEG frame: {len(mjpeg_bytes)} bytes, shape: {frame_bgr.shape}")
+                                return mjpeg_bytes, "camera_lores_software"
+                            except Exception as encode_error:
+                                self.logger.error(f"Error encoding RGB888 to MJPEG: {encode_error}")
+                                self.error_count += 1
+                        else:
+                            self.logger.warning(f"Invalid frame: type={type(frame)}, size={len(frame) if isinstance(frame, bytes) else frame.size if hasattr(frame, 'size') else 'N/A'}")
                     else:
                         self.logger.debug("No frame from camera manager")
                 except Exception as camera_error:
@@ -191,16 +203,18 @@ class VideoStreamingService:
             
             # Secondary source: Last successful frame (cached)
             if self.last_successful_frame is not None:
-                self.logger.debug("Using cached frame")
+                self.logger.debug("Using cached MJPEG frame")
                 self.frames_from_cache += 1
-                return self.last_successful_frame.copy(), "cached_frame"
+                return self.last_successful_frame, "cached_frame"  # MJPEG bytes, no copy needed
             
-            # Tertiary source: Fallback frame
+            # Tertiary source: Fallback frame (convert to MJPEG)
             self.logger.debug("Using fallback frame")
             self.frames_from_fallback += 1
             self.fallback_mode = True
             self.last_error_time = current_time
-            return self.fallback_frame, "fallback_frame"
+            # Convert fallback frame to MJPEG bytes
+            fallback_mjpeg = self._convert_fallback_to_mjpeg()
+            return fallback_mjpeg, "fallback_frame"
             
         except Exception as e:
             self.error_count += 1
@@ -208,49 +222,59 @@ class VideoStreamingService:
             self.fallback_mode = True
             self.last_error_time = current_time
             
-            # Return fallback frame
-            return self.fallback_frame, "fallback_error"
+            # Return fallback frame as MJPEG
+            fallback_mjpeg = self._convert_fallback_to_mjpeg()
+            return fallback_mjpeg, "fallback_error"
     
-    def _process_frame_with_fallback(self, frame: np.ndarray, source: str) -> Optional[Dict[str, Any]]:
+    def _convert_fallback_to_mjpeg(self) -> bytes:
+        """Convert fallback frame to MJPEG bytes."""
+        try:
+            _, buffer = cv2.imencode('.jpg', self.fallback_frame, [cv2.IMWRITE_JPEG_QUALITY, 60])
+            return buffer.tobytes()
+        except Exception as e:
+            self.logger.error(f"Error converting fallback frame to MJPEG: {e}")
+            # Return minimal MJPEG header as last resort
+            return b'\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x01\x00H\x00H\x00\x00\xff\xdb\x00C\x00\x08\x06\x06\x07\x06\x05\x08\x07\x07\x07\t\t\x08\n\x0c\x14\r\x0c\x0b\x0b\x0c\x19\x12\x13\x0f\x14\x1d\x1a\x1f\x1e\x1d\x1a\x1c\x1c $.\' ",#\x1c\x1c(7),01444\x1f\'9=82<.342\xff\xc0\x00\x11\x08\x00\x01\x00\x01\x01\x01\x11\x00\x02\x11\x01\x03\x11\x01\xff\xc4\x00\x14\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x08\xff\xc4\x00\x14\x10\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xda\x00\x0c\x03\x01\x00\x02\x11\x03\x11\x00\x3f\x00\xff\xd9'
+    
+    def _process_frame_with_fallback(self, frame: bytes, source: str) -> Optional[Dict[str, Any]]:
         """
         Process frame with error handling and fallback mechanisms.
         
         Args:
-            frame: Input frame as numpy array
+            frame: Input frame as MJPEG bytes
             source: Source description for tracking
             
         Returns:
             Dict containing processed frame data or None if processing failed
         """
         try:
-            # Resize frame if needed
-            if frame.shape[:2] != (self.height, self.width):
-                frame = cv2.resize(frame, (self.width, self.height))
+            # Frame is already MJPEG bytes from hardware encoder, no processing needed
+            # Just validate and return with metadata
             
-            # Remove source indicator to prevent overlay issues
-            # Debug information is now logged instead of displayed on frame
+            # Validate MJPEG bytes
+            if len(frame) < 100:
+                self.logger.warning(f"Frame too small: {len(frame)} bytes")
+                return None
             
-            # Encode frame to JPEG with quality adjustment based on source
+            # Determine quality based on source
             quality = self.quality
             if source == "fallback_frame":
-                quality = min(quality, 60)  # Lower quality for fallback
+                quality = 60  # Lower quality for fallback
             elif source == "cached_frame":
-                quality = min(quality, 70)  # Medium quality for cached
-            
-            _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, quality])
-            jpeg_data = buffer.tobytes()
-            
-            # Convert to base64
-            base64_frame = base64.b64encode(jpeg_data).decode('utf-8')
+                quality = 70  # Medium quality for cached
+            elif source == "camera_lores_mjpeg":
+                quality = 85  # High quality for hardware-encoded frames
             
             return {
-                'frame': base64_frame,
+                'frame_bytes': frame,  # MJPEG bytes directly
                 'timestamp': datetime.now().isoformat(),
+                'timestamp_capture': time.time(),  # For latency measurement
                 'width': self.width,
                 'height': self.height,
                 'fps': self.fps,
                 'source': source,
-                'quality': quality
+                'quality': quality,
+                'format': 'MJPEG'
             }
             
         except Exception as e:
@@ -323,20 +347,25 @@ class VideoStreamingService:
                 frame, source = self._get_frame_with_fallback()
                 
                 if frame is not None:
-                    # Process frame
+                    # Process frame (frame is already MJPEG bytes)
                     processed_frame = self._process_frame_with_fallback(frame, source)
                     
                     if processed_frame:
+                        # Add timestamp for enqueue
+                        processed_frame['timestamp_enqueue'] = time.time()
+                        
                         # Add to queue (non-blocking)
                         try:
+                            # Clear queue completely to prevent frame overlap
+                            while not self.frame_queue.empty():
+                                try:
+                                    self.frame_queue.get_nowait()
+                                except queue.Empty:
+                                    break
                             self.frame_queue.put_nowait(processed_frame)
                         except queue.Full:
-                            # Remove oldest frame if queue is full
-                            try:
-                                self.frame_queue.get_nowait()
-                                self.frame_queue.put_nowait(processed_frame)
-                            except queue.Empty:
-                                pass
+                            # This shouldn't happen with maxsize=1, but just in case
+                            pass
                         
                         # Update statistics
                         self.frames_processed += 1

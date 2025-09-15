@@ -38,7 +38,7 @@ import atexit
 from contextlib import contextmanager
 
 from edge.src.core.utils.logging_config import get_logger, get_camera_logger, RateLimitedLogger
-from edge.src.core.config import DEFAULT_AUTOFOCUS_ENABLED, DEFAULT_AUTOFOCUS_MODE
+from edge.src.core.config import DEFAULT_AUTOFOCUS_ENABLED, DEFAULT_AUTOFOCUS_MODE, MAIN_RESOLUTION, LORES_RESOLUTION
 
 logger = get_logger(__name__)
 opt_logger = get_camera_logger(logger)
@@ -691,15 +691,46 @@ class CameraHandler:
                 self.camera_properties = self.picam2.camera_properties
                 self.sensor_modes = self.picam2.sensor_modes
                 
-                # Create optimized dual-stream configuration with proper color format
-                main_config = {"size": (1920, 1080), "format": "RGB888"}  # Full HD main stream with RGB color
-                lores_config = {"size": (640, 480), "format": "RGB888"}   # VGA for web interface with RGB color
+                # Create optimized dual-stream configuration with hardware MJPEG encoding
+                main_config = {"size": MAIN_RESOLUTION, "format": "RGB888"}  # Main stream with RGB color for detection
+                lores_config = {"size": LORES_RESOLUTION, "format": "RGB888"}   # Lores stream with RGB color for proper display
+                
+                # Import MJPEG encoder
+                from picamera2.encoders import MJPEGEncoder
                 
                 config = self.picam2.create_video_configuration(
                     main=main_config,
                     lores=lores_config
-                    # Remove encode="lores" to ensure proper color format
                 )
+                
+                # Create hardware encoders for lores stream (if available)
+                from picamera2.outputs import CircularOutput
+                from picamera2.encoders import H264Encoder
+                
+                try:
+                    # Try H.264 encoder first (more efficient)
+                    if H264Encoder._hw_encoder_available:
+                        self.h264_encoder = H264Encoder(bitrate=1000000, quality=85)  # 1Mbps, quality 85
+                        self.h264_output = CircularOutput(size=10)
+                        self.h264_encoder.output = self.h264_output
+                        self.logger.info("Hardware H.264 encoder initialized successfully")
+                        self.primary_encoder = "h264"
+                    elif MJPEGEncoder._hw_encoder_available:
+                        self.mjpeg_encoder = MJPEGEncoder(bitrate=2000000, quality=85)  # 2Mbps, quality 85
+                        self.mjpeg_output = CircularOutput(size=10)
+                        self.mjpeg_encoder.output = self.mjpeg_output
+                        self.logger.info("Hardware MJPEG encoder initialized successfully")
+                        self.primary_encoder = "mjpeg"
+                    else:
+                        self.logger.warning("No hardware encoders available, will use software encoding")
+                        self.h264_encoder = None
+                        self.mjpeg_encoder = None
+                        self.primary_encoder = "software"
+                except Exception as e:
+                    self.logger.warning(f"Failed to initialize hardware encoders: {e}")
+                    self.h264_encoder = None
+                    self.mjpeg_encoder = None
+                    self.primary_encoder = "software"
                 
                 # Apply configuration
                 self.picam2.configure(config)
@@ -731,7 +762,13 @@ class CameraHandler:
                 "Sharpness": 1.0,
                 "AwbMode": 0,  # Auto white balance for better color
                 "AeEnable": True,  # Auto exposure
-                "AwbEnable": True  # Auto white balance
+                "AwbEnable": True,  # Auto white balance
+                "AfMode": 1,  # Continuous autofocus
+                "AfTrigger": 0,  # No trigger needed for continuous
+                "AfRange": 0,  # Full range
+                "AfSpeed": 0,  # Normal speed
+                "AfMetering": 0,  # Auto metering
+                "LensPosition": 0.0  # Let autofocus control
             }
             
             # Try to apply libcamera-specific controls
@@ -788,6 +825,14 @@ class CameraHandler:
                 # Start camera
                 self.picam2.start()
                 
+                # Start hardware encoder for lores stream
+                if hasattr(self, 'h264_encoder') and self.h264_encoder:
+                    self.picam2.start_encoder(self.h264_encoder, "lores")
+                    self.logger.info("Hardware H.264 encoder started for lores stream")
+                elif hasattr(self, 'mjpeg_encoder') and self.mjpeg_encoder:
+                    self.picam2.start_encoder(self.mjpeg_encoder, "lores")
+                    self.logger.info("Hardware MJPEG encoder started for lores stream")
+                
                 # Start frame capture thread
                 if not self._start_capture_thread():
                     self.picam2.stop()
@@ -841,16 +886,37 @@ class CameraHandler:
                 request = self.picam2.capture_request()
                 
                 try:
-                    # Get frames
+                    # Get frames - main is RGB888 for detection, lores from hardware encoder
                     main_frame = request.make_array("main")
-                    lores_frame = request.make_array("lores")
+                    
+                    # Try to get hardware-encoded frame (H.264 or MJPEG)
+                    lores_frame = None
+                    if hasattr(self, 'h264_output') and not self.h264_output.empty():
+                        try:
+                            lores_frame = self.h264_output.get_frame()
+                        except Exception as e:
+                            self.logger.debug(f"H.264 encoder frame not ready: {e}")
+                            lores_frame = request.make_array("lores")
+                    elif hasattr(self, 'mjpeg_output') and not self.mjpeg_output.empty():
+                        try:
+                            lores_frame = self.mjpeg_output.get_frame()
+                        except Exception as e:
+                            self.logger.debug(f"MJPEG encoder frame not ready: {e}")
+                            lores_frame = request.make_array("lores")
+                    else:
+                        # Fallback to array if no hardware encoder
+                        lores_frame = request.make_array("lores")
+                    
                     metadata = request.get_metadata()
                     
                     # Update buffers atomically
                     with self._frame_buffer_lock:
-                        self._main_frame_buffer = main_frame.copy()
-                        self._lores_frame_buffer = lores_frame.copy()
-                        self._metadata_buffer = make_json_serializable(metadata)
+                        self._main_frame_buffer = main_frame  # No copy needed for detection # if want to copy the frame to the buffer use main_frame.copy()
+                        self._lores_frame_buffer = lores_frame  # Store RGB888 array
+                        # Only serialize metadata every 1 second to reduce CPU overhead
+                        current_time = time.time()
+                        if current_time - last_enhancement > 60.0:  # 60Hz metadata update
+                            self._metadata_buffer = make_json_serializable(metadata)
                     
                     # Update statistics
                     self._update_frame_statistics()
@@ -981,16 +1047,16 @@ class CameraHandler:
             self.logger.error(f"Frame capture failed: {e}")
             return None
     
-    def _capture_from_buffer(self, stream_type: StreamType, include_metadata: bool) -> Optional[Union[Dict[str, Any], np.ndarray]]:
+    def _capture_from_buffer(self, stream_type: StreamType, include_metadata: bool) -> Optional[Union[Dict[str, Any], np.ndarray, bytes]]:
         """Capture frame from thread-safe buffer."""
         with self._frame_buffer_lock:
             if stream_type == "main":
                 frame = self._main_frame_buffer.copy() if self._main_frame_buffer is not None else None
             elif stream_type == "lores":
-                frame = self._lores_frame_buffer.copy() if self._lores_frame_buffer is not None else None
+                frame = self._lores_frame_buffer  # RGB888 array, no copy needed
             elif stream_type == "both":
                 main_frame = self._main_frame_buffer.copy() if self._main_frame_buffer is not None else None
-                lores_frame = self._lores_frame_buffer.copy() if self._lores_frame_buffer is not None else None
+                lores_frame = self._lores_frame_buffer  # RGB888 array, no copy needed
                 
                 if include_metadata:
                     return {
@@ -1012,15 +1078,26 @@ class CameraHandler:
                 return None
             
             if include_metadata:
-                return {
-                    'frame': frame,
-                    'metadata': self._metadata_buffer.copy(),
-                    'timestamp': time.time(),
-                    'stream_type': stream_type,
-                    'source': 'buffer',
-                    'format': 'RGB888',
-                    'size': frame.shape[:2] if hasattr(frame, 'shape') else None
-                }
+                if stream_type == "lores":
+                    return {
+                        'frame': frame,  # RGB888 array
+                        'metadata': self._metadata_buffer.copy(),
+                        'timestamp': time.time(),
+                        'stream_type': stream_type,
+                        'source': 'buffer',
+                        'format': 'RGB888',
+                        'size': LORES_RESOLUTION  # Use config resolution
+                    }
+                else:
+                    return {
+                        'frame': frame,
+                        'metadata': self._metadata_buffer.copy(),
+                        'timestamp': time.time(),
+                        'stream_type': stream_type,
+                        'source': 'buffer',
+                        'format': 'RGB888',
+                        'size': frame.shape[:2] if hasattr(frame, 'shape') else None
+                    }
             else:
                 return frame
     
@@ -1284,6 +1361,20 @@ class CameraHandler:
                 # Stop recording if active
                 if getattr(self, 'recording', False):
                     self._stop_recording_internal()
+                
+                # Stop hardware encoder first
+                if hasattr(self, 'h264_encoder') and self.h264_encoder:
+                    try:
+                        self.picam2.stop_encoder(self.h264_encoder)
+                        self.logger.info("Hardware H.264 encoder stopped")
+                    except Exception as e:
+                        self.logger.warning(f"Error stopping H.264 encoder: {e}")
+                elif hasattr(self, 'mjpeg_encoder') and self.mjpeg_encoder:
+                    try:
+                        self.picam2.stop_encoder(self.mjpeg_encoder)
+                        self.logger.info("Hardware MJPEG encoder stopped")
+                    except Exception as e:
+                        self.logger.warning(f"Error stopping MJPEG encoder: {e}")
                 
                 # Stop camera
                 if self.picam2:

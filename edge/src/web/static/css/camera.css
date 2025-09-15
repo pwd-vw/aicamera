@@ -22,9 +22,11 @@
     position: relative;
     background: #000;
     border-radius: 6px;
-    overflow: hidden;
+    /* Allow content below (metadata) to render without clipping */
+    overflow: visible;
     min-height: 350px;
-    max-height: 70vh;
+    /* Remove vertical clamp to avoid affecting subsequent sections */
+    max-height: none;
 }
 
 .video-feed-compact {
@@ -32,7 +34,8 @@
     height: auto;
     display: block;
     min-height: 350px;
-    max-height: 70vh;
+    /* Let the image size be governed by its container without clamping */
+    max-height: none;
     object-fit: contain;
 }
 
@@ -180,24 +183,24 @@
 @media (max-width: 1200px) {
     .video-container-compact {
         min-height: 300px;
-        max-height: 60vh;
+        max-height: none;
     }
     
     .video-feed-compact {
         min-height: 300px;
-        max-height: 60vh;
+        max-height: none;
     }
 }
 
 @media (max-width: 768px) {
     .video-container-compact {
         min-height: 250px;
-        max-height: 50vh;
+        max-height: none;
     }
     
     .video-feed-compact {
         min-height: 250px;
-        max-height: 50vh;
+        max-height: none;
     }
     
     .control-btn-compact {

@@ -31,6 +31,19 @@
     <!-- Socket.IO Client (Static) -->
     {% if use_socketio %}
     <script src="{{ url_for('static', filename='libs/socket.io/socket.io.js', v=3) }}"></script>
+    {% else %}
+    <script>
+        // Stub io() when Socket.IO is disabled to prevent connection attempts and console errors
+        window.io = window.io || function(){
+            return {
+                on: function(){},
+                emit: function(){},
+                close: function(){},
+                disconnect: function(){},
+            };
+        };
+        console.log('Socket.IO disabled: HTTP-only mode');
+    </script>
     {% endif %}
     
     {% block additional_head %}{% endblock %}

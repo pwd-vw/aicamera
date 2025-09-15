@@ -10,11 +10,11 @@
 
 ### เป้าหมายหลัก:
 - จัดการกล้อง Picamera2 แบบ thread-safe และมีประสิทธิภาพ
-- รองรับ dual stream (main resolution: 1280x720, lores resolution: 640x640)
+- รองรับ dual stream ตามค่าจาก config (main สำหรับงานตรวจจับ, lores สำหรับพรีวิวเว็บ)
 - จัดเก็บและแสดง metadata ของกล้องแบบครบถ้วน (11 หมวดหมู่)
-- รองรับการสตรีมวิดีโอแบบเรียลไทม์ผ่าน WebSocket
+- รองรับการสตรีมวิดีโอแบบ MJPEG ผ่าน HTTP (Socket.IO เป็นตัวเลือก และปิดเป็นค่าเริ่มต้น)
 - ผนวกรวมกับระบบตรวจจับ (Detection) และ Health Monitor
-- ลดการใช้ CPU ด้วยระบบ event-based metadata updates
+- ลดการใช้ CPU ด้วยการแคช metadata ที่ความถี่ ~60 Hz (และอัปเดตเมื่อมีเหตุการณ์สำคัญ)
 
 ## 2) สถาปัตยกรรมและองค์ประกอบ (Architecture & Components)
 
@@ -44,9 +44,9 @@ Camera Module Architecture
 ```
 
 ### การกำหนดค่า Resolution:
-- **Main Stream**: 1280x720 (สำหรับ video feed และแดชบอร์ด)
-- **Lores Stream**: 640x640 (สำหรับ detection processing)
-- กำหนดผ่าน environment variables ใน `/edge/installation/.env.production`
+- ขับเคลื่อนด้วย environment variables ใน `/edge/installation/.env.production`
+- **Main Stream**: ใช้สำหรับ Detection (RGB888) ค่าเริ่มต้น 1280x720
+- **Lores Stream**: ใช้สำหรับ Web Preview/Streaming (เข้ารหัสเป็น MJPEG ไบต์หรือเข้ารหัสซอฟต์แวร์) ค่าเริ่มต้น 1280x720
 
 ## 3) อัลกอริทึมและขั้นตอนการทำงาน (Algorithm & Procedure)
 
@@ -58,12 +58,13 @@ Camera Module Architecture
 
 2. Initialize Picamera2
    ├── Configure main stream (RGB888)
-   ├── Configure lores stream (XBGR8888)
-   └── Set camera controls
+   ├── Configure lores stream (RGB888)  # เตรียมสำหรับเข้ารหัส MJPEG
+   └── Set camera controls (ปรับค่า AF/AWB/AE และคุณภาพพื้นฐาน)
 
 3. Start streaming
-   ├── Begin frame capture
-   ├── Update metadata (event-based)
+   ├── Begin frame capture (worker คุม FPS เดียว)
+   ├── Enable hardware MJPEG encoder (ถ้ามี) หรือใช้เส้นทางซอฟต์แวร์
+   ├── Cache metadata ทุก ~1 วินาที
    └── Enable frame access
 
 4. Register with services
@@ -95,11 +96,11 @@ def collect_metadata_event_based():
 
 ### 3.3 Frame Capture Procedure
 ```
-Main Frame Path (1280x720):
-Camera Handler → get_main_frame() → Video Streaming → Dashboard Display
+Main (สำหรับ Detection):
+Camera Handler → get_main_frame() [RGB888 array] → Detection Processor → AI Analysis
 
-Lores Frame Path (640x640):
-Camera Handler → get_lores_frame() → Detection Processor → AI Analysis
+Lores (สำหรับ Preview/Streaming):
+Camera Handler → get_lores_frame() [MJPEG bytes หรือ RGB888→JPEG] → Video Streaming → Dashboard Display
 ```
 
 ### 3.4 Thread Safety Implementation
@@ -164,6 +165,7 @@ POST /camera/stop              # หยุดกล้อง
 ```
 
 ### 4.2 WebSocket Events
+(ตัวเลือก — ปิดเป็นค่าเริ่มต้น ขณะนี้แดชบอร์ดใช้ HTTP + MJPEG เป็นหลัก)
 
 **Client → Server:**
 ```javascript
@@ -266,15 +268,19 @@ camera_manager.stop_camera()
 
 ## 6) การปรับแต่งประสิทธิภาพ (Performance Optimization)
 
-### 6.1 Event-Based Metadata Updates
+### 6.1 Metadata Updates (Cache + Event)
 ```python
-# ไม่มี periodic polling → ประหยัด CPU
+# แคชเมทาดาทาที่ความถี่ ~60 Hz และอัปเดตเมื่อมีเหตุการณ์สำคัญ
 def _should_update_metadata(event_type):
     return event_type in ['camera_init', 'config_change', 'manual_refresh']
 
-# อัปเดตเฉพาะเมื่อจำเป็น
-if _should_update_metadata('camera_init'):
-    self._update_metadata()
+def update_metadata_loop():
+    last = 0
+    while running:
+        now = time.time()
+        if now - last >= 60.0 or _should_update_metadata(pending_event()):
+            self._update_metadata()
+            last = now
 ```
 
 ### 6.2 Thread-Safe Operations
@@ -378,11 +384,11 @@ def generate_frames():
 
 ### 9.1 Environment Variables
 ```bash
-# /edge/installation/.env.production
-MAIN_RESOLUTION=1280x720        # สำหรับ video feed
-LORES_RESOLUTION=640x640        # สำหรับ detection
+# /edge/installation/.env.production (ตัวอย่างค่าเริ่มต้น)
+MAIN_RESOLUTION=1280x720        # สำหรับ Detection (main)
+LORES_RESOLUTION=1280x720       # สำหรับ Web Preview (lores)
 CAMERA_FPS=30
-IMAGE_SAVE_DIR=captured_images  # สำหรับเก็บภาพตรวจจับ
+IMAGE_SAVE_DIR=captured_images  # สำหรับเก็บภาพ/บันทึก
 ```
 
 ### 9.2 File Structure
@@ -428,12 +434,14 @@ def test_camera_initialization():
     status = camera_manager.get_status()
     assert status['initialized'] == True
 
-# Integration testing
+# Integration testing (ขนาดขึ้นกับ config)
 def test_dual_stream():
     main_frame = camera_manager.capture_main_frame()
-    lores_frame = camera_manager.capture_lores_frame()
-    assert main_frame.shape[:2] == (720, 1280)
-    assert lores_frame.shape[:2] == (640, 640)
+    lores = camera_manager.capture_lores_frame()
+    # main เป็นอาร์เรย์ RGB888 (ตรวจจับ)
+    assert hasattr(main_frame, 'shape')
+    # lores อาจเป็น bytes (MJPEG) หรืออาร์เรย์หากไม่มีฮาร์ดแวร์เอนโค้ด
+    assert (isinstance(lores, bytes) or hasattr(lores, 'shape'))
 ```
 
 ---

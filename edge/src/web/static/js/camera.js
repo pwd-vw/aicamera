@@ -44,8 +44,13 @@ const CameraManager = {
         // Initialize video feed independently first
         this.initVideoFeed();
         
-        // Setup WebSocket connection for status monitoring only
-        this.initializeWebSocket();
+        // Setup WebSocket connection for status monitoring only (optional)
+        if (window.useSocketIO === true) {
+            this.initializeWebSocket();
+        } else {
+            console.log('Skipping WebSocket initialization (HTTP-only mode)');
+            this.loadStatusFromAPI();
+        }
         
         // Setup event handlers
         this.setupEventHandlers();
@@ -57,7 +62,7 @@ const CameraManager = {
         // Debug: Show metadata section after a delay to ensure it's loaded
         setTimeout(() => {
             this.toggleMetadataSection(true);
-        }, 3000);
+        }, 1000);
         
         // Initialize capture status (hidden by default)
         this.hideCaptureStatus();
