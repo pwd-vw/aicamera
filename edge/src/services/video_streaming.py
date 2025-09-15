@@ -156,11 +156,11 @@ class VideoStreamingService:
                             # Determine encoder type based on frame header
                             if frame.startswith(b'\x00\x00\x00\x01') or frame.startswith(b'\x00\x00\x01'):
                                 # H.264 NAL unit header
-                                self.logger.debug(f"Hardware H.264 frame: {len(frame)} bytes")
+                                # self.logger.debug(f"Hardware H.264 frame: {len(frame)} bytes")  # INFO: ปิดเพื่อประหยัดพื้นที่
                                 return frame, "camera_lores_h264"
                             else:
                                 # MJPEG frame
-                                self.logger.debug(f"Hardware MJPEG frame: {len(frame)} bytes")
+                                # self.logger.debug(f"Hardware MJPEG frame: {len(frame)} bytes")  # INFO: ปิดเพื่อประหยัดพื้นที่
                                 return frame, "camera_lores_mjpeg"
                         elif isinstance(frame, np.ndarray) and frame.size > 0:  # RGB888 array fallback
                             # Convert array to MJPEG bytes (software encoding)
@@ -188,7 +188,7 @@ class VideoStreamingService:
                                 self.fallback_mode = False
                                 self.last_successful_frame = mjpeg_bytes
                                 self.frames_from_camera += 1
-                                self.logger.debug(f"Software MJPEG frame: {len(mjpeg_bytes)} bytes, shape: {frame_bgr.shape}")
+                                # self.logger.debug(f"Software MJPEG frame: {len(mjpeg_bytes)} bytes, shape: {frame_bgr.shape}")  # INFO: ปิดเพื่อประหยัดพื้นที่
                                 return mjpeg_bytes, "camera_lores_software"
                             except Exception as encode_error:
                                 self.logger.error(f"Error encoding RGB888 to MJPEG: {encode_error}")

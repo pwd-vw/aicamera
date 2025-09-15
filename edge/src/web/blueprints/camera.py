@@ -1149,10 +1149,10 @@ def _generate_frames_from_service_improved(video_streaming):
                             latency_capture_to_yield = current_time - timestamp_capture if timestamp_capture > 0 else 0
                             latency_enqueue_to_yield = current_time - timestamp_enqueue if timestamp_enqueue > 0 else 0
                             
-                            # Log success periodically with frame details and latency
-                            if frame_count % 30 == 0:  # Every 30 frames
-                                fps = 30.0 / (current_time - last_frame_time) if current_time > last_frame_time else 0
-                                logger.info(f"Video feed: {frame_count} frames sent - Source: {source}, Size: {width}x{height}, Quality: {quality}, Frame bytes: {len(frame_bytes)}, FPS: {fps:.1f}, Latency: {latency_capture_to_yield*1000:.1f}ms")
+                            # สรุปการทำงานเป็นช่วง ๆ เพื่อลดการใช้พื้นที่ log
+                            if frame_count % 300 == 0:  # Every ~300 frames
+                                fps = 300.0 / (current_time - last_frame_time) if current_time > last_frame_time else 0
+                                logger.info(f"Video feed summary - frames:{frame_count} fps:{fps:.1f} latency:{latency_capture_to_yield*1000:.0f}ms src:{source}")
                                 last_frame_time = current_time
                             
                             # Send frame with proper MJPEG formatting

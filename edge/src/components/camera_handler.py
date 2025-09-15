@@ -639,7 +639,7 @@ class CameraHandler:
         self.retry_delay = 2.0
         
         self.logger.info("CameraHandler singleton initialized")
-        self.logger.info(f"Camera availability: {self.camera_status}")
+        # self.logger.info(f"Camera availability: {self.camera_status}")  # INFO: ปิดรายละเอียด เพื่อลดขนาด log
         
         self._initialized = True
     
@@ -671,7 +671,7 @@ class CameraHandler:
             # Clean up any existing resources
             self._cleanup_camera_resources()
             
-            self.logger.info("Initializing optimized camera...")
+            self.logger.info("Initializing camera...")
             
             # Check camera availability
             self.camera_status = check_camera_availability()
@@ -796,7 +796,7 @@ class CameraHandler:
                 af_mode_name = self._get_af_mode_name(controls["AfMode"])
                 self.logger.info(f"Autofocus enabled with mode: {af_mode_name} ({controls['AfMode']})")
             
-            self.logger.debug(f"Applied initial controls: {list(controls.keys())}")
+            # self.logger.debug(f"Applied initial controls: {list(controls.keys())}")  # DEBUG: ปิดรายละเอียด
             
         except Exception as e:
             self.logger.warning(f"Failed to apply initial controls: {e}")
@@ -828,10 +828,10 @@ class CameraHandler:
                 # Start hardware encoder for lores stream
                 if hasattr(self, 'h264_encoder') and self.h264_encoder:
                     self.picam2.start_encoder(self.h264_encoder, "lores")
-                    self.logger.info("Hardware H.264 encoder started for lores stream")
+                    self.logger.info("H.264 encoder started")
                 elif hasattr(self, 'mjpeg_encoder') and self.mjpeg_encoder:
                     self.picam2.start_encoder(self.mjpeg_encoder, "lores")
-                    self.logger.info("Hardware MJPEG encoder started for lores stream")
+                    self.logger.info("MJPEG encoder started")
                 
                 # Start frame capture thread
                 if not self._start_capture_thread():
@@ -839,7 +839,7 @@ class CameraHandler:
                     return False
                 
                 self.streaming = True
-                self.logger.info("Camera started successfully with frame capture system")
+                self.logger.info("Camera started")
                 return True
                 
             except Exception as e:
