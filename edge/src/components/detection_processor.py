@@ -669,11 +669,8 @@ class DetectionProcessor:
                 self.logger.warning(f"🔧 [DETECTION_PROCESSOR] validate_and_enhance_frame failed: unsupported frame shape: {frame.shape}")
                 return None
             
-            # Resize frame to detection resolution if needed
-            if frame.shape[:2] != self.detection_resolution:
-                self.logger.debug(f"🔧 [DETECTION_PROCESSOR] validate_and_enhance_frame: resizing frame from {frame.shape[:2]} to {self.detection_resolution}")
-                frame = cv2.resize(frame, self.detection_resolution)
-                self.logger.debug(f"🔧 [DETECTION_PROCESSOR] validate_and_enhance_frame: frame resized successfully")
+            # ไม่ resize ที่นี่ - ให้ resize_for_model_input ทำครั้งเดียวด้วย letterbox
+            # frame = cv2.resize(frame, self.detection_resolution)  # ปิดเพื่อหลีกเลี่ยง resize ซ้ำ
             
             # Basic enhancement - can be extended
             # Optional: histogram equalization, noise reduction, etc.
@@ -685,15 +682,15 @@ class DetectionProcessor:
             self.logger.error(f"🔧 [DETECTION_PROCESSOR] validate_and_enhance_frame error: {e}")
             return None
     
-    def detect_vehicles(self, frame: np.ndarray) -> List[Dict[str, Any]]:
+    def detect_vehicles(self, frame: np.ndarray) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
         """
         Perform vehicle detection on image frame.
         
         Args:
-            frame: Input image frame (validated and enhanced)
+            frame: Input image frame (original resolution)
             
         Returns:
-            List[Dict[str, Any]]: List of detected vehicle objects
+            Tuple[List[Dict[str, Any]], Dict[str, Any]]: List of detected vehicle objects and mapping_info
         """
         # self.logger.debug(f"🔧 [DETECTION_PROCESSOR] detect_vehicles called with frame shape: {frame.shape if frame is not None else 'None'}")  # DEBUG: ปิดรายละเอียด
         
@@ -703,20 +700,32 @@ class DetectionProcessor:
                 f"Vehicle detection model not loaded: models_loaded={self.models_loaded}, vehicle_model={self.vehicle_model is not None}",
                 interval=30.0
             )
-            return []
+            return [], {}
         
         try:
             start_time = time.time()
             
-            # Perform detection
-            results = self.vehicle_model(frame)
+            # 1. Resize for model input with letterbox (640x640) และเก็บ mapping_info
+            model_frame, mapping_info = self.resize_for_model_input(frame, (640, 640))
+            
+            # 2. BGR→RGB conversion for model
+            if len(model_frame.shape) == 3 and model_frame.shape[2] == 3:
+                model_frame = cv2.cvtColor(model_frame, cv2.COLOR_BGR2RGB)
+            
+            # 3. Perform detection on resized frame
+            results = self.vehicle_model(model_frame)
             vehicle_boxes = getattr(results, "results", [])
             
-            # Filter by confidence threshold
+            # 4. Filter by confidence threshold และ map พิกัดกลับสู่ภาพต้นฉบับ
             filtered_boxes = []
             for box in vehicle_boxes:
                 confidence = box.get('score', 0)
                 if confidence >= self.confidence_threshold:
+                    # Map bounding box coordinates back to original frame
+                    if 'bbox' in box:
+                        mapped_bbox = self.map_coordinates_to_original(box['bbox'], mapping_info)
+                        box['bbox'] = mapped_bbox
+                        box['bbox_original'] = mapped_bbox  # เก็บพิกัดต้นฉบับ
                     filtered_boxes.append(box)
             
             processing_time = (time.time() - start_time) * 1000
@@ -738,7 +747,7 @@ class DetectionProcessor:
             else:
                 self.detection_activity['inactive_periods'] += 1
             
-            return filtered_boxes
+            return filtered_boxes, mapping_info
             
         except Exception as e:
             self.rate_limited.warning_rate_limited(
@@ -746,18 +755,19 @@ class DetectionProcessor:
                 f"Vehicle detection error: {e}",
                 interval=30.0
             )
-            return []
+            return [], {}
     
-    def detect_license_plates(self, frame: np.ndarray, vehicle_boxes: List[Dict]) -> List[Dict[str, Any]]:
+    def detect_license_plates(self, frame: np.ndarray, vehicle_boxes: List[Dict], mapping_info: Dict[str, Any] = None) -> List[Dict[str, Any]]:
         """
         Detect license plates within detected vehicles.
         
         Args:
             frame: Original image frame
-            vehicle_boxes: List of detected vehicle bounding boxes
+            vehicle_boxes: List of detected vehicle bounding boxes (with mapped coordinates)
+            mapping_info: Mapping information for coordinate conversion (optional)
             
         Returns:
-            List[Dict[str, Any]]: List of detected license plates
+            List[Dict[str, Any]]: List of detected license plates with mapped coordinates
         """
         # self.logger.debug(f"🔧 [DETECTION_PROCESSOR] detect_license_plates called with frame shape: {frame.shape if frame is not None else 'None'}, vehicle_boxes: {len(vehicle_boxes)}")  # DEBUG: ปิดรายละเอียด
         
@@ -806,6 +816,7 @@ class DetectionProcessor:
                         
                         plate_data = {
                             'bbox': [full_x1, full_y1, full_x2, full_y2],
+                            'bbox_original': [full_x1, full_y1, full_x2, full_y2],  # พิกัดต้นฉบับ
                             'score': confidence,
                             'vehicle_idx': i,
                             'vehicle_bbox': vehicle_box['bbox']
@@ -845,15 +856,19 @@ class DetectionProcessor:
             try:
                 self.logger.debug(f"🔧 [DETECTION_PROCESSOR] perform_ocr: processing plate {i}")
                 
-                # Extract license plate region
-                x1, y1, x2, y2 = plate_box['bbox']
-                self.logger.debug(f"🔧 [DETECTION_PROCESSOR] perform_ocr: plate {i} bbox: [{x1}, {y1}, {x2}, {y2}]")
+                # Extract license plate region using safe padding
+                bbox = plate_box['bbox']
+                self.logger.debug(f"🔧 [DETECTION_PROCESSOR] perform_ocr: plate {i} bbox: {bbox}")
                 
-                plate_region = frame[int(y1):int(y2), int(x1):int(x2)]
+                # ใช้ crop_with_safe_padding เพื่อขยายขอบ 15% สำหรับ OCR
+                plate_region, crop_info = self.crop_with_safe_padding(frame, bbox, padding_ratio=0.15)
                 
                 if plate_region.size == 0:
                     self.logger.debug(f"🔧 [DETECTION_PROCESSOR] perform_ocr: plate {i} region is empty, skipping")
                     continue
+                
+                # ปรับภาพสำหรับ OCR (CLAHE + threshold)
+                plate_region = self._enhance_plate_for_ocr(plate_region)
                 
                 self.logger.debug(f"🔧 [DETECTION_PROCESSOR] perform_ocr: plate {i} region shape: {plate_region.shape}")
                 
@@ -2352,6 +2367,39 @@ class DetectionProcessor:
         except Exception as e:
             self.logger.warning(f"Safe padding crop failed: {e}")
             return frame, {'error': str(e)}
+    
+    def _enhance_plate_for_ocr(self, plate_region: np.ndarray) -> np.ndarray:
+        """
+        Enhance license plate region specifically for OCR accuracy.
+        
+        Args:
+            plate_region: Cropped license plate region
+            
+        Returns:
+            np.ndarray: Enhanced plate region optimized for OCR
+        """
+        try:
+            # Convert to grayscale for processing
+            if len(plate_region.shape) == 3:
+                gray = cv2.cvtColor(plate_region, cv2.COLOR_BGR2GRAY)
+            else:
+                gray = plate_region
+            
+            # Apply CLAHE for contrast enhancement
+            clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+            enhanced = clahe.apply(gray)
+            
+            # Apply adaptive threshold for better text clarity
+            enhanced = cv2.adaptiveThreshold(enhanced, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
+            
+            # Convert back to BGR for consistency
+            enhanced = cv2.cvtColor(enhanced, cv2.COLOR_GRAY2BGR)
+            
+            return enhanced
+            
+        except Exception as e:
+            self.logger.warning(f"Plate OCR enhancement failed: {e}")
+            return plate_region
     
     def resize_for_model_input(self, frame: np.ndarray, model_input_size: Tuple[int, int]) -> Tuple[np.ndarray, Dict[str, Any]]:
         """

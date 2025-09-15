@@ -337,9 +337,9 @@ class DetectionManager:
             
             self.logger.debug(f"🔧 [DETECTION_MANAGER] process_frame: Step 1 completed - enhanced frame shape: {enhanced_frame.shape}")
             
-            # Step 2: Vehicle detection
+            # Step 2: Vehicle detection (ใช้ภาพต้นฉบับ และได้ mapping_info กลับมา)
             self.logger.debug(f"🔧 [DETECTION_MANAGER] process_frame: Step 2 - calling detection_processor.detect_vehicles()")
-            vehicle_boxes = self.detection_processor.detect_vehicles(enhanced_frame)
+            vehicle_boxes, mapping_info = self.detection_processor.detect_vehicles(frame)  # ใช้ frame ต้นฉบับ
             self.logger.debug(f"🔧 [DETECTION_MANAGER] process_frame: Step 2 completed - vehicles detected: {len(vehicle_boxes)}")
             
             if not vehicle_boxes:
@@ -348,9 +348,9 @@ class DetectionManager:
             
             self.detection_stats['total_vehicles_detected'] += len(vehicle_boxes)
             
-            # Step 3: License plate detection (only if vehicles found)
+            # Step 3: License plate detection (ส่ง mapping_info ไปด้วย)
             self.logger.debug(f"🔧 [DETECTION_MANAGER] process_frame: Step 3 - calling detection_processor.detect_license_plates()")
-            plate_boxes = self.detection_processor.detect_license_plates(frame, vehicle_boxes)
+            plate_boxes = self.detection_processor.detect_license_plates(frame, vehicle_boxes, mapping_info)
             self.logger.debug(f"🔧 [DETECTION_MANAGER] process_frame: Step 3 completed - plates detected: {len(plate_boxes)}")
             
             if not plate_boxes:
@@ -389,7 +389,8 @@ class DetectionManager:
                 'original_image_path': f"captured_images/{os.path.basename(original_path)}" if original_path else '',
                 'vehicle_detections': vehicle_boxes,
                 'plate_detections': plate_boxes,
-                'processing_time_ms': processing_time * 1000.0  # Convert to milliseconds
+                'processing_time_ms': processing_time * 1000.0,  # Convert to milliseconds
+                'coordinate_mapping': mapping_info  # เก็บ mapping_info สำหรับ frontend
             }
             
             # Extract parallel OCR data from OCR results
