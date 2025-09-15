@@ -167,7 +167,7 @@ class WebSocketSender:
             # Default to Socket.IO if both tests fail
             self.server_url = socketio_url
             self.server_type = 'socketio'
-            self.logger.warning("Both Socket.IO and REST API tests failed, defaulting to Socket.IO")
+            self.logger.warning("Connectivity probe failed for both Socket.IO and REST. Defaulting to Socket.IO. If your server is HTTP-only, set WEBSOCKET_SERVER_URL to an http(s) URL or disable the sender.")
                 
         except Exception as e:
             self.logger.error(f"Error detecting server type: {e}")
@@ -263,11 +263,14 @@ class WebSocketSender:
             
             # Log connection failure
             if self.database_manager:
-                self.database_manager.log_websocket_action(
-                    action='connect',
-                    status='failed',
-                    message=f'Connection failed: {str(e)}'
-                )
+                try:
+                    self.database_manager.log_websocket_action(
+                        action='connect',
+                        status='failed',
+                        message=f'Connection failed: {str(e)}'
+                    )
+                except Exception as db_exc:
+                    self.logger.warning(f"Skipped DB log (connect failed): {db_exc}")
             
             self.logger.error(f"Connection failed: {e}")
             return False
@@ -308,11 +311,14 @@ class WebSocketSender:
                 
                 # Log successful connection
                 if self.database_manager:
-                    self.database_manager.log_websocket_action(
-                        action='connect',
-                        status='success',
-                        message=f'Connected to Socket.IO server {self.server_url}'
-                    )
+                    try:
+                        self.database_manager.log_websocket_action(
+                            action='connect',
+                            status='success',
+                            message=f'Connected to Socket.IO server {self.server_url}'
+                        )
+                    except Exception as db_exc:
+                        self.logger.info(f"Skipped DB log (connect success): {db_exc}")
                 
                 self.logger.info("Socket.IO connection established")
                 
@@ -391,11 +397,14 @@ class WebSocketSender:
             
             # Log disconnection
             if self.database_manager:
-                self.database_manager.log_websocket_action(
-                    action='disconnect',
-                    status='success',
-                    message='Disconnected from server'
-                )
+                try:
+                    self.database_manager.log_websocket_action(
+                        action='disconnect',
+                        status='success',
+                        message='Disconnected from server'
+                    )
+                except Exception as db_exc:
+                    self.logger.info(f"Skipped DB log (disconnect): {db_exc}")
             
             self.logger.info("Server disconnected")
             return True
@@ -718,29 +727,35 @@ class WebSocketSender:
             
             if not unsent_detections:
                 # Log no data to send
-                self.database_manager.log_websocket_action(
-                    action='send_detection',
-                    status='no_data',
-                    message='No detection data to send',
-                    data_type='detection_results',
-                    record_count=0,
-                    aicamera_id=self.aicamera_id,
-                    checkpoint_id=self.checkpoint_id
-                )
+                try:
+                    self.database_manager.log_websocket_action(
+                        action='send_detection',
+                        status='no_data',
+                        message='No detection data to send',
+                        data_type='detection_results',
+                        record_count=0,
+                        aicamera_id=self.aicamera_id,
+                        checkpoint_id=self.checkpoint_id
+                    )
+                except Exception as db_exc:
+                    self.logger.info(f"Skipped DB log (no detection data): {db_exc}")
                 return 0
             
             # Check if in offline mode
             if not self.server_url:
                 # In offline mode, just log that we're processing locally
-                self.database_manager.log_websocket_action(
-                    action='send_detection',
-                    status='offline',
-                    message=f'Processing {len(unsent_detections)} detection records locally (offline mode)',
-                    data_type='detection_results',
-                    record_count=len(unsent_detections),
-                    aicamera_id=self.aicamera_id,
-                    checkpoint_id=self.checkpoint_id
-                )
+                try:
+                    self.database_manager.log_websocket_action(
+                        action='send_detection',
+                        status='offline',
+                        message=f'Processing {len(unsent_detections)} detection records locally (offline mode)',
+                        data_type='detection_results',
+                        record_count=len(unsent_detections),
+                        aicamera_id=self.aicamera_id,
+                        checkpoint_id=self.checkpoint_id
+                    )
+                except Exception as db_exc:
+                    self.logger.info(f"Skipped DB log (offline detection): {db_exc}")
                 return len(unsent_detections)
             
             sent_count = 0
@@ -758,27 +773,33 @@ class WebSocketSender:
                     sent_count += 1
                 else:
                     # Log send failure
-                    self.database_manager.log_websocket_action(
-                        action='send_detection',
-                        status='failed',
-                        message=f'Failed to send detection ID {detection["id"]}',
-                        data_type='detection_results',
-                        record_count=1,
-                        aicamera_id=self.aicamera_id,
-                        checkpoint_id=self.checkpoint_id
-                    )
+                    try:
+                        self.database_manager.log_websocket_action(
+                            action='send_detection',
+                            status='failed',
+                            message=f'Failed to send detection ID {detection["id"]}',
+                            data_type='detection_results',
+                            record_count=1,
+                            aicamera_id=self.aicamera_id,
+                            checkpoint_id=self.checkpoint_id
+                        )
+                    except Exception as db_exc:
+                        self.logger.warning(f"Skipped DB log (send_detection failed): {db_exc}")
             
             if sent_count > 0:
                 # Log successful sends
-                self.database_manager.log_websocket_action(
-                    action='send_detection',
-                    status='success',
-                    message=f'Successfully sent {sent_count} detection records',
-                    data_type='detection_results',
-                    record_count=sent_count,
-                    aicamera_id=self.aicamera_id,
-                    checkpoint_id=self.checkpoint_id
-                )
+                try:
+                    self.database_manager.log_websocket_action(
+                        action='send_detection',
+                        status='success',
+                        message=f'Successfully sent {sent_count} detection records',
+                        data_type='detection_results',
+                        record_count=sent_count,
+                        aicamera_id=self.aicamera_id,
+                        checkpoint_id=self.checkpoint_id
+                    )
+                except Exception as db_exc:
+                    self.logger.info(f"Skipped DB log (send_detection success): {db_exc}")
             
             return sent_count
             
@@ -786,14 +807,17 @@ class WebSocketSender:
             self.logger.error(f"Error sending detection data: {e}")
             # Log error
             if self.database_manager:
-                self.database_manager.log_websocket_action(
-                    action='send_detection',
-                    status='failed',
-                    message=f'Error sending detection data: {str(e)}',
-                    data_type='detection_results',
-                    aicamera_id=self.aicamera_id,
-                    checkpoint_id=self.checkpoint_id
-                )
+                try:
+                    self.database_manager.log_websocket_action(
+                        action='send_detection',
+                        status='failed',
+                        message=f'Error sending detection data: {str(e)}',
+                        data_type='detection_results',
+                        aicamera_id=self.aicamera_id,
+                        checkpoint_id=self.checkpoint_id
+                    )
+                except Exception as db_exc:
+                    self.logger.warning(f"Skipped DB log (send_detection error): {db_exc}")
             return 0
 
     def _send_health_data(self) -> int:
@@ -812,29 +836,35 @@ class WebSocketSender:
             
             if not unsent_health:
                 # Log no data to send
-                self.database_manager.log_websocket_action(
-                    action='send_health',
-                    status='no_data',
-                    message='No health data to send',
-                    data_type='health_checks',
-                    record_count=0,
-                    aicamera_id=self.aicamera_id,
-                    checkpoint_id=self.checkpoint_id
-                )
+                try:
+                    self.database_manager.log_websocket_action(
+                        action='send_health',
+                        status='no_data',
+                        message='No health data to send',
+                        data_type='health_checks',
+                        record_count=0,
+                        aicamera_id=self.aicamera_id,
+                        checkpoint_id=self.checkpoint_id
+                    )
+                except Exception as db_exc:
+                    self.logger.info(f"Skipped DB log (no health data): {db_exc}")
                 return 0
             
             # Check if in offline mode
             if not self.server_url:
                 # In offline mode, just log that we're processing locally
-                self.database_manager.log_websocket_action(
-                    action='send_health',
-                    status='offline',
-                    message=f'Processing {len(unsent_health)} health check records locally (offline mode)',
-                    data_type='health_checks',
-                    record_count=len(unsent_health),
-                    aicamera_id=self.aicamera_id,
-                    checkpoint_id=self.checkpoint_id
-                )
+                try:
+                    self.database_manager.log_websocket_action(
+                        action='send_health',
+                        status='offline',
+                        message=f'Processing {len(unsent_health)} health check records locally (offline mode)',
+                        data_type='health_checks',
+                        record_count=len(unsent_health),
+                        aicamera_id=self.aicamera_id,
+                        checkpoint_id=self.checkpoint_id
+                    )
+                except Exception as db_exc:
+                    self.logger.info(f"Skipped DB log (offline health): {db_exc}")
                 return len(unsent_health)
             
             sent_count = 0
@@ -852,27 +882,33 @@ class WebSocketSender:
                     sent_count += 1
                 else:
                     # Log send failure
-                    self.database_manager.log_websocket_action(
-                        action='send_health',
-                        status='failed',
-                        message=f'Failed to send health check ID {health_check["id"]}',
-                        data_type='health_checks',
-                        record_count=1,
-                        aicamera_id=self.aicamera_id,
-                        checkpoint_id=self.checkpoint_id
-                    )
+                    try:
+                        self.database_manager.log_websocket_action(
+                            action='send_health',
+                            status='failed',
+                            message=f'Failed to send health check ID {health_check["id"]}',
+                            data_type='health_checks',
+                            record_count=1,
+                            aicamera_id=self.aicamera_id,
+                            checkpoint_id=self.checkpoint_id
+                        )
+                    except Exception as db_exc:
+                        self.logger.warning(f"Skipped DB log (send_health failed): {db_exc}")
             
             if sent_count > 0:
                 # Log successful sends
-                self.database_manager.log_websocket_action(
-                    action='send_health',
-                    status='success',
-                    message=f'Successfully sent {sent_count} health check records',
-                    data_type='health_checks',
-                    record_count=sent_count,
-                    aicamera_id=self.aicamera_id,
-                    checkpoint_id=self.checkpoint_id
-                )
+                try:
+                    self.database_manager.log_websocket_action(
+                        action='send_health',
+                        status='success',
+                        message=f'Successfully sent {sent_count} health check records',
+                        data_type='health_checks',
+                        record_count=sent_count,
+                        aicamera_id=self.aicamera_id,
+                        checkpoint_id=self.checkpoint_id
+                    )
+                except Exception as db_exc:
+                    self.logger.info(f"Skipped DB log (send_health success): {db_exc}")
             
             return sent_count
             
@@ -880,14 +916,17 @@ class WebSocketSender:
             self.logger.error(f"Error sending health data: {e}")
             # Log error
             if self.database_manager:
-                self.database_manager.log_websocket_action(
-                    action='send_health',
-                    status='failed',
-                    message=f'Error sending health data: {str(e)}',
-                    data_type='health_checks',
-                    aicamera_id=self.aicamera_id,
-                    checkpoint_id=self.checkpoint_id
-                )
+                try:
+                    self.database_manager.log_websocket_action(
+                        action='send_health',
+                        status='failed',
+                        message=f'Error sending health data: {str(e)}',
+                        data_type='health_checks',
+                        aicamera_id=self.aicamera_id,
+                        checkpoint_id=self.checkpoint_id
+                    )
+                except Exception as db_exc:
+                    self.logger.warning(f"Skipped DB log (send_health error): {db_exc}")
             return 0
     
     def _send_single_detection_sync(self, detection: Dict[str, Any]) -> bool:
