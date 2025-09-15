@@ -101,6 +101,17 @@ def setup_logging(
                 return any(kw in msg for kw in self.KEYWORDS)
             return False  # drop DEBUG and other INFO
 
+    # Custom filter: suppress known noisy third-party messages
+    class MessageSuppressFilter(logging.Filter):
+        SUPPRESS_SUBSTRINGS = (
+            'Neither CUDA nor MPS are available - defaulting to CPU',
+            'This module is much faster with a GPU',
+            'Using CPU. Note: This module is much faster with a GPU',
+        )
+        def filter(self, record: logging.LogRecord) -> bool:
+            msg = str(record.getMessage())
+            return not any(s in msg for s in self.SUPPRESS_SUBSTRINGS)
+
     # Add file handler with daily rotation at 00:01
     try:
         file_handler = TimedRotatingFileHandler(
@@ -115,6 +126,7 @@ def setup_logging(
         # File logs: WARNING/ERROR by default; allow limited INFO via filter
         file_handler.setLevel(logging.INFO)
         file_handler.addFilter(StartStopInfoFilter())
+        file_handler.addFilter(MessageSuppressFilter())
         root_logger.addHandler(file_handler)
 
         # Communication-specific file handler (separate file)
@@ -129,6 +141,7 @@ def setup_logging(
         comm_file_handler.setFormatter(detailed_formatter)
         comm_file_handler.setLevel(logging.INFO)
         comm_file_handler.addFilter(StartStopInfoFilter())
+        comm_file_handler.addFilter(MessageSuppressFilter())
         # Use a dedicated named logger for communication to avoid duplicating root logs
         comm_logger = logging.getLogger('communication')
         comm_logger.setLevel(logging.INFO)
@@ -151,6 +164,11 @@ def setup_logging(
     logging.getLogger('socketio').setLevel(logging.WARNING)
     logging.getLogger('engineio').setLevel(logging.WARNING)
     logging.getLogger('werkzeug').setLevel(logging.WARNING)
+    # Reduce third-party OCR/ML libraries
+    logging.getLogger('easyocr').setLevel(logging.ERROR)
+    logging.getLogger('easyocr.easyocr').setLevel(logging.ERROR)
+    logging.getLogger('torch').setLevel(logging.ERROR)
+    logging.getLogger('transformers').setLevel(logging.ERROR)
     
     # Log initial message to verify logging is working
     # ข้อความเริ่มต้นยังคงถูกบันทึก (เข้าข่าย start event)
