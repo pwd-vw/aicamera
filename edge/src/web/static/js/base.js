@@ -213,6 +213,9 @@ const WebSocketManager = {
         }
 
         // Configure Socket.IO with timeout and reconnection settings
+        if (!window.useSocketIO) {
+            return; // Socket.IO disabled
+        }
         this.socket = io(namespace, {
             timeout: this.connectionTimeout,
             reconnection: true,

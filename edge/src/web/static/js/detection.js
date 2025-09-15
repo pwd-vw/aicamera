@@ -55,6 +55,10 @@ const DetectionManager = {
             return;
         }
 
+        if (!window.useSocketIO) {
+            this.socket = null;
+            return;
+        }
         this.socket = io();
         this.setupSocketHandlers();
     },

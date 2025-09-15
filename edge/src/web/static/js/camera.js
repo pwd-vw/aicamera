@@ -110,6 +110,10 @@ const CameraManager = {
         }
 
         try {
+            if (!window.useSocketIO) {
+                this.socket = null;
+                return;
+            }
             this.socket = io('/camera', {
                 timeout: 10000, // Increased timeout
                 reconnection: true,

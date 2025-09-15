@@ -1,6 +1,10 @@
 // src/web/static/js/experiment.js
 class ExperimentDashboard {
     constructor() {
+        if (!window.useSocketIO) {
+            this.socket = null;
+            return;
+        }
         this.socket = io();
         this.currentExperiment = null;
         this.experimentStartTime = null;

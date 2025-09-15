@@ -35,6 +35,10 @@ const StorageManager = {
         }
         
         console.log('Initializing WebSocket connection to main namespace');
+        if (!window.useSocketIO) {
+            this.socket = null;  // HTTP-only mode
+            return;
+        }
         this.socket = io();  // Use main namespace instead of /storage
         this.setupSocketHandlers();
         

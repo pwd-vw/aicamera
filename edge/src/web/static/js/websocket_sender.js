@@ -35,6 +35,10 @@ const WebSocketSenderManager = {
      */
     setupWebSocket: function() {
         if (typeof io !== 'undefined') {
+            if (!window.useSocketIO) {
+                this.socket = null;
+                return;
+            }
             this.socket = io('/websocket_sender');
             this.setupSocketHandlers();
         } else {
