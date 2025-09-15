@@ -39,17 +39,29 @@ def configure_hailort_logging():
         log_file = logs_dir / "hailort.log"
         os.environ["HAILORT_LOG_FILE"] = str(log_file)
         
-        # Force working directory to logs_dir to prevent root directory logging
-        original_cwd = os.getcwd()
+        # Set additional environment variables to force HailoRT to use correct path
+        os.environ["HAILO_LOG_PATH"] = str(log_file)
+        os.environ["HAILO_LOG_DIR"] = str(logs_dir)
+        os.environ["HAILORT_LOG_PATH"] = str(log_file)
+        os.environ["HAILORT_LOG_DIR"] = str(logs_dir)
+        
+        # Create symbolic link in root to redirect to proper location
         try:
-            os.chdir(str(logs_dir))
-            # Set additional environment variables to ensure correct path
-            os.environ["PWD"] = str(logs_dir)
+            root_log = Path.cwd() / "hailort.log"
+            if root_log.exists() and not root_log.is_symlink():
+                # Move existing file first
+                backup_name = f"hailort_backup_{int(time.time())}.log"
+                root_log.rename(logs_dir / backup_name)
+            
+            if root_log.exists():
+                root_log.unlink()  # Remove existing symlink
+            
+            # Create symlink from root to proper location
+            root_log.symlink_to(log_file)
+            print(f"✅ Created symlink: {root_log} -> {log_file}")
+            
         except Exception as e:
-            print(f"Warning: Could not change working directory: {e}")
-        finally:
-            # Restore original working directory
-            os.chdir(original_cwd)
+            print(f"Warning: Could not create symlink: {e}")
         
         # Setup HailoRT log rotation
         _setup_hailort_log_rotation(logs_dir)
