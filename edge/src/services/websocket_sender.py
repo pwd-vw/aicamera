@@ -61,7 +61,8 @@ class WebSocketSender:
             database_manager: Database manager instance
             logger: Logger instance
         """
-        self.logger = logger or get_logger(__name__)
+        # Use dedicated 'communication' logger so logs go to unified_comm.log
+        self.logger = logger or logging.getLogger('communication')
         self.database_manager = database_manager
         
         # Socket.IO connection
