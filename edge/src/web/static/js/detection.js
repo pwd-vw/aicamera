@@ -19,6 +19,7 @@ const DetectionManager = {
     currentPage: 1,
     perPage: 20,
     totalPages: 0,
+    totalResults: 0,
     currentSort: { by: 'created_at', order: 'desc' },
     currentFilters: {
         search: '',
@@ -629,16 +630,26 @@ const DetectionManager = {
         if (this.currentFilters.hasPlates) params.append('has_plates', this.currentFilters.hasPlates);
         
         console.log('Loading detection results...');
-        AICameraUtils.apiRequest('/detection/results')
+        AICameraUtils.apiRequest(`/detection/results?${params.toString()}`)
             .then(data => {
                 console.log('Results response:', data);
                 if (data.success) {
-                    // Apply client-side filtering and pagination
-                    const filteredResults = this.filterResults(data.results);
-                    const paginatedResults = this.paginateResults(filteredResults);
+                    // Use server-side pagination data directly
+                    this.totalPages = data.total_pages || Math.ceil((data.total || 0) / this.perPage);
+                    
+                    console.log('Server pagination data:', {
+                        total: data.total,
+                        total_pages: data.total_pages,
+                        current_page: data.page,
+                        per_page: data.per_page,
+                        results_count: data.results ? data.results.length : 0
+                    });
+                    
                     this.displayResults({
-                        results: paginatedResults,
-                        count: filteredResults.length
+                        results: data.results || [],
+                        total: data.total || 0,
+                        count: data.results ? data.results.length : 0,
+                        total_pages: data.total_pages || Math.ceil((data.total || 0) / this.perPage)
                     });
                 } else {
                     throw new Error(data.error || 'Failed to load results');
@@ -717,9 +728,17 @@ const DetectionManager = {
      * Display detection results
      */
     displayResults: function(data) {
-        const { results, count } = data;
+        const { results, count, total, total_pages } = data;
         
-        this.updateResultsCount(count || results.length);
+        // Store total results for pagination
+        this.totalResults = total || count || results.length;
+        
+        // Update total pages if provided from server
+        if (total_pages !== undefined) {
+            this.totalPages = total_pages;
+        }
+        
+        this.updateResultsCount(this.totalResults);
         this.renderResultsTable(results);
         this.renderPagination();
         
@@ -1061,21 +1080,39 @@ const DetectionManager = {
         
         if (!nav || !container) return;
         
-        // Always show pagination container for info display
+        // Always show pagination container
         container.style.display = 'block';
         nav.innerHTML = '';
         
+        // Show pagination info
+        this.updatePaginationInfo({
+            page: this.currentPage,
+            per_page: this.perPage,
+            total: this.totalResults || 0
+        });
+        
+        // Debug logging
+        console.log('Pagination Debug:', {
+            totalPages: this.totalPages,
+            currentPage: this.currentPage,
+            totalResults: this.totalResults,
+            perPage: this.perPage
+        });
+        
         // Only show navigation buttons if there are multiple pages
         if (this.totalPages <= 1) {
+            console.log('Not showing pagination buttons: totalPages <= 1');
             return;
         }
+        
+        console.log('Showing pagination buttons for', this.totalPages, 'pages');
         
         // Previous button
         const prevLi = document.createElement('li');
         prevLi.className = `page-item ${this.currentPage === 1 ? 'disabled' : ''}`;
         prevLi.innerHTML = `
             <button class="page-link" onclick="DetectionManager.goToPage(${this.currentPage - 1})" ${this.currentPage === 1 ? 'disabled' : ''}>
-                <i class="fas fa-chevron-left"></i>
+                <i class="fas fa-chevron-left"></i> Previous
             </button>
         `;
         nav.appendChild(prevLi);
@@ -1083,6 +1120,23 @@ const DetectionManager = {
         // Page numbers
         const startPage = Math.max(1, this.currentPage - 2);
         const endPage = Math.min(this.totalPages, this.currentPage + 2);
+        
+        // Add first page if not in range
+        if (startPage > 1) {
+            const firstLi = document.createElement('li');
+            firstLi.className = 'page-item';
+            firstLi.innerHTML = `
+                <button class="page-link" onclick="DetectionManager.goToPage(1)">1</button>
+            `;
+            nav.appendChild(firstLi);
+            
+            if (startPage > 2) {
+                const ellipsisLi = document.createElement('li');
+                ellipsisLi.className = 'page-item disabled';
+                ellipsisLi.innerHTML = `<span class="page-link">...</span>`;
+                nav.appendChild(ellipsisLi);
+            }
+        }
         
         for (let i = startPage; i <= endPage; i++) {
             const li = document.createElement('li');
@@ -1093,12 +1147,29 @@ const DetectionManager = {
             nav.appendChild(li);
         }
         
+        // Add last page if not in range
+        if (endPage < this.totalPages) {
+            if (endPage < this.totalPages - 1) {
+                const ellipsisLi = document.createElement('li');
+                ellipsisLi.className = 'page-item disabled';
+                ellipsisLi.innerHTML = `<span class="page-link">...</span>`;
+                nav.appendChild(ellipsisLi);
+            }
+            
+            const lastLi = document.createElement('li');
+            lastLi.className = 'page-item';
+            lastLi.innerHTML = `
+                <button class="page-link" onclick="DetectionManager.goToPage(${this.totalPages})">${this.totalPages}</button>
+            `;
+            nav.appendChild(lastLi);
+        }
+        
         // Next button
         const nextLi = document.createElement('li');
         nextLi.className = `page-item ${this.currentPage === this.totalPages ? 'disabled' : ''}`;
         nextLi.innerHTML = `
             <button class="page-link" onclick="DetectionManager.goToPage(${this.currentPage + 1})" ${this.currentPage === this.totalPages ? 'disabled' : ''}>
-                <i class="fas fa-chevron-right"></i>
+                Next <i class="fas fa-chevron-right"></i>
             </button>
         `;
         nav.appendChild(nextLi);
@@ -1108,6 +1179,13 @@ const DetectionManager = {
      * Go to specific page
      */
     goToPage: function(page) {
+        console.log('goToPage called:', {
+            requestedPage: page,
+            currentPage: this.currentPage,
+            totalPages: this.totalPages,
+            isValid: page >= 1 && page <= this.totalPages && page !== this.currentPage
+        });
+        
         if (page >= 1 && page <= this.totalPages && page !== this.currentPage) {
             this.currentPage = page;
             this.loadResults();

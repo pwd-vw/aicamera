@@ -163,34 +163,45 @@ const AICameraUtils = {
             }
         };
 
-        const finalOptions = { ...defaultOptions, ...options };
-        
-        return fetch(url, finalOptions)
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+        const controller = new AbortController();
+        const timeoutMs = (options && options.timeoutMs) || 30000;
+        const finalOptions = { ...defaultOptions, ...options, signal: controller.signal };
+
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+        const doFetch = () => fetch(url, finalOptions).then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                return response.json();
+            } else {
+                return response.text().then(text => {
+                    try {
+                        return JSON.parse(text);
+                    } catch (parseError) {
+                        console.error('Response is not valid JSON:', text.substring(0, 200));
+                        throw new Error('Invalid JSON response from server');
+                    }
+                });
+            }
+        });
+
+        return doFetch()
+            .catch(error => {
+                // Retry once on network-level failures
+                const isAbort = error && (error.name === 'AbortError' || /network.*timeout/i.test(error.message));
+                const isNetwork = error && (/Failed to fetch/i.test(error.message) || /NetworkError/i.test(error.message));
+                if (isAbort || isNetwork) {
+                    return new Promise(resolve => setTimeout(resolve, 500)).then(doFetch);
                 }
-                
-                // Check if response is JSON
-                const contentType = response.headers.get('content-type');
-                if (contentType && contentType.includes('application/json')) {
-                    return response.json();
-                } else {
-                    // If not JSON, get text and try to parse as JSON
-                    return response.text().then(text => {
-                        try {
-                            return JSON.parse(text);
-                        } catch (parseError) {
-                            console.error('Response is not valid JSON:', text.substring(0, 200));
-                            throw new Error('Invalid JSON response from server');
-                        }
-                    });
-                }
+                throw error;
             })
+            .finally(() => clearTimeout(timer))
             .catch(error => {
                 console.error('API request failed:', url, error);
-                // Don't show toast for every failed request to avoid spam
-                // this.showToast(`Request failed: ${error.message}`, 'error');
                 throw error;
             });
     }

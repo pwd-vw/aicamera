@@ -460,6 +460,27 @@ class DatabaseManager:
                 'has_prev': False
             }
     
+    def get_detection_count(self) -> int:
+        """
+        Get total count of detection results.
+        
+        Returns:
+            int: Total number of detection results
+        """
+        try:
+            if not self.connection:
+                self.logger.error("Database connection not available")
+                return 0
+            
+            cursor = self.connection.cursor()
+            cursor.execute("SELECT COUNT(*) FROM detection_results")
+            result = cursor.fetchone()
+            return result[0] if result else 0
+            
+        except Exception as e:
+            self.logger.error(f"Error getting detection count: {e}")
+            return 0
+    
     def get_all_detections(self) -> List[Dict[str, Any]]:
         """
         Get all detection results from database.

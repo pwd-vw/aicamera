@@ -334,10 +334,11 @@ def get_detection_statistics():
 @detection_bp.route('/results')
 def get_all_results():
     """
-    Get all detection results from database.
-    
-    Returns:
-        dict: JSON response with all detection results
+    Get recent detection results with optional limiting.
+
+    Query params (optional):
+      - per_page: int, number of items to return (default 50, max 200)
+      - page: int, page number starting at 1 (default 1)
     """
     try:
         database_manager = get_service('database_manager')
@@ -346,17 +347,57 @@ def get_all_results():
                 'success': False,
                 'error': 'Database manager not available'
             }), 500
+
+        # Parse query params with sane defaults
+        try:
+            per_page = int(request.args.get('per_page', 50))
+        except ValueError:
+            per_page = 50
+        try:
+            page = int(request.args.get('page', 1))
+        except ValueError:
+            page = 1
+
+        # Bound values
+        if per_page <= 0:
+            per_page = 50
+        per_page = min(per_page, 200)
+        if page <= 0:
+            page = 1
+
+        # Get total count first
+        total_count = database_manager.get_detection_count()
         
-        # Get all detection results (no limit)
-        all_results = database_manager.get_all_detections()
+        # Fetch recent detections and paginate in-memory
+        recent = database_manager.get_recent_detections(limit=per_page * page)
+        # Ensure newest-first ordering if not already guaranteed
+        # (Assumes items have 'created_at' or 'timestamp')
+        try:
+            recent.sort(key=lambda r: r.get('created_at') or r.get('timestamp') or 0, reverse=True)
+        except Exception:
+            pass
+
+        start_idx = (page - 1) * per_page
+        page_items = recent[start_idx:start_idx + per_page]
         
+        # Calculate pagination info
+        total_pages = (total_count + per_page - 1) // per_page  # Ceiling division
+        has_next = page < total_pages
+        has_prev = page > 1
+
         return jsonify({
             'success': True,
-            'results': make_json_serializable(all_results),
-            'count': len(all_results),
+            'results': make_json_serializable(page_items),
+            'count': len(page_items),
+            'total': total_count,
+            'page': page,
+            'per_page': per_page,
+            'total_pages': total_pages,
+            'has_next': has_next,
+            'has_prev': has_prev,
             'timestamp': datetime.now().isoformat()
         })
-        
+
     except Exception as e:
         logger.error(f"Error getting all results: {e}")
         return jsonify({

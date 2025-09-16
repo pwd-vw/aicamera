@@ -168,7 +168,8 @@ class VideoStreamingService:
                                 # Ensure frame has correct shape and color format
                                 if len(frame.shape) == 3 and frame.shape[2] == 3:
                                     # Convert RGB to BGR for OpenCV
-                                    frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+                                    #frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+                                    frame_bgr = frame
                                 else:
                                     # Handle grayscale or other formats
                                     if len(frame.shape) == 2:
@@ -177,8 +178,8 @@ class VideoStreamingService:
                                         frame_bgr = frame
 
                                 # Ensure frame matches expected resolution
-                                if frame_bgr.shape[:2] != (self.height, self.width):
-                                    frame_bgr = cv2.resize(frame_bgr, (self.width, self.height))
+                                #if frame_bgr.shape[:2] != (self.height, self.width):
+                                #    frame_bgr = cv2.resize(frame_bgr, (self.width, self.height))
 
                                 # Encode to MJPEG
                                 _, buffer = cv2.imencode('.jpg', frame_bgr, [cv2.IMWRITE_JPEG_QUALITY, 85])
