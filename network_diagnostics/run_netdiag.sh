@@ -23,11 +23,14 @@ TMP="$DIR/tmp_$TS"
 mkdir -p "$TMP"
 
 GOOGLE_DNS_IP="${GOOGLE_DNS_IP:-8.8.8.8}"
-GATEWAY_IP="${GATEWAY_IP:-100.101.102.1}"
+# Auto-detect default gateway if not provided
+GATEWAY_IP="${GATEWAY_IP:-$(ip route show default 2>/dev/null | awk '{print $3; exit}') }"
+if [ -z "${GATEWAY_IP// }" ]; then GATEWAY_IP="100.101.103.1"; fi
 LPR_IP="${TARGET_LPR_IP:-100.95.46.128}"
 
 {
-  echo "===== Network Diagnostics for aicamera1 Edge Device ====="
+  set +e
+  echo "===== Network Diagnostics for $(hostname) Edge Device ====="
   echo "Timestamp (UTC): $TS"
   echo "Host: $(hostname) | Kernel: $(uname -srm)"
   echo
@@ -62,16 +65,19 @@ LPR_IP="${TARGET_LPR_IP:-100.95.46.128}"
   echo
   echo "# 8) Recent kernel network logs (eth|wlan|network)";
   (dmesg | grep -i -E "eth|wlan|network" | tail -20 || true)
+  set -e
 } | tee "$LOG" >/dev/null
 
 # Build summary table from ping outputs
 parse_ping() {
   local file="$1"; local name="$2"; local target="$3"
   local tx rx loss rtt
-  tx=$(grep -E "packets transmitted" "$file" 2>/dev/null | awk '{print $1}')
-  rx=$(grep -E "packets transmitted" "$file" 2>/dev/null | awk '{print $4}')
-  loss=$(grep -E "packet loss" "$file" 2>/dev/null | sed -E 's/.* ([0-9.]+)% packet loss.*/\1%/')
-  rtt=$(grep -E 'rtt min/avg/max|round-trip min/avg/max' "$file" 2>/dev/null | awk -F' = ' '{print $2}' | awk '{print $1}' | sed 's/ ms//')
+  set +e
+  tx=$(grep -E "packets transmitted" "$file" 2>/dev/null | awk '{print $1}') || true
+  rx=$(grep -E "packets transmitted" "$file" 2>/dev/null | awk '{print $4}') || true
+  loss=$(grep -E "packet loss" "$file" 2>/dev/null | sed -E 's/.* ([0-9.]+)% packet loss.*/\1%/') || true
+  rtt=$(grep -E 'rtt min/avg/max|round-trip min/avg/max' "$file" 2>/dev/null | awk -F' = ' '{print $2}' | awk '{print $1}' | sed 's/ ms//') || true
+  set -e
   if [ -z "$tx" ]; then tx="-"; fi
   if [ -z "$rx" ]; then rx="-"; fi
   if [ -z "$loss" ]; then loss="-"; fi
