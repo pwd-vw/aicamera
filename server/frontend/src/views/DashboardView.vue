@@ -12,10 +12,20 @@
     <section class="space-y-4">
       <div class="card">Welcome to the AI Camera dashboard.</div>
       
+      <!-- Debug info -->
+      <div class="card" style="background: #f0f0f0; font-size: 0.8rem;">
+        Debug: User authenticated: {{ !!auth.user }}, Role: {{ auth.user?.role }}
+      </div>
+      
       <div class="dashboard-grid">
         <div class="dashboard-card" @click="navigateTo('/cameras')">
           <h3>📹 Cameras</h3>
           <p>Manage camera devices and configurations</p>
+        </div>
+        
+        <div class="dashboard-card" @click="navigateTo('/map')">
+          <h3>🗺️ Camera Map</h3>
+          <p>View camera locations and detections on map</p>
         </div>
         
         <div class="dashboard-card" @click="navigateTo('/detections')">

@@ -21,8 +21,8 @@ export class CommunicationService {
       apiUrl: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000',
       wsUrl: import.meta.env.VITE_WS_URL || 'ws://localhost:3000',
       mqttUrl: import.meta.env.VITE_MQTT_URL || 'mqtt://localhost:1883',
-      enableWebSocket: true,
-      enableMQTT: true,
+      enableWebSocket: false, // Disabled to prevent connection errors
+      enableMQTT: false, // Disabled to prevent connection errors
       fallbackToAPI: true,
       ...config,
     };

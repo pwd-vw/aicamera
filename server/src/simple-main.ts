@@ -1,9 +1,9 @@
 import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
+import { SimpleAppModule } from './simple-app.module';
 import * as fs from 'fs';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(SimpleAppModule);
   
   // Set global prefix for all routes
   app.setGlobalPrefix('api');
@@ -12,6 +12,11 @@ async function bootstrap() {
   app.enableCors({
     origin: true, // Allow all origins in development
     credentials: true,
+  });
+  
+  // Add a simple health check route
+  app.use('/health', (req, res) => {
+    res.json({ status: 'ok', message: 'AI Camera Server is running' });
   });
   
   // Check if Unix socket should be used
