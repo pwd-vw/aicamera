@@ -1,28 +1,22 @@
 import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
+import { SimpleAppModule } from './simple-app.module';
 import * as fs from 'fs';
-import helmet from 'helmet';
-import compression from 'compression';
-import morgan from 'morgan';
-import { createValidationPipe } from './config/validation.config';
-import { ValidationInterceptor } from './interceptors/validation.interceptor';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(SimpleAppModule);
   
   // Set global prefix for all routes
   app.setGlobalPrefix('api');
-  app.useGlobalPipes(createValidationPipe());
-  app.useGlobalInterceptors(new ValidationInterceptor());
-  
-  app.use(helmet());
-  app.use(compression());
-  app.use(morgan('combined'));
   
   // Enable CORS for frontend connections
   app.enableCors({
     origin: true, // Allow all origins in development
     credentials: true,
+  });
+  
+  // Add a simple health check route
+  app.use('/health', (req, res) => {
+    res.json({ status: 'ok', message: 'AI Camera Server is running' });
   });
   
   // Check if Unix socket should be used
