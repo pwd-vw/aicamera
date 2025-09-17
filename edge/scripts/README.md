@@ -211,3 +211,74 @@ For issues with tests or scripts:
 2. Verify system requirements are met
 3. Review the main project documentation
 4. Check logs in `../logs/` directory
+
+## Reset data
+
+### รีเฟรชระบบ: ลบผลตรวจจับและ Health logs (เก็บแบ็กอัพก่อน)
+ด้านล่างคือคำสั่งแบบ copy-paste ทีละบล็อก
+
+- สำรองฐานข้อมูล SQLite (`/home/camuser/aicamera/edge/db/lpr_data.db`)
+```bash
+cp -a /home/camuser/aicamera/edge/db/lpr_data.db /home/camuser/aicamera/edge/db/lpr_data.db.backup_$(date -u +%Y%m%d_%H%M%SZ)
+```
+
+- ล้างตารางผลตรวจจับและเฮลธ์ (ใช้ Python, ไม่ต้องมี sqlite3 CLI)
+```bash
+python3 - <<'PY'
+import sqlite3
+DB = "/home/camuser/aicamera/edge/db/lpr_data.db"
+conn = sqlite3.connect(DB)
+cur = conn.cursor()
+cur.execute('PRAGMA foreign_keys = OFF;')
+conn.execute('BEGIN;')
+for table in ("detection_results","health_checks","websocket_sender_logs","system_events"):
+    try:
+        cur.execute(f"DELETE FROM {table};")
+        print(f"[ok] cleared {table}")
+    except Exception as e:
+        print(f"[skip] {table}: {e}")
+conn.commit()
+try:
+    conn.execute('VACUUM;')
+    print('[ok] vacuumed')
+except Exception as e:
+    print(f"[warn] vacuum: {e}")
+for table in ("detection_results","health_checks","websocket_sender_logs","system_events"):
+    try:
+        c = conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+        print(f"[cnt] {table}={c}")
+    except Exception as e:
+        print(f"[cnt] {table}=N/A ({e})")
+conn.close()
+PY
+```
+
+- เคลียร์ไฟล์ Log ของ Edge (คงไฟล์ไว้แต่ล้างเนื้อหา)
+```bash
+find /home/camuser/aicamera/edge/logs -maxdepth 1 -type f -name "*.log*" -print0 | while IFS= read -r -d '' f; do : > "$f"; echo "[truncated] $f"; done
+```
+
+- (ทางเลือก) ลบรูปตัวอย่างที่จับไว้ทั้งหมด เพื่อทดสอบใหม่สะอาด
+ระวัง: คำสั่งนี้ “ลบถาวร”
+```bash
+# ยืนยันก่อนรัน: จะลบทุกไฟล์ในโฟลเดอร์ captured_images
+rm -f /home/camuser/aicamera/edge/captured_images/*
+```
+
+- ตรวจสอบว่าเคลียร์แล้ว
+```bash
+python3 - <<'PY'
+import sqlite3
+DB = "/home/camuser/aicamera/edge/db/lpr_data.db"
+conn = sqlite3.connect(DB)
+for t in ("detection_results","health_checks","websocket_sender_logs","system_events"):
+    try:
+        c = conn.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]
+        print(f"{t}: {c}")
+    except Exception as e:
+        print(f"{t}: N/A ({e})")
+conn.close()
+PY
+ls -la /home/camuser/aicamera/edge/logs | sed 's/^/[logs]/'
+ls -la /home/camuser/aicamera/edge/captured_images | sed 's/^/[images]/'
+```
