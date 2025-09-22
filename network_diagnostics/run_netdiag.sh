@@ -10,7 +10,7 @@ set -euo pipefail
 #
 # Optional environment variables:
 #   TARGET_LPR_IP   Override LPR Server IP (default: 100.95.46.128)
-#   GATEWAY_IP      Override local gateway IP (default: 100.101.102.1)
+#   GATEWAY_IP      Override local gateway IP (default: 100.101.103.1)
 #   GOOGLE_DNS_IP   Override Google DNS IP (default: 8.8.8.8)
 
 DIR="/home/camuser/aicamera/network_diagnostics"
@@ -25,6 +25,8 @@ mkdir -p "$TMP"
 GOOGLE_DNS_IP="${GOOGLE_DNS_IP:-8.8.8.8}"
 # Auto-detect default gateway if not provided
 GATEWAY_IP="${GATEWAY_IP:-$(ip route show default 2>/dev/null | awk '{print $3; exit}') }"
+# Trim any leading/trailing whitespace from auto-detected or provided gateway
+GATEWAY_IP="$(printf '%s' "$GATEWAY_IP" | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')"
 if [ -z "${GATEWAY_IP// }" ]; then GATEWAY_IP="100.101.103.1"; fi
 LPR_IP="${TARGET_LPR_IP:-100.95.46.128}"
 
