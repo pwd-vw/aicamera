@@ -24,9 +24,10 @@ mkdir -p "$TMP"
 
 GOOGLE_DNS_IP="${GOOGLE_DNS_IP:-8.8.8.8}"
 # Auto-detect default gateway if not provided
-GATEWAY_IP="${GATEWAY_IP:-$(ip route show default 2>/dev/null | awk '{print $3; exit}') }"
-# Trim any leading/trailing whitespace from auto-detected or provided gateway
-GATEWAY_IP="$(printf '%s' "$GATEWAY_IP" | sed -E 's/^[[:space:]]+|[[:space:]]+$//g')"
+raw_gw="$(ip route show default 2>/dev/null | awk '{print $3; exit}')"
+# Sanitize: remove all non-digit and non-dot characters (including whitespace)
+raw_gw="${raw_gw//[^0-9.]/}"
+GATEWAY_IP="${GATEWAY_IP:-$raw_gw}"
 if [ -z "${GATEWAY_IP// }" ]; then GATEWAY_IP="100.101.103.1"; fi
 LPR_IP="${TARGET_LPR_IP:-100.95.46.128}"
 
