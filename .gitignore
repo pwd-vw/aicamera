@@ -42,7 +42,7 @@ node_modules/
 
 # Testing
 coverage/
-net_diag*.md
+netdiag*.md
 # Production
 /build
 
