@@ -29,6 +29,9 @@ const DetectionManager = {
         hasPlates: ''
     },
     isLoading: false,
+    selectionMode: false,
+    selectedResults: new Set(),
+    currentResults: [],
     
     /**
      * Initialize unified detection dashboard
@@ -256,6 +259,47 @@ const DetectionManager = {
                 this.handleSort(sortBy);
             });
         });
+
+        // Selection toggle button
+        const toggleSelectionBtn = document.getElementById('toggle-selection-btn');
+        if (toggleSelectionBtn) {
+            toggleSelectionBtn.addEventListener('click', () => {
+                this.toggleSelectionMode();
+            });
+        }
+
+        // Bulk delete button
+        const deleteSelectedBtn = document.getElementById('delete-selected-btn');
+        if (deleteSelectedBtn) {
+            deleteSelectedBtn.addEventListener('click', () => {
+                this.deleteSelectedResults();
+            });
+        }
+
+        // Selection checkboxes
+        const resultsTableBody = document.getElementById('results-table-body');
+        if (resultsTableBody) {
+            resultsTableBody.addEventListener('change', (e) => {
+                if (e.target && e.target.classList && e.target.classList.contains('result-select-checkbox')) {
+                    const resultId = e.target.dataset.resultId;
+                    this.handleSelectionChange(resultId, e.target.checked);
+                }
+            });
+
+            resultsTableBody.addEventListener('click', (e) => {
+                const target = e.target;
+                if (!(target instanceof Element)) return;
+                if (!this.selectionMode) return;
+                if (target.closest('.actions-cell')) return;
+                if (target.classList.contains('result-select-checkbox') || target.closest('.result-select-checkbox')) return;
+                const row = target.closest('tr[data-result-id]');
+                if (!row) return;
+                const checkbox = row.querySelector('.result-select-checkbox');
+                if (!checkbox || checkbox.disabled) return;
+                checkbox.checked = !checkbox.checked;
+                this.handleSelectionChange(row.dataset.resultId, checkbox.checked);
+            });
+        }
     },
 
     /**
@@ -752,6 +796,13 @@ const DetectionManager = {
         
         // Store total results for pagination
         this.totalResults = total || count || results.length;
+
+        this.currentResults = Array.isArray(results) ? results : [];
+        if (this.selectionMode) {
+            this.pruneSelectionToCurrentResults();
+        } else if (this.selectedResults.size > 0) {
+            this.selectedResults.clear();
+        }
         
         // Update total pages if provided from server
         if (total_pages !== undefined) {
@@ -759,8 +810,9 @@ const DetectionManager = {
         }
         
         this.updateResultsCount(this.totalResults);
-        this.renderResultsTable(results);
+        this.renderResultsTable(this.currentResults);
         this.renderPagination();
+        this.updateSelectionUI();
         
         if (!results || results.length === 0) {
             this.showEmptyState();
@@ -777,15 +829,34 @@ const DetectionManager = {
      */
     renderResultsTable: function(results) {
         const tbody = document.getElementById('results-table-body');
+        const table = document.getElementById('results-table');
         if (!tbody) return;
         
+        if (table) {
+            table.classList.toggle('selection-enabled', this.selectionMode);
+        }
+
         tbody.innerHTML = '';
         
         results.forEach(result => {
             const vehiclesDisplay = this.formatVehicleCell(result);
             const platesDisplay = this.formatPlatesForTable(result.plate_detections);
             const row = document.createElement('tr');
+            const resultId = result && result.id !== undefined && result.id !== null ? String(result.id) : '';
+            const isSelected = this.selectedResults.has(resultId);
+            const checkboxDisabled = !this.selectionMode || !resultId;
+            row.dataset.resultId = resultId;
+            if (isSelected) {
+                row.classList.add('selected-row');
+            }
             row.innerHTML = `
+                <td class="selection-cell text-center">
+                    <input type="checkbox"
+                        class="form-check-input result-select-checkbox"
+                        data-result-id="${resultId}"
+                        ${checkboxDisabled ? 'disabled' : ''}
+                        ${isSelected ? 'checked' : ''}>
+                </td>
                 <td>${result.id || 'N/A'}</td>
                 <td>${AICameraUtils.formatTimestamp(result.timestamp || result.created_at)}</td>
                 <td>${vehiclesDisplay}</td>
@@ -895,25 +966,148 @@ const DetectionManager = {
     /**
      * Delete detection result via API
      */
-    deleteDetectionResult: function(resultId) {
+    deleteDetectionResult: function(resultId, options = {}) {
+        if (!resultId) return Promise.resolve();
+        const { suppressReload = false, suppressAlerts = false } = options;
         this.addLogMessage(`Deleting detection result #${resultId}...`, 'info');
-        AICameraUtils.apiRequest(`/detection/results/${resultId}`, {
-            method: 'DELETE'
-        })
+        return this.performDeleteRequest(resultId)
             .then(data => {
                 if (data.success) {
                     this.addLogMessage(`Detection result #${resultId} deleted`, 'success');
-                    this.loadResults();
+                    if (!suppressReload) {
+                        this.loadResults();
+                    }
+                    return data;
                 } else {
-                    throw new Error(data.error || 'Unknown error');
+                    const errorMessage = data.error || 'Unknown error';
+                    throw new Error(errorMessage);
                 }
             })
             .catch(error => {
                 console.error('Error deleting detection result:', error);
-                window.alert(`Failed to delete detection result #${resultId}: ${error.message}`);
+                if (!suppressAlerts) {
+                    window.alert(`Failed to delete detection result #${resultId}: ${error.message}`);
+                }
+                throw error;
             });
     },
 
+    performDeleteRequest: function(resultId) {
+        return AICameraUtils.apiRequest(`/detection/results/${resultId}`, {
+            method: 'DELETE'
+        });
+    },
+
+    toggleSelectionMode: function() {
+        this.selectionMode = !this.selectionMode;
+        if (!this.selectionMode) {
+            this.clearSelection();
+        }
+        this.updateSelectionUI();
+        this.renderResultsTable(this.currentResults || []);
+    },
+
+    updateSelectionUI: function() {
+        const toggleBtn = document.getElementById('toggle-selection-btn');
+        const deleteBtn = document.getElementById('delete-selected-btn');
+        const countBadge = document.getElementById('selection-count-badge');
+        const isDeleting = deleteBtn && deleteBtn.dataset.deleting === 'true';
+
+        if (toggleBtn) {
+            toggleBtn.innerHTML = this.selectionMode
+                ? '<i class="fas fa-times me-1"></i>Cancel Select'
+                : '<i class="fas fa-check-square me-1"></i>Select';
+            toggleBtn.classList.toggle('btn-outline-primary', this.selectionMode);
+            toggleBtn.classList.toggle('btn-outline-secondary', !this.selectionMode);
+        }
+
+        if (deleteBtn) {
+            deleteBtn.classList.toggle('d-none', !this.selectionMode);
+            deleteBtn.disabled = !this.selectionMode || this.selectedResults.size === 0 || isDeleting;
+        }
+
+        if (countBadge) {
+            countBadge.textContent = this.selectedResults.size;
+        }
+    },
+
+    handleSelectionChange: function(resultId, isChecked) {
+        if (!this.selectionMode || !resultId) return;
+        if (isChecked) {
+            this.selectedResults.add(String(resultId));
+        } else {
+            this.selectedResults.delete(String(resultId));
+        }
+        const row = document.querySelector(`#results-table-body tr[data-result-id="${resultId}"]`);
+        if (row) {
+            row.classList.toggle('selected-row', isChecked);
+        }
+        this.updateSelectionUI();
+    },
+
+    clearSelection: function() {
+        this.selectedResults.clear();
+        document.querySelectorAll('#results-table-body tr').forEach(row => row.classList.remove('selected-row'));
+        document.querySelectorAll('.result-select-checkbox').forEach(checkbox => {
+            checkbox.checked = false;
+        });
+        this.updateSelectionUI();
+    },
+
+    pruneSelectionToCurrentResults: function() {
+        if (!Array.isArray(this.currentResults) || this.currentResults.length === 0) return;
+        const validIds = new Set(
+            this.currentResults
+                .map(result => (result && result.id !== undefined && result.id !== null) ? String(result.id) : null)
+                .filter(id => id !== null)
+        );
+        this.selectedResults.forEach(id => {
+            if (!validIds.has(id)) {
+                this.selectedResults.delete(id);
+            }
+        });
+    },
+
+    deleteSelectedResults: function() {
+        if (!this.selectionMode || this.selectedResults.size === 0) return;
+        const ids = Array.from(this.selectedResults);
+        const confirmed = window.confirm(`Delete ${ids.length} selected detection result(s)? This will remove the records and related images.`);
+        if (!confirmed) return;
+
+        const deleteBtn = document.getElementById('delete-selected-btn');
+        let originalButtonContent = '';
+        if (deleteBtn) {
+            originalButtonContent = deleteBtn.innerHTML;
+            deleteBtn.disabled = true;
+            deleteBtn.dataset.deleting = 'true';
+            deleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Deleting...';
+        }
+
+        Promise.allSettled(ids.map(id => this.deleteDetectionResult(id, { suppressReload: true, suppressAlerts: true })))
+            .then(results => {
+                const successCount = results.filter(r => r.status === 'fulfilled').length;
+                const failureCount = ids.length - successCount;
+                if (successCount > 0) {
+                    this.addLogMessage(`Deleted ${successCount} detection result(s)`, failureCount === 0 ? 'success' : 'warning');
+                }
+                if (failureCount > 0) {
+                    this.addLogMessage(`${failureCount} detection result(s) failed to delete`, 'error');
+                    window.alert(`${failureCount} detection record(s) could not be deleted. Check logs for details.`);
+                }
+            })
+            .catch(error => {
+                console.error('Bulk delete error:', error);
+                window.alert('Bulk delete failed: ' + error.message);
+            })
+            .finally(() => {
+                if (deleteBtn) {
+                    deleteBtn.dataset.deleting = 'false';
+                    deleteBtn.innerHTML = originalButtonContent;
+                }
+                this.clearSelection();
+                this.loadResults();
+            });
+    },
 
 
 

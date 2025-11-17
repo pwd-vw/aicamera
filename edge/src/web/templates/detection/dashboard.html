@@ -76,6 +76,33 @@
         #comprehensive-output-content .card-body {
             overflow: visible !important;
         }
+
+        /* Multi-select styles */
+        .selection-column,
+        .selection-cell {
+            display: none;
+            width: 48px;
+            text-align: center;
+            vertical-align: middle;
+        }
+
+        #results-table.selection-enabled .selection-column,
+        #results-table.selection-enabled .selection-cell {
+            display: table-cell;
+        }
+
+        #results-table .selection-cell .form-check-input {
+            cursor: pointer;
+        }
+
+        #results-table-body tr.selected-row {
+            background-color: rgba(0, 123, 255, 0.08);
+        }
+
+        .selection-controls .btn {
+            font-size: 0.9rem;
+            white-space: nowrap;
+        }
     </style>
 {% endblock %}
 
@@ -250,6 +277,19 @@
                             <i class="fas fa-filter me-2"></i>Apply Filters
                         </button>
                     </div>
+
+                    <!-- Selection Controls -->
+                    <div class="col-md-12 col-lg-3 d-flex align-items-end selection-controls">
+                        <div class="w-100 d-flex gap-2 flex-wrap flex-lg-nowrap">
+                            <button type="button" class="btn btn-outline-secondary flex-fill" id="toggle-selection-btn">
+                                <i class="fas fa-check-square me-1"></i>Select
+                            </button>
+                            <button type="button" class="btn btn-outline-danger flex-fill d-none" id="delete-selected-btn" data-deleting="false" disabled>
+                                <i class="fas fa-trash-alt me-1"></i>Delete Selected
+                                <span class="badge bg-light text-dark ms-1" id="selection-count-badge">0</span>
+                            </button>
+                        </div>
+                    </div>
                 </form>
             </div>
             <div class="card-body p-0">
@@ -267,6 +307,9 @@
                         <table class="table table-hover mb-0" id="results-table">
                             <thead class="table-light">
                                 <tr>
+                                    <th class="selection-column text-center">
+                                        <span class="visually-hidden">Select</span>
+                                    </th>
                                     <th class="sortable" data-sort="id">
                                         ID <i class="fas fa-sort sort-icon"></i>
                                     </th>
