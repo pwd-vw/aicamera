@@ -610,23 +610,7 @@ class DatabaseManager:
             
             cursor = self.connection.cursor()
             
-            # Debug: Check if the table exists and has data
-            cursor.execute("SELECT COUNT(*) as count FROM detection_results")
-            count_result = cursor.fetchone()
-            self.logger.debug(f"Total records in detection_results: {count_result[0] if count_result else 'unknown'}")
-            
-            # Debug: Check if the specific ID exists
-            cursor.execute("SELECT id FROM detection_results WHERE id = ?", (result_id,))
-            id_check = cursor.fetchone()
-            self.logger.debug(f"Looking for ID {result_id}, found: {id_check is not None}")
-            
-            cursor.execute("""
-                SELECT id, timestamp, vehicles_count, plates_count, ocr_results, 
-                       original_image_path, vehicle_detections, plate_detections,
-                       processing_time_ms, created_at
-                FROM detection_results
-                WHERE id = ?
-            """, (result_id,))
+            cursor.execute("SELECT * FROM detection_results WHERE id = ?", (result_id,))
             
             row = cursor.fetchone()
             
@@ -634,34 +618,81 @@ class DatabaseManager:
                 self.logger.warning(f"No detection result found with ID {result_id}")
                 return None
             
-            self.logger.debug(f"Found detection result with ID {result_id}")
+            columns = set(row.keys())
+            def get_col(name, default=None):
+                return row[name] if name in columns else default
             
             result = {
-                'id': row[0],
-                'timestamp': row[1],
-                'vehicles_count': row[2],
-                'plates_count': row[3],
-                'original_image_path': row[5],
-                'processing_time_ms': row[8],
-                'created_at': row[9]
+                'id': get_col('id'),
+                'timestamp': get_col('timestamp'),
+                'vehicles_count': get_col('vehicles_count'),
+                'plates_count': get_col('plates_count'),
+                'original_image_path': get_col('original_image_path'),
+                'processing_time_ms': get_col('processing_time_ms'),
+                'created_at': get_col('created_at'),
+                'vehicle_detected_image_path': get_col('vehicle_detected_image_path'),
+                'plate_image_path': get_col('plate_image_path'),
+                'best_ocr_method': get_col('best_ocr_method'),
+                'ocr_processing_time_ms': get_col('ocr_processing_time_ms'),
+                'parallel_ocr_success': get_col('parallel_ocr_success'),
+                'hailo_ocr_confidence': get_col('hailo_ocr_confidence'),
+                'easyocr_confidence': get_col('easyocr_confidence'),
+                'hailo_processing_time_ms': get_col('hailo_processing_time_ms'),
+                'easyocr_processing_time_ms': get_col('easyocr_processing_time_ms'),
+                'hailo_ocr_error': get_col('hailo_ocr_error'),
+                'easyocr_error': get_col('easyocr_error')
             }
             
             # Deserialize JSON fields with full details
             try:
-                result['ocr_results'] = json.loads(row[4] or '[]')
-                result['vehicle_detections'] = json.loads(row[6] or '[]')
-                result['plate_detections'] = json.loads(row[7] or '[]')
+                result['ocr_results'] = json.loads(get_col('ocr_results', '[]') or '[]')
+                result['vehicle_detections'] = json.loads(get_col('vehicle_detections', '[]') or '[]')
+                result['plate_detections'] = json.loads(get_col('plate_detections', '[]') or '[]')
+                result['cropped_plates_paths'] = json.loads(get_col('cropped_plates_paths', '[]') or '[]')
+                result['hailo_ocr_results'] = json.loads(get_col('hailo_ocr_results', '[]') or '[]')
+                result['easyocr_results'] = json.loads(get_col('easyocr_results', '[]') or '[]')
             except json.JSONDecodeError as e:
                 self.logger.warning(f"Error deserializing JSON for record {result_id}: {e}")
-                result['ocr_results'] = []
-                result['vehicle_detections'] = []
-                result['plate_detections'] = []
+                result['ocr_results'] = result.get('ocr_results', [])
+                result['vehicle_detections'] = result.get('vehicle_detections', [])
+                result['plate_detections'] = result.get('plate_detections', [])
+                result['cropped_plates_paths'] = []
+                result['hailo_ocr_results'] = []
+                result['easyocr_results'] = []
             
             return result
             
         except Exception as e:
             self.logger.error(f"Error getting detection result by ID {result_id}: {e}")
             return None
+
+    def delete_detection_result(self, result_id: int) -> bool:
+        """
+        Delete a detection result by ID.
+        
+        Args:
+            result_id: ID of the detection result to delete
+        
+        Returns:
+            bool: True if a record was deleted, False otherwise
+        """
+        try:
+            if not self.connection:
+                self.logger.error("Database connection not available")
+                return False
+            
+            cursor = self.connection.cursor()
+            cursor.execute("DELETE FROM detection_results WHERE id = ?", (result_id,))
+            deleted = cursor.rowcount > 0
+            if deleted:
+                self.connection.commit()
+                self.logger.info(f"Deleted detection result with ID {result_id}")
+            else:
+                self.logger.warning(f"No detection result found to delete with ID {result_id}")
+            return deleted
+        except Exception as e:
+            self.logger.error(f"Error deleting detection result {result_id}: {e}")
+            return False
     
     def execute_query(self, query: str, params: tuple = None) -> List[tuple]:
         """

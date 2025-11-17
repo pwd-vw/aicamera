@@ -782,7 +782,7 @@ const DetectionManager = {
         tbody.innerHTML = '';
         
         results.forEach(result => {
-            const vehiclesDisplay = this.formatVehiclesForTable(result.vehicle_detections);
+            const vehiclesDisplay = this.formatVehicleCell(result);
             const platesDisplay = this.formatPlatesForTable(result.plate_detections);
             const row = document.createElement('tr');
             row.innerHTML = `
@@ -791,9 +791,12 @@ const DetectionManager = {
                 <td>${vehiclesDisplay}</td>
                 <td>${platesDisplay}</td>
                 <td>${this.formatOcrResults(result.ocr_results, true)}</td>
-                <td>
+                <td class="actions-cell">
                     <button class="btn btn-sm btn-outline-primary" onclick="DetectionManager.showDetail(${result.id || 0})">
                         <i class="fas fa-eye"></i> View
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger ms-1" onclick="DetectionManager.confirmDelete(${result.id || 0})">
+                        <i class="fas fa-trash"></i> Delete
                     </button>
                 </td>
             `;
@@ -819,6 +822,24 @@ const DetectionManager = {
             const confText = conf !== null ? `${conf}%` : '-';
             return `<span class="badge bg-success me-1">OCR- ${text} (${confText})</span>`;
         }).join('');
+    },
+
+    /**
+     * Compose vehicle cell with thumbnail + badges
+     */
+    formatVehicleCell: function(result) {
+        const badges = this.formatVehiclesForTable(result.vehicle_detections);
+        const imageUrl = this.resolveImageUrl(result.original_image_path);
+        const imageMarkup = imageUrl
+            ? `<img src="${imageUrl}" alt="Vehicle" class="vehicle-thumb" loading="lazy">`
+            : `<div class="vehicle-thumb placeholder"><i class="fas fa-car-side"></i></div>`;
+        
+        return `
+            <div class="vehicle-table-cell">
+                ${imageMarkup}
+                <div class="vehicle-info">${badges}</div>
+            </div>
+        `;
     },
 
     /**
@@ -859,6 +880,38 @@ const DetectionManager = {
         if (v <= 1) v = v * 100;
         v = Math.max(0, Math.min(100, v));
         return Math.round(v);
+    },
+
+    /**
+     * Confirm deletion of a detection result
+     */
+    confirmDelete: function(resultId) {
+        if (!resultId) return;
+        const confirmed = window.confirm(`Delete detection result #${resultId}? This will remove the record and related images.`);
+        if (!confirmed) return;
+        this.deleteDetectionResult(resultId);
+    },
+
+    /**
+     * Delete detection result via API
+     */
+    deleteDetectionResult: function(resultId) {
+        this.addLogMessage(`Deleting detection result #${resultId}...`, 'info');
+        AICameraUtils.apiRequest(`/detection/results/${resultId}`, {
+            method: 'DELETE'
+        })
+            .then(data => {
+                if (data.success) {
+                    this.addLogMessage(`Detection result #${resultId} deleted`, 'success');
+                    this.loadResults();
+                } else {
+                    throw new Error(data.error || 'Unknown error');
+                }
+            })
+            .catch(error => {
+                console.error('Error deleting detection result:', error);
+                window.alert(`Failed to delete detection result #${resultId}: ${error.message}`);
+            });
     },
 
 

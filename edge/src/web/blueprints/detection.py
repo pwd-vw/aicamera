@@ -15,6 +15,7 @@ Date: August 2025
 """
 
 import json
+import os
 import time
 from datetime import datetime
 from flask import Blueprint, render_template, jsonify, request, Response, current_app
@@ -24,6 +25,7 @@ from flask_socketio import emit, join_room, leave_room
 from edge.src.core.dependency_container import get_service
 from edge.src.core.utils.logging_config import get_logger
 from edge.src.components.camera_handler import make_json_serializable
+from edge.src.core.config import IMAGE_SAVE_DIR
 
 # Create blueprint
 detection_bp = Blueprint('detection', __name__, url_prefix='/detection')
@@ -474,6 +476,50 @@ def get_result_by_id(result_id):
         }), 500
 
 
+@detection_bp.route('/results/<int:result_id>', methods=['DELETE'])
+def delete_detection_result(result_id):
+    """
+    Delete a detection result and associated media files.
+    """
+    try:
+        database_manager = get_service('database_manager')
+        if not database_manager:
+            return jsonify({
+                'success': False,
+                'error': 'Database manager not available'
+            }), 500
+        
+        result = database_manager.get_detection_result_by_id(result_id)
+        if not result:
+            return jsonify({
+                'success': False,
+                'error': f'Detection result with ID {result_id} not found'
+            }), 404
+        
+        deleted_files = _cleanup_detection_files(result)
+        
+        if not database_manager.delete_detection_result(result_id):
+            return jsonify({
+                'success': False,
+                'error': 'Failed to delete detection result from database'
+            }), 500
+        
+        logger.info(f"Detection result {result_id} deleted with {len(deleted_files)} file(s) removed")
+        return jsonify({
+            'success': True,
+            'message': f'Detection result {result_id} deleted successfully',
+            'deleted_files': deleted_files
+        })
+        
+    except Exception as e:
+        logger.error(f"Error deleting detection result {result_id}: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'timestamp': int(time.time())
+        }), 500
+
+
 @detection_bp.route('/models/status')
 def get_models_status():
     """
@@ -897,3 +943,62 @@ def register_detection_events(socketio):
         emit('left_detection_room', {'message': 'Left detection updates'})
     
     logger.info("Detection WebSocket events registered")
+
+
+def _cleanup_detection_files(result_data):
+    """Remove media files associated with a detection result."""
+    files_removed = []
+    
+    paths = [
+        result_data.get('original_image_path'),
+        result_data.get('vehicle_detected_image_path'),
+        result_data.get('plate_image_path')
+    ]
+    
+    cropped_paths = result_data.get('cropped_plates_paths') or []
+    if isinstance(cropped_paths, str):
+        try:
+            cropped_paths = json.loads(cropped_paths)
+        except json.JSONDecodeError:
+            cropped_paths = []
+    if isinstance(cropped_paths, list):
+        paths.extend(cropped_paths)
+    
+    for path in paths:
+        resolved = _resolve_storage_path(path)
+        if not resolved:
+            continue
+        try:
+            if os.path.exists(resolved):
+                os.remove(resolved)
+                files_removed.append(resolved)
+        except Exception as exc:
+            logger.warning(f"Failed to delete file {resolved}: {exc}")
+    
+    return files_removed
+
+
+def _resolve_storage_path(raw_path):
+    """Resolve relative media paths to absolute locations under IMAGE_SAVE_DIR."""
+    if not raw_path or not isinstance(raw_path, str):
+        return None
+    
+    cleaned = raw_path.strip()
+    if not cleaned:
+        return None
+    
+    # If already absolute, ensure it resides inside IMAGE_SAVE_DIR
+    if os.path.isabs(cleaned):
+        normalized = os.path.normpath(cleaned)
+        return normalized if os.path.commonpath([normalized, IMAGE_SAVE_DIR]) == IMAGE_SAVE_DIR else None
+    
+    relative = cleaned.lstrip('/')
+    if relative.startswith('edge/'):
+        relative = relative.split('edge/', 1)[1]
+    if relative.startswith('captured_images/'):
+        relative = relative[len('captured_images/'):]
+    
+    candidate = os.path.normpath(os.path.join(IMAGE_SAVE_DIR, relative))
+    if os.path.commonpath([candidate, IMAGE_SAVE_DIR]) != IMAGE_SAVE_DIR:
+        return None
+    return candidate
