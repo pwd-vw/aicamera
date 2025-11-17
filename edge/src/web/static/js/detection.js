@@ -158,56 +158,76 @@ const DetectionManager = {
             });
         }
 
-        // Search input with debounce
-        const searchInput = document.getElementById('search-input');
-        if (searchInput) {
-            let searchTimeout;
-            searchInput.addEventListener('input', (e) => {
-                clearTimeout(searchTimeout);
-                searchTimeout = setTimeout(() => {
-                    this.currentFilters.search = e.target.value;
-                    this.currentPage = 1;
-                    this.loadResults();
-                }, 500);
+        // Filters form submit handler
+        const filtersForm = document.getElementById('filters-form');
+        if (filtersForm) {
+            filtersForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.applyFilters();
             });
         }
 
-        // Date filters
+        // Search input - support Enter key and debounce
+        const searchInput = document.getElementById('search-input');
+        if (searchInput) {
+            let searchTimeout;
+            
+            // Enter key handler - apply filters immediately
+            searchInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    clearTimeout(searchTimeout);
+                    this.applyFilters();
+                }
+            });
+            
+            // Input handler with debounce (optional auto-apply)
+            searchInput.addEventListener('input', (e) => {
+                clearTimeout(searchTimeout);
+                // Don't auto-apply on input, wait for Enter or Submit button
+            });
+        }
+
+        // Date filters - remove auto-apply, wait for form submit
         const dateFrom = document.getElementById('date-from');
         if (dateFrom) {
-            dateFrom.addEventListener('change', (e) => {
-                this.currentFilters.dateFrom = e.target.value;
-                this.currentPage = 1;
-                this.loadResults();
+            dateFrom.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    this.applyFilters();
+                }
             });
         }
 
         const dateTo = document.getElementById('date-to');
         if (dateTo) {
-            dateTo.addEventListener('change', (e) => {
-                this.currentFilters.dateTo = e.target.value;
-                this.currentPage = 1;
-                this.loadResults();
+            dateTo.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    this.applyFilters();
+                }
             });
         }
 
-        // Vehicle filter
+        // Vehicle filter - remove auto-apply, wait for form submit
         const hasVehicles = document.getElementById('has-vehicles');
         if (hasVehicles) {
-            hasVehicles.addEventListener('change', (e) => {
-                this.currentFilters.hasVehicles = e.target.value;
-                this.currentPage = 1;
-                this.loadResults();
+            hasVehicles.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    this.applyFilters();
+                }
             });
         }
 
-        // Plates filter
+        // Plates filter - remove auto-apply, wait for form submit
         const hasPlates = document.getElementById('has-plates');
         if (hasPlates) {
-            hasPlates.addEventListener('change', (e) => {
-                this.currentFilters.hasPlates = e.target.value;
-                this.currentPage = 1;
-                this.loadResults();
+            hasPlates.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    this.applyFilters();
+                }
             });
         }
 
@@ -877,8 +897,37 @@ const DetectionManager = {
     },
 
     /**
-     * Clear filters
+     * Apply filters from form inputs
      */
+    applyFilters: function() {
+        // Read values from form inputs
+        const searchInput = document.getElementById('search-input');
+        const dateFrom = document.getElementById('date-from');
+        const dateTo = document.getElementById('date-to');
+        const hasVehicles = document.getElementById('has-vehicles');
+        const hasPlates = document.getElementById('has-plates');
+        
+        // Update current filters
+        this.currentFilters = {
+            search: searchInput ? searchInput.value.trim() : '',
+            dateFrom: dateFrom ? dateFrom.value : '',
+            dateTo: dateTo ? dateTo.value : '',
+            hasVehicles: hasVehicles ? hasVehicles.value : '',
+            hasPlates: hasPlates ? hasPlates.value : ''
+        };
+        
+        // Reset to first page when applying filters
+        this.currentPage = 1;
+        
+        // Load results with new filters
+        this.loadResults();
+        
+        // Log filter application
+        if (this.addLogMessage) {
+            this.addLogMessage('Filters applied', 'info');
+        }
+    },
+
     clearFilters: function() {
         this.currentFilters = {
             search: '',
@@ -1695,6 +1744,8 @@ showDetail: function(resultId) {
  */
 displayDetailModal: function(result) {
     const modalBody = document.getElementById('detail-modal-body');
+    const vehicleConfidence = this.calculateDetectionConfidence(result.vehicle_detections);
+    const plateConfidence = this.calculateDetectionConfidence(result.plate_detections);
     
     modalBody.innerHTML = `
         <!-- OCR Results Section - Emphasized -->
@@ -1705,7 +1756,7 @@ displayDetailModal: function(result) {
                         <h5 class="mb-0"><i class="fas fa-id-card me-2"></i>License Plate Recognition (LPR) Results</h5>
                     </div>
                     <div class="card-body">
-                        ${this.formatOcrResultsForDetail(result.ocr_results)}
+                        ${this.formatOcrResultsForDetail(result)}
                     </div>
                 </div>
             </div>
@@ -1743,8 +1794,8 @@ displayDetailModal: function(result) {
             </div>
             <div class="col-md-6">
                                 <table class="table table-sm table-borderless">
-                                    <tr><td><strong>Vehicles Detected:</strong></td><td><span class="badge bg-info">${result.vehicles_count || 0}</span></td></tr>
-                                    <tr><td><strong>License Plates:</strong></td><td><span class="badge bg-warning">${result.plates_count || 0}</span></td></tr>
+                                    <tr><td><strong>Vehicles Detected:</strong></td><td><span class="badge bg-info">${result.vehicles_count || 0}</span> <small class="text-muted ms-1">(${vehicleConfidence}%)</small></td></tr>
+                                    <tr><td><strong>License Plates:</strong></td><td><span class="badge bg-warning">${result.plates_count || 0}</span> <small class="text-muted ms-1">(${plateConfidence}%)</small></td></tr>
                                     <tr><td><strong>OCR Confidence:</strong></td><td><span class="badge bg-success">${this.calculateAverageConfidence(result.ocr_results)}%</span></td></tr>
                                 </table>
             </div>
@@ -1766,47 +1817,122 @@ displayDetailModal: function(result) {
 /**
  * Format OCR results for detail view - Enhanced
  */
-formatOcrResultsForDetail: function(ocrResults) {
-    if (!ocrResults || ocrResults.length === 0) {
+formatOcrResultsForDetail: function(result) {
+    const ocrResults = result.ocr_results || [];
+    const hailoResults = result.hailo_ocr_results || result.hailoOcrResults || [];
+    const easyResults = result.easyocr_results || result.easyOcrResults || [];
+    const plateDetections = result.plate_detections || [];
+    
+    if (ocrResults.length > 0) {
         return `
-            <div class="text-center py-4">
-                <i class="fas fa-exclamation-triangle fa-3x text-muted mb-3"></i>
-                <h6 class="text-muted">No License Plates Detected</h6>
-                <p class="text-muted">No OCR results available for this detection.</p>
+            <div class="row">
+                ${ocrResults.map((ocr, index) => `
+                    <div class="col-md-6 mb-3">
+                        <div class="card h-100 border-${this.getConfidenceColor(ocr.confidence)}">
+                            <div class="card-header bg-${this.getConfidenceColor(ocr.confidence)} text-white">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <h6 class="mb-0">Plate #${index + 1}</h6>
+                                    <span class="badge bg-light text-dark">${(ocr.confidence * 100).toFixed(1)}%</span>
+                                </div>
+                            </div>
+                            <div class="card-body text-center">
+                                <div class="ocr-text-display mb-3">
+                                    <h4 class="text-primary font-weight-bold">${ocr.text}</h4>
+                                </div>
+                                <div class="ocr-details">
+                                    <small class="text-muted">
+                                        <i class="fas fa-language me-1"></i>Language: ${ocr.language === 'th' ? 'Thai' : 'English'}
+                                    </small>
+                                    <br>
+                                    <small class="text-muted">
+                                      <i class="fas fa-brain me-1"></i>Method: ${ocr.ocr_method ? ocr.ocr_method.toUpperCase() : 'Unknown'}
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }
+    
+    if (plateDetections.length > 0) {
+        const plateConfidence = this.calculateDetectionConfidence(plateDetections);
+        return `
+            <div class="alert alert-info">
+                <div class="d-flex align-items-center mb-2">
+                    <i class="fas fa-info-circle fa-lg me-2"></i>
+                    <strong>License plate detected (${plateConfidence}% confidence)</strong>
+                </div>
+                <p class="text-muted mb-3">Plate detection succeeded, but OCR text was not finalized. Latest OCR engine outputs:</p>
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="text-primary">Hailo OCR</h6>
+                        ${this.formatOcrEngineResults(hailoResults)}
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-success">EasyOCR</h6>
+                        ${this.formatOcrEngineResults(easyResults)}
+                    </div>
+                </div>
             </div>
         `;
     }
     
     return `
-        <div class="row">
-            ${ocrResults.map((ocr, index) => `
-                <div class="col-md-6 mb-3">
-                    <div class="card h-100 border-${this.getConfidenceColor(ocr.confidence)}">
-                        <div class="card-header bg-${this.getConfidenceColor(ocr.confidence)} text-white">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <h6 class="mb-0">Plate #${index + 1}</h6>
-                                <span class="badge bg-light text-dark">${(ocr.confidence * 100).toFixed(1)}%</span>
-                            </div>
-                        </div>
-                        <div class="card-body text-center">
-                            <div class="ocr-text-display mb-3">
-                                <h4 class="text-primary font-weight-bold">${ocr.text}</h4>
-                            </div>
-                            <div class="ocr-details">
-                                <small class="text-muted">
-                                    <i class="fas fa-language me-1"></i>Language: ${ocr.language === 'th' ? 'Thai' : 'English'}
-                                </small>
-                                <br>
-                                <small class="text-muted">
-                                    <i class="fas fa-chart-line me-1"></i>Confidence: ${(ocr.confidence * 100).toFixed(1)}%
-                                </small>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `).join('')}
+        <div class="text-center py-4">
+            <i class="fas fa-exclamation-triangle fa-3x text-muted mb-3"></i>
+            <h6 class="text-muted">No License Plates Detected</h6>
+            <p class="text-muted">No OCR results available for this detection.</p>
         </div>
     `;
+},
+
+/**
+ * Format OCR engine outputs for display
+ */
+formatOcrEngineResults: function(engineResults) {
+    if (!engineResults || engineResults.length === 0) {
+        return `<span class="text-muted">No OCR output captured.</span>`;
+    }
+    
+    return engineResults.map((entry, index) => {
+        const text = entry?.text || 'N/A';
+        const confidence = this.normalizeConfidence(entry?.confidence);
+        const success = entry?.success !== false;
+        const statusBadge = success
+            ? `<span class="badge bg-success ms-2">Success</span>`
+            : `<span class="badge bg-danger ms-2">Failed</span>`;
+        
+        return `
+            <div class="border rounded p-2 mb-2">
+                <div class="d-flex justify-content-between">
+                    <strong>Attempt #${index + 1}</strong>
+                    ${statusBadge}
+                </div>
+                <div class="mt-2">
+                    <div><span class="text-muted">Text:</span> ${text}</div>
+                    <small class="text-muted"><i class="fas fa-crosshairs me-1"></i>Confidence: ${confidence}%</small>
+                </div>
+            </div>
+        `;
+    }).join('');
+},
+
+/**
+ * Normalize confidence to percentage string
+ */
+normalizeConfidence: function(value) {
+    if (typeof value !== 'number' || Number.isNaN(value)) {
+        return '0.0';
+    }
+    
+    let percent = value;
+    if (percent <= 1) {
+        percent *= 100;
+    }
+    percent = Math.min(Math.max(percent, 0), 100);
+    return percent.toFixed(1);
 },
 
 /**
@@ -1984,7 +2110,7 @@ createImageUrlsSection: function(imageUrls) {
                                         <i class="fas fa-copy me-1"></i>Copy All URLs
                                     </button>
                                     <button class="btn btn-sm btn-outline-success w-100" onclick="DetectionManager.downloadAllImages()">
-                                        <i class="fas fa-download me-1"></i>Download All
+                                        <i class="fas fa-download me-1"></i>Download Image
                                     </button>
                                 </div>
                             </div>
@@ -2017,6 +2143,46 @@ getConfidenceColor: function(confidence) {
     if (confidence >= 0.9) return 'success';
     if (confidence >= 0.7) return 'warning';
     return 'danger';
+},
+
+/**
+ * Calculate average confidence from bounding box detections
+ */
+calculateDetectionConfidence: function(detections) {
+    if (!detections || detections.length === 0) return '0.0';
+    
+    const confidenceValues = detections
+        .map(det => {
+            if (!det) return null;
+            const candidates = [det.confidence, det.score, det.probability, det.conf];
+            for (const candidate of candidates) {
+                if (typeof candidate === 'number' && !Number.isNaN(candidate)) {
+                    return candidate;
+                }
+                if (typeof candidate === 'string') {
+                    const parsed = parseFloat(candidate);
+                    if (!Number.isNaN(parsed)) {
+                        return parsed;
+                    }
+                }
+            }
+            return null;
+        })
+        .filter(value => typeof value === 'number' && !Number.isNaN(value));
+    
+    if (!confidenceValues.length) {
+        return '0.0';
+    }
+    
+    const average = confidenceValues.reduce((sum, value) => sum + value, 0) / confidenceValues.length;
+    let percent = average;
+    
+    if (percent <= 1) {
+        percent *= 100;
+    }
+    
+    percent = Math.min(Math.max(percent, 0), 100);
+    return percent.toFixed(1);
 },
 
 /**

@@ -334,11 +334,18 @@ def get_detection_statistics():
 @detection_bp.route('/results')
 def get_all_results():
     """
-    Get recent detection results with optional limiting.
+    Get detection results with filtering, search, and pagination.
 
     Query params (optional):
       - per_page: int, number of items to return (default 50, max 200)
       - page: int, page number starting at 1 (default 1)
+      - search: str, search term for OCR results or plate text
+      - date_from: str, start date filter (ISO format: YYYY-MM-DD)
+      - date_to: str, end date filter (ISO format: YYYY-MM-DD)
+      - has_vehicles: str, filter by presence of vehicles ('true' or 'false')
+      - has_plates: str, filter by presence of license plates ('true' or 'false')
+      - sort_by: str, column to sort by (default: 'created_at')
+      - sort_order: str, sort order ('asc' or 'desc', default: 'desc')
     """
     try:
         database_manager = get_service('database_manager')
@@ -365,36 +372,53 @@ def get_all_results():
         if page <= 0:
             page = 1
 
-        # Get total count first
-        total_count = database_manager.get_detection_count()
+        # Parse filter parameters
+        search = request.args.get('search', '').strip() or None
+        date_from = request.args.get('date_from', '').strip() or None
+        date_to = request.args.get('date_to', '').strip() or None
         
-        # Fetch recent detections and paginate in-memory
-        recent = database_manager.get_recent_detections(limit=per_page * page)
-        # Ensure newest-first ordering if not already guaranteed
-        # (Assumes items have 'created_at' or 'timestamp')
-        try:
-            recent.sort(key=lambda r: r.get('created_at') or r.get('timestamp') or 0, reverse=True)
-        except Exception:
-            pass
-
-        start_idx = (page - 1) * per_page
-        page_items = recent[start_idx:start_idx + per_page]
+        # Parse boolean filters
+        has_vehicles = None
+        has_vehicles_str = request.args.get('has_vehicles', '').strip().lower()
+        if has_vehicles_str == 'true':
+            has_vehicles = True
+        elif has_vehicles_str == 'false':
+            has_vehicles = False
         
-        # Calculate pagination info
-        total_pages = (total_count + per_page - 1) // per_page  # Ceiling division
-        has_next = page < total_pages
-        has_prev = page > 1
+        has_plates = None
+        has_plates_str = request.args.get('has_plates', '').strip().lower()
+        if has_plates_str == 'true':
+            has_plates = True
+        elif has_plates_str == 'false':
+            has_plates = False
+        
+        # Parse sort parameters
+        sort_by = request.args.get('sort_by', 'created_at').strip()
+        sort_order = request.args.get('sort_order', 'desc').strip().lower()
+        
+        # Use the paginated method that supports filtering
+        paginated_results = database_manager.get_detection_results_paginated(
+            page=page,
+            per_page=per_page,
+            search=search,
+            sort_by=sort_by,
+            sort_order=sort_order,
+            date_from=date_from,
+            date_to=date_to,
+            has_vehicles=has_vehicles,
+            has_plates=has_plates
+        )
 
         return jsonify({
             'success': True,
-            'results': make_json_serializable(page_items),
-            'count': len(page_items),
-            'total': total_count,
-            'page': page,
-            'per_page': per_page,
-            'total_pages': total_pages,
-            'has_next': has_next,
-            'has_prev': has_prev,
+            'results': make_json_serializable(paginated_results.get('results', [])),
+            'count': len(paginated_results.get('results', [])),
+            'total': paginated_results.get('total', 0),
+            'page': paginated_results.get('page', page),
+            'per_page': paginated_results.get('per_page', per_page),
+            'total_pages': paginated_results.get('total_pages', 0),
+            'has_next': paginated_results.get('has_next', False),
+            'has_prev': paginated_results.get('has_prev', False),
             'timestamp': datetime.now().isoformat()
         })
 

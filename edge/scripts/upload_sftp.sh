@@ -2,7 +2,7 @@
 
 SERVER="lprserver.tail605477.ts.net"
 USER="aicamera"
-REMOTE_DIR="/home/devuser/aicamera/server/storage"
+REMOTE_DIR="uploads"
 LOCAL_FILE="$1"
 
 if [ -z "$LOCAL_FILE" ]; then
