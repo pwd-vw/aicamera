@@ -56,7 +56,12 @@
             <a class="navbar-brand d-flex align-items-center" href="/">
                 <i class="fas fa-camera me-2" style="font-size: 1.8rem; color: var(--primary-color);"></i>
                 <div>
-                    <span class="fw-bold" style="font-size: 1.5rem; color: var(--text-color-dark);">AI Camera</span>
+                    <span class="fw-bold d-inline-flex align-items-center" style="font-size: 1.5rem; color: var(--text-color-dark); gap: 0.35rem;">
+                        <span>AI Camera</span>
+                        {% if edge_hostname is defined and edge_hostname %}
+                            <small class="text-muted" style="font-size: 0.85rem;">({{ edge_hostname }})</small>
+                        {% endif %}
+                    </span>
                     <small class="d-block" style="color: var(--secondary-color); font-size: 0.8rem; margin-top: -2px;">Advanced Edge AI System</small>
                 </div>
             </a>

@@ -11,6 +11,7 @@ Date: August 23, 2025
 """
 
 import os
+import socket
 import sys
 from pathlib import Path
 from typing import Tuple
@@ -485,6 +486,12 @@ def create_app():
     logger.debug(f"🔧 [APP] create_app: loading configuration from edge.src.core.config")
     app.config.from_object('edge.src.core.config')
     logger.debug(f"🔧 [APP] create_app: configuration loaded successfully")
+    
+    # Global template context (hostname, etc.)
+    @app.context_processor
+    def inject_edge_context():
+        hostname = os.getenv('DEVICE_ID') or socket.gethostname()
+        return {'edge_hostname': hostname}
     
     # Initialize dependency container
     logger.debug(f"🔧 [APP] create_app: initializing dependency container")
