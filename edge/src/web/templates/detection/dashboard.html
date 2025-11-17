@@ -84,8 +84,12 @@
 {% block content %}
 <div class="row">
     <div class="col-12">
-        <h1 class="mb-0" style="font-size: 1.5rem; margin-top: 0;"><i class="fas fa-robot"></i> Detection Dashboard
-            <small class="text-muted" style="font-size: 0.75rem;">AI Detection Control, Monitoring, and Results</small>
+        <h1 class="mb-0" style="font-size: 1.5rem; margin-top: 0;">
+            <i class="fas fa-robot"></i> Detection Dashboard
+            <span class="badge bg-light text-dark ms-2" style="font-size: 0.75rem; font-weight: 600;">
+                AI CAMERA: {{ edge_hostname or 'unknown-host' }}
+            </span>
+            <small class="text-muted d-block" style="font-size: 0.75rem;">AI Detection Control, Monitoring, and Results</small>
         </h1>
     </div>
 </div>

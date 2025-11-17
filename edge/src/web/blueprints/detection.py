@@ -16,6 +16,7 @@ Date: August 2025
 
 import json
 import os
+import socket
 import time
 from datetime import datetime
 from flask import Blueprint, render_template, jsonify, request, Response, current_app
@@ -48,17 +49,21 @@ def detection_dashboard():
         detection_status = detection_manager.get_status() if detection_manager else {}
         stats = database_manager.get_detection_statistics() if database_manager else {}
         
+        hostname = os.getenv('DEVICE_ID') or socket.gethostname()
         return render_template('detection/dashboard.html',
                              detection_status=detection_status,
                              stats=stats,
                              title="Detection Dashboard",
+                             edge_hostname=hostname,
                              timestamp=int(time.time()))
     except Exception as e:
         logger.error(f"Error in detection dashboard: {e}")
+        hostname = os.getenv('DEVICE_ID') or socket.gethostname()
         return render_template('detection/dashboard.html',
                              detection_status={},
                              stats={},
                              title="Detection Dashboard",
+                             edge_hostname=hostname,
                              timestamp=int(time.time()))
 
 
