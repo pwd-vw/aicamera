@@ -62,10 +62,10 @@ class VideoStreamingService:
         # Video settings - Use lores resolution for video feed (no resize needed)
         self.width, self.height = LORES_RESOLUTION  # Use config resolution
         self.fps = DEFAULT_FRAMERATE
-        self.quality = 80
+        self.quality = 70
         
         # Frame queue for processing - reduced size for low latency
-        self.frame_queue = queue.Queue(maxsize=1)  # Single frame buffer to prevent overlap
+        self.frame_queue = queue.Queue(maxsize=3)  # Single frame buffer to prevent overlap (3 frames ป้องกันกระตุก เมื่อเน็ตช้า)
         
         # Fallback mechanisms
         self.fallback_mode = False
@@ -182,7 +182,7 @@ class VideoStreamingService:
                                 #    frame_bgr = cv2.resize(frame_bgr, (self.width, self.height))
 
                                 # Encode to MJPEG
-                                _, buffer = cv2.imencode('.jpg', frame_bgr, [cv2.IMWRITE_JPEG_QUALITY, 85])
+                                _, buffer = cv2.imencode('.jpg', frame_bgr, [cv2.IMWRITE_JPEG_QUALITY, 70])
                                 mjpeg_bytes = buffer.tobytes()
                                 
                                 self.error_count = 0

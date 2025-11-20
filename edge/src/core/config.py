@@ -5,7 +5,7 @@ Configuration file for AI Camera v1.3
 This file provides default configuration values for the system.
 
 Author: AI Camera Team
-Version: 1.3
+Version: 2
 Date: December 2024
 """
 
@@ -83,8 +83,8 @@ CAMERA_MANUAL_FOCUS = float(os.getenv("CAMERA_MANUAL_FOCUS", "0.3"))  # 0.0 to 1
 
 # Main and Lores stream resolutions - Can be overridden via environment variables
 MAIN_RESOLUTION = tuple(map(int, os.getenv("MAIN_RESOLUTION", "1280x720").split('x')))
-LORES_RESOLUTION = tuple(map(int, os.getenv("LORES_RESOLUTION", "1280x720").split('x')))
-DEFAULT_FRAMERATE = int(os.getenv("CAMERA_FPS", "30"))
+LORES_RESOLUTION = tuple(map(int, os.getenv("LORES_RESOLUTION", "640x640").split('x')))
+DEFAULT_FRAMERATE = int(os.getenv("CAMERA_FPS", "15"))
 DEFAULT_BRIGHTNESS = float(os.getenv("CAMERA_BRIGHTNESS", "0.0"))  # -1.0 to 1.0
 DEFAULT_CONTRAST = float(os.getenv("CAMERA_CONTRAST", "1.0"))    # 0.0 to 2.0
 DEFAULT_SATURATION = float(os.getenv("CAMERA_SATURATION", "1.0"))  # 0.0 to 2.0

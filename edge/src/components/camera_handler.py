@@ -36,6 +36,7 @@ from datetime import datetime
 import weakref
 import atexit
 from contextlib import contextmanager
+from collections import deque
 
 from edge.src.core.utils.logging_config import get_logger, get_camera_logger, RateLimitedLogger
 from edge.src.core.config import DEFAULT_AUTOFOCUS_ENABLED, DEFAULT_AUTOFOCUS_MODE, MAIN_RESOLUTION, LORES_RESOLUTION
@@ -255,6 +256,23 @@ class CameraEnhancementEngine:
         self.low_light_threshold = 50000  # ExposureTime microseconds
         self.bright_light_threshold = 1000  # ExposureTime microseconds
         self.focus_scan_range = (0.0, 10.0)  # Focus range in diopters
+        self.focus_good_threshold = 900
+        self.focus_poor_threshold = 350
+        self.low_light_focus_poor_threshold = 250
+        self.good_frames_required = 60
+        self.poor_frames_required = 8
+        self.focus_check_interval = 90.0  # seconds between re-evaluations
+        self.post_focus_cooldown = 10.0  # seconds to wait after triggering AF
+        self.focus_distance_range = (1.0, 5.0)  # meters
+        self.focus_target_distance_m = 3.0
+        self.focus_locked = False
+        self.last_focus_lock_time = 0.0
+        self.last_focus_action_time = 0.0
+        self.good_frame_counter = 0
+        self.poor_frame_counter = 0
+        self.last_lens_position = None
+        self.focus_fom_history = deque(maxlen=30)
+        self.focus_fom_history = deque(maxlen=30)
         
         # Performance tracking
         self.last_enhancement_time = 0
@@ -303,7 +321,7 @@ class CameraEnhancementEngine:
             
             # Apply autofocus if enabled
             if self.autofocus_enabled:
-                focus_result = self._apply_autofocus(focus_fom)
+                focus_result = self._apply_autofocus(focus_fom, metadata)
                 if focus_result:
                     enhancements['applied'].append(focus_result)
                     
@@ -419,73 +437,121 @@ class CameraEnhancementEngine:
     
     
     
-    def _apply_autofocus(self, current_fom: float) -> Optional[str]:
+    def _apply_autofocus(self, current_fom: float, metadata: Dict[str, Any]) -> Optional[str]:
         """
-        Apply intelligent autofocus based on current focus quality.
-        
-        Args:
-            current_fom: Current focus figure of merit
-            
-        Returns:
-            Optional[str]: Description of applied autofocus action
+        Manage autofocus with hysteresis, cooldown, and lighting-aware thresholds.
         """
         try:
-            # Skip if too frequent
-            current_time = time.time()
-            if current_time - self.last_enhancement_time < self.enhancement_interval:
-                return None
-                
-            self.last_enhancement_time = current_time
-            
             if not self.camera or not self.camera.picam2:
                 return None
-                
-            # Check if autofocus is available
+            
             if not self._is_autofocus_available():
-                self.logger.debug("Autofocus not available, skipping AF trigger")
+                self.logger.debug("Autofocus not available, skipping AF logic")
                 return None
             
-            # Assess focus quality
-            if current_fom < 400:  # Poor focus
-                # Trigger autofocus scan
-                try:
-                    from libcamera import controls
-                    
-                    # First ensure AF mode is set to Auto (1) (required for AF trigger)
-                    self.camera.picam2.set_controls({
-                        "AfMode": 1  # 1=Auto mode
-                    })
-                    self.logger.debug("Set AF mode to Auto (1)")
-                    
-                    # Small delay to ensure mode is set
-                    time.sleep(0.1)
-                    
-                    # Now trigger autofocus
-                    self.camera.picam2.set_controls({
-                        "AfTrigger": 0  # 0=Start trigger
-                    })
-                    self.logger.debug("Triggered AF with AfTrigger=0 (Start)")
-                    
-                    return "autofocus_triggered_poor_quality"
-                    
-                except ImportError:
-                    # Fallback to lens position adjustment
-                    lens_position = 5.0  # Mid-range focus
-                    self.camera.picam2.set_controls({"LensPosition": lens_position})
-                    return "manual_focus_adjustment"
-                except Exception as af_error:
-                    self.logger.warning(f"AF trigger failed: {af_error}")
-                    return None
-                    
-            elif current_fom > 800:  # Excellent focus
-                # Maintain current settings
-                return "focus_maintained_excellent"
+            current_time = time.time()
+            
+            # Track history
+            self.focus_fom_history.append(current_fom)
+            avg_fom = (sum(self.focus_fom_history) / len(self.focus_fom_history)
+                       if self.focus_fom_history else current_fom)
+            
+            # Adjust thresholds in low-light conditions
+            exposure_time = metadata.get("ExposureTime", 0)
+            analogue_gain = metadata.get("AnalogueGain", 1.0)
+            poor_threshold = self.focus_poor_threshold
+            if analogue_gain >= 8.0 or exposure_time >= 50000:
+                poor_threshold = self.low_light_focus_poor_threshold
+            
+            if current_fom >= self.focus_good_threshold and avg_fom >= self.focus_good_threshold:
+                self.good_frame_counter += 1
+                self.poor_frame_counter = 0
+            elif current_fom <= poor_threshold and avg_fom <= poor_threshold:
+                self.poor_frame_counter += 1
+                self.good_frame_counter = 0
+            else:
+                # Minor fluctuation: slowly decay counters
+                self.good_frame_counter = max(0, self.good_frame_counter - 1)
+                self.poor_frame_counter = max(0, self.poor_frame_counter - 1)
+            
+            # Interval-based unlock
+            if self.focus_locked and (current_time - self.last_focus_lock_time) >= self.focus_check_interval:
+                self.focus_locked = False
+                self.good_frame_counter = 0
+                self.poor_frame_counter = 0
+                return "focus_unlock_interval"
+            
+            # Handle locked focus degradation
+            if self.focus_locked:
+                if self.poor_frame_counter >= self.poor_frames_required:
+                    self.focus_locked = False
+                    return self._trigger_autofocus("locked_degraded")
+                return "focus_locked"
+            
+            # Trigger autofocus if poor quality sustained
+            if (self.poor_frame_counter >= self.poor_frames_required and
+                    (current_time - self.last_focus_action_time) >= self.post_focus_cooldown):
+                return self._trigger_autofocus("poor_quality")
+            
+            # Lock focus when quality sustained
+            if self.good_frame_counter >= self.good_frames_required:
+                return self._lock_focus(metadata)
             
             return None
-            
+        
         except Exception as e:
-            self.logger.warning(f"Autofocus application failed: {e}")
+            self.logger.warning(f"Autofocus management failed: {e}")
             return None
+
+    def _trigger_autofocus(self, reason: str) -> Optional[str]:
+        """Trigger autofocus scan using continuous mode."""
+        try:
+            # Instead of full-scene autofocus, bias focus to predefined distance range
+            self._set_manual_focus(self.focus_target_distance_m)
+            self.focus_locked = True
+            self.good_frame_counter = 0
+            self.poor_frame_counter = 0
+            self.last_focus_lock_time = time.time()
+            self.last_focus_action_time = self.last_focus_lock_time
+            return f"focus_set_target_{reason}"
+        except Exception as af_error:
+            self.logger.warning(f"AF trigger failed: {af_error}")
+            return None
+
+    def _lock_focus(self, metadata: Dict[str, Any]) -> Optional[str]:
+        """Lock focus by switching to manual mode with current lens position."""
+        try:
+            self._set_manual_focus(self.focus_target_distance_m)
+            self.focus_locked = True
+            self.good_frame_counter = 0
+            self.poor_frame_counter = 0
+            self.last_focus_lock_time = time.time()
+            self.last_focus_action_time = self.last_focus_lock_time
+            return "focus_locked"
+        except Exception as lock_error:
+            self.logger.warning(f"Failed to lock focus: {lock_error}")
+            return None
+
+    def _distance_to_lens_position(self, distance_m: float) -> float:
+        """Convert desired distance in meters to approximate lens position (diopters)."""
+        distance_m = max(min(distance_m, self.focus_distance_range[1]), self.focus_distance_range[0])
+        if distance_m <= 0:
+            return self.focus_scan_range[1]
+        diopters = 1.0 / distance_m
+        return float(min(max(diopters, self.focus_scan_range[0]), self.focus_scan_range[1]))
+
+    def _set_manual_focus(self, distance_m: Optional[float] = None):
+        """Set lens position to target distance with manual focus centered in frame."""
+        target_distance = distance_m or self.focus_target_distance_m
+        lens_position = self._distance_to_lens_position(target_distance)
+        controls = {
+            "AfMode": 0,
+            "LensPosition": lens_position,
+            "AfMetering": 1,
+            "AfRange": 0
+        }
+        self.camera.picam2.set_controls(controls)
+        self.last_lens_position = lens_position
     
     def _assess_exposure_adequacy(self, metadata: Dict[str, Any]) -> str:
         """Assess if exposure is adequate based on metadata."""
@@ -757,7 +823,7 @@ class CameraHandler:
                 "AfTrigger": 0,  # No trigger needed for continuous
                 "AfRange": 0,  # Full range
                 "AfSpeed": 0,  # Normal speed
-                "AfMetering": 0,  # Auto metering
+                "AfMetering": 1,  # Center-weighted metering
                 "LensPosition": 0.0  # Let autofocus control
             }
             
