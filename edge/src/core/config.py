@@ -82,16 +82,19 @@ CAMERA_FOCUS_MODE = os.getenv("CAMERA_FOCUS_MODE", "auto")  # "auto" or "manual"
 CAMERA_MANUAL_FOCUS = float(os.getenv("CAMERA_MANUAL_FOCUS", "0.3"))  # 0.0 to 1.0
 
 # Main and Lores stream resolutions - Can be overridden via environment variables
-MAIN_RESOLUTION = tuple(map(int, os.getenv("MAIN_RESOLUTION", "1280x720").split('x')))
-LORES_RESOLUTION = tuple(map(int, os.getenv("LORES_RESOLUTION", "640x640").split('x')))  # LPR optimized: 640x640 for web preview/streaming
+MAIN_RESOLUTION = tuple(map(int, os.getenv("MAIN_RESOLUTION", "640x640").split('x')))
+LORES_RESOLUTION = tuple(map(int, os.getenv("LORES_RESOLUTION", "640x480").split('x')))  # LPR optimized: 640x640 for web preview/streaming
 DEFAULT_FRAMERATE = int(os.getenv("CAMERA_FPS", "15"))
 DEFAULT_BRIGHTNESS = float(os.getenv("CAMERA_BRIGHTNESS", "0.0"))  # -1.0 to 1.0
 DEFAULT_CONTRAST = float(os.getenv("CAMERA_CONTRAST", "1.0"))    # 0.0 to 2.0
 DEFAULT_SATURATION = float(os.getenv("CAMERA_SATURATION", "1.0"))  # 0.0 to 2.0
-DEFAULT_SHARPNESS = float(os.getenv("CAMERA_SHARPNESS", "1.0"))   # 0.0 to 4.0
+DEFAULT_SHARPNESS = float(os.getenv("CAMERA_SHARPNESS", "2.0"))   # 0.0 to 4.0 (Increased from 1.0 for better sharpness, matching rpicam default)
 DEFAULT_AWB_MODE = int(os.getenv("CAMERA_AWB_MODE", "0"))      # 0=auto, 1=fluorescent, etc.
-DEFAULT_AUTOFOCUS_MODE = int(os.getenv("DEFAULT_AUTOFOCUS_MODE", "2"))  # 0=Manual, 1=Auto, 2=Continuous (LPR optimized: Continuous)
+DEFAULT_NOISE_REDUCTION_MODE = int(os.getenv("CAMERA_NOISE_REDUCTION_MODE", "0"))  # 0=Off, 1=Normal, 2=HighQuality (0=Off for maximum sharpness)
+DEFAULT_AUTOFOCUS_MODE = int(os.getenv("DEFAULT_AUTOFOCUS_MODE", "1"))  # 0=Manual, 1=Auto, 2=Continuous (Changed from 2 to 1 for better focus stability, matching rpicam)
 DEFAULT_AUTOFOCUS_ENABLED = os.getenv("DEFAULT_AUTOFOCUS_ENABLED", "true").lower() == "true"
+AUTOFOCUS_TRIGGER_BEFORE_CAPTURE = os.getenv("AUTOFOCUS_TRIGGER_BEFORE_CAPTURE", "false").lower() == "true"  # Trigger AF before important captures
+FOCUS_QUALITY_MIN_THRESHOLD = int(os.getenv("FOCUS_QUALITY_MIN_THRESHOLD", "800"))  # Minimum FocusFoM for acceptable focus quality
 DEFAULT_QUALITY_MONITORING = os.getenv("DEFAULT_QUALITY_MONITORING", "enabled")
 
 # Detection Settings - Can be overridden via environment variables

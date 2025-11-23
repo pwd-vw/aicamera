@@ -39,7 +39,11 @@ from contextlib import contextmanager
 from collections import deque
 
 from edge.src.core.utils.logging_config import get_logger, get_camera_logger, RateLimitedLogger
-from edge.src.core.config import DEFAULT_AUTOFOCUS_ENABLED, DEFAULT_AUTOFOCUS_MODE, MAIN_RESOLUTION, LORES_RESOLUTION, DEFAULT_FRAMERATE
+from edge.src.core.config import (
+    DEFAULT_AUTOFOCUS_ENABLED, DEFAULT_AUTOFOCUS_MODE, MAIN_RESOLUTION, LORES_RESOLUTION, DEFAULT_FRAMERATE,
+    DEFAULT_SHARPNESS, DEFAULT_NOISE_REDUCTION_MODE, AUTOFOCUS_TRIGGER_BEFORE_CAPTURE, FOCUS_QUALITY_MIN_THRESHOLD,
+    DEFAULT_BRIGHTNESS, DEFAULT_CONTRAST, DEFAULT_SATURATION
+)
 
 logger = get_logger(__name__)
 opt_logger = get_camera_logger(logger)
@@ -278,9 +282,18 @@ class CameraEnhancementEngine:
         self.last_enhancement_time = 0
         self.enhancement_interval = 1.0  # seconds
         
+        # State tracking to prevent unnecessary adjustments
+        self.last_lighting_condition = None
+        self.last_applied_controls = {}  # Track last applied controls to avoid redundant changes
+        self.stable_condition_count = 0  # Count how many times condition has been stable
+        self.stable_condition_threshold = 3  # Stop adjusting after 3 stable checks (6 seconds)
+        self.enhancement_paused = False  # Pause enhancement when conditions are stable and focus is good
+        
     def enhance_for_conditions(self, metadata: Dict[str, Any]) -> Dict[str, Any]:
         """
         Apply environmental enhancements based on current conditions.
+        Only adjusts when conditions change or focus quality is poor.
+        Stops adjusting when conditions are stable and focus is good.
         
         Args:
             metadata: Current camera metadata
@@ -292,7 +305,8 @@ class CameraEnhancementEngine:
             'applied': [],
             'exposure_assessment': 'unknown',
             'focus_quality': 'unknown',
-            'lighting_condition': 'unknown'
+            'lighting_condition': 'unknown',
+            'skipped': False
         }
         
         try:
@@ -311,23 +325,55 @@ class CameraEnhancementEngine:
                 
             enhancements['lighting_condition'] = lighting_condition
             
-            # Apply lighting-specific enhancements
-            if lighting_condition == "low_light":
-                self._enhance_for_low_light(enhancements)
-            elif lighting_condition == "bright_light":
-                self._enhance_for_bright_light(enhancements)
+            # Assess focus quality
+            focus_quality = self._assess_focus_quality(metadata)
+            enhancements['focus_quality'] = focus_quality
+            enhancements['exposure_assessment'] = self._assess_exposure_adequacy(metadata)
+            
+            # Check if conditions are stable
+            if lighting_condition == self.last_lighting_condition:
+                self.stable_condition_count += 1
             else:
-                self._enhance_for_normal_light(enhancements)
+                self.stable_condition_count = 0
+                self.last_lighting_condition = lighting_condition
+                self.enhancement_paused = False  # Reset pause when condition changes
+            
+            # Skip enhancement if:
+            # 1. Conditions are stable (same lighting condition for threshold checks)
+            # 2. Focus quality is good (excellent or good)
+            # 3. Enhancement is already paused
+            if (self.stable_condition_count >= self.stable_condition_threshold and 
+                focus_quality in ['excellent', 'good'] and
+                self.enhancement_paused):
+                enhancements['skipped'] = True
+                enhancements['reason'] = 'stable_conditions_good_focus'
+                return enhancements
+            
+            # If conditions are stable and focus is good, pause future enhancements
+            if (self.stable_condition_count >= self.stable_condition_threshold and 
+                focus_quality in ['excellent', 'good']):
+                self.enhancement_paused = True
+                enhancements['skipped'] = True
+                enhancements['reason'] = 'pausing_enhancement_stable_good'
+                return enhancements
+            
+            # Reset pause if focus quality degrades
+            if focus_quality in ['poor', 'fair']:
+                self.enhancement_paused = False
+            
+            # Apply lighting-specific enhancements (only if needed)
+            if lighting_condition == "low_light":
+                self._enhance_for_low_light(enhancements, metadata)
+            elif lighting_condition == "bright_light":
+                self._enhance_for_bright_light(enhancements, metadata)
+            else:
+                self._enhance_for_normal_light(enhancements, metadata)
             
             # Apply autofocus if enabled
             if self.autofocus_enabled:
                 focus_result = self._apply_autofocus(focus_fom, metadata)
                 if focus_result:
                     enhancements['applied'].append(focus_result)
-                    
-            # Assess image quality
-            enhancements['exposure_assessment'] = self._assess_exposure_adequacy(metadata)
-            enhancements['focus_quality'] = self._assess_focus_quality(metadata)
             
         except Exception as e:
             self.logger.warning(f"Enhancement engine error: {e}")
@@ -335,81 +381,94 @@ class CameraEnhancementEngine:
             
         return enhancements
     
-    def _enhance_for_low_light(self, enhancements: Dict[str, Any]):
-        """Apply low-light specific optimizations."""
+    def _enhance_for_low_light(self, enhancements: Dict[str, Any], metadata: Dict[str, Any]):
+        """Apply low-light specific optimizations only if needed."""
         try:
             if not self.camera or not self.camera.picam2:
                 return
-                
+            
             controls = {}
+            needs_update = False
             
-            # Increase noise reduction
-            if self.noise_reduction_enabled:
+            # Check current NoiseReductionMode
+            current_nr = self.last_applied_controls.get("NoiseReductionMode")
+            if self.noise_reduction_enabled and current_nr != 2:
                 controls["NoiseReductionMode"] = 2  # High quality
-                enhancements['applied'].append("noise_reduction_high")
+                needs_update = True
             
-            # Optimize exposure for low light
-            controls["ExposureTime"] = min(33333, 66666)  # Cap at 1/15s to prevent motion blur
-            controls["AnalogueGain"] = min(8.0, 16.0)  # Reasonable gain limit
+            # Don't override ExposureTime/AnalogueGain if Auto Exposure is enabled
+            # Let Auto Exposure handle it, but we can set limits if needed
+            # Only apply lens shading correction
+            current_lsm = self.last_applied_controls.get("LensShadingMapMode")
+            if current_lsm != 1:
+                controls["LensShadingMapMode"] = 1
+                needs_update = True
             
-            # Apply lens shading correction
-            controls["LensShadingMapMode"] = 1
-            enhancements['applied'].append("lens_shading_correction")
-            
-            if controls:
+            if needs_update and controls:
                 self.camera.picam2.set_controls(controls)
+                self.last_applied_controls.update(controls)
                 enhancements['applied'].append("low_light_optimization")
                 
         except Exception as e:
             self.logger.warning(f"Low light enhancement failed: {e}")
     
-    def _enhance_for_bright_light(self, enhancements: Dict[str, Any]):
-        """Apply bright light specific optimizations."""
+    def _enhance_for_bright_light(self, enhancements: Dict[str, Any], metadata: Dict[str, Any]):
+        """Apply bright light specific optimizations only if needed."""
         try:
             if not self.camera or not self.camera.picam2:
                 return
-                
+            
             controls = {}
+            needs_update = False
             
-            # Reduce noise reduction for sharpness
-            controls["NoiseReductionMode"] = 0  # Off
-            enhancements['applied'].append("noise_reduction_off")
+            # Check current NoiseReductionMode
+            current_nr = self.last_applied_controls.get("NoiseReductionMode")
+            if current_nr != DEFAULT_NOISE_REDUCTION_MODE:
+                controls["NoiseReductionMode"] = DEFAULT_NOISE_REDUCTION_MODE  # Use config value (0=Off)
+                needs_update = True
             
-            # Optimize exposure for bright conditions
-            controls["ExposureTime"] = max(100, 1000)  # Fast exposure
-            controls["AnalogueGain"] = 1.0  # Minimum gain
+            # Check current Sharpness - don't reduce it if already at good value
+            current_sharpness = self.last_applied_controls.get("Sharpness")
+            if current_sharpness is None or current_sharpness < DEFAULT_SHARPNESS:
+                controls["Sharpness"] = DEFAULT_SHARPNESS  # Use config value (2.0)
+                needs_update = True
             
-            # Enable sharpening
-            controls["Sharpness"] = 1.5
-            enhancements['applied'].append("sharpening_enabled")
+            # Don't override ExposureTime/AnalogueGain - let Auto Exposure handle it
             
-            if controls:
+            if needs_update and controls:
                 self.camera.picam2.set_controls(controls)
+                self.last_applied_controls.update(controls)
                 enhancements['applied'].append("bright_light_optimization")
                 
         except Exception as e:
             self.logger.warning(f"Bright light enhancement failed: {e}")
     
-    def _enhance_for_normal_light(self, enhancements: Dict[str, Any]):
-        """Apply normal lighting optimizations."""
+    def _enhance_for_normal_light(self, enhancements: Dict[str, Any], metadata: Dict[str, Any]):
+        """Apply normal lighting optimizations only if needed."""
         try:
             if not self.camera or not self.camera.picam2:
                 return
-                
+            
             controls = {}
+            needs_update = False
             
-            # Balanced noise reduction
-            controls["NoiseReductionMode"] = 1  # Normal
+            # Only adjust if values differ from expected defaults
+            current_nr = self.last_applied_controls.get("NoiseReductionMode")
+            if current_nr != DEFAULT_NOISE_REDUCTION_MODE:
+                controls["NoiseReductionMode"] = DEFAULT_NOISE_REDUCTION_MODE
+                needs_update = True
             
-            # Auto exposure with reasonable limits
-            controls["AeEnable"] = True
-            controls["AeConstraintMode"] = 0  # Normal constraint
+            current_sharpness = self.last_applied_controls.get("Sharpness")
+            if current_sharpness is None or current_sharpness != DEFAULT_SHARPNESS:
+                controls["Sharpness"] = DEFAULT_SHARPNESS
+                needs_update = True
             
-            # Balanced sharpness
-            controls["Sharpness"] = 1.0
+            # Ensure Auto Exposure is enabled (should already be from initial controls)
+            # Don't override it unnecessarily
             
-            if controls:
+            if needs_update and controls:
                 self.camera.picam2.set_controls(controls)
+                self.last_applied_controls.update(controls)
                 enhancements['applied'].append("normal_light_optimization")
                 
         except Exception as e:
@@ -804,6 +863,16 @@ class CameraHandler:
                 # Apply initial camera controls
                 self._apply_initial_controls()
                 
+                # Initialize enhancement engine state tracking
+                if hasattr(self, 'enhancement_engine'):
+                    # Store initial controls as last applied
+                    initial_controls = {
+                        "Sharpness": DEFAULT_SHARPNESS,
+                        "NoiseReductionMode": DEFAULT_NOISE_REDUCTION_MODE,
+                        "AfMode": DEFAULT_AUTOFOCUS_MODE,
+                    }
+                    self.enhancement_engine.last_applied_controls = initial_controls.copy()
+                
                 self.initialized = True
                 self.logger.info("Camera initialized successfully")
                 return True
@@ -819,21 +888,21 @@ class CameraHandler:
             if not self.picam2:
                 return
                 
-            # Basic quality controls with enhanced color settings (LPR optimized for IMX708 Camera Module 3)
+            # Basic quality controls with enhanced color settings (Optimized for sharp images, matching rpicam behavior)
             controls = {
-                "Brightness": 0.0,  # Default brightness
-                "Contrast": 1.0,    # Normal contrast
-                "Saturation": 1.0,  # Full color saturation
-                "Sharpness": 1.0,   # Normal sharpness
+                "Brightness": DEFAULT_BRIGHTNESS,
+                "Contrast": DEFAULT_CONTRAST,
+                "Saturation": DEFAULT_SATURATION,
+                "Sharpness": DEFAULT_SHARPNESS,  # Increased to 2.0 for better sharpness (matching rpicam)
+                "NoiseReductionMode": DEFAULT_NOISE_REDUCTION_MODE,  # 0=Off for maximum sharpness
                 "AwbMode": 0,       # Auto white balance
                 "AeEnable": True,   # Auto exposure enabled
                 "AwbEnable": True,  # Auto white balance enabled
-                "AfMode": 2,        # Continuous autofocus (LPR optimized for moving vehicles)
-                "AfTrigger": 0,     # No trigger needed for continuous
+                "AfMode": DEFAULT_AUTOFOCUS_MODE,  # 1=Auto mode (changed from 2=Continuous for better focus stability)
+                "AfTrigger": 0,     # Will be triggered when needed
                 "AfRange": 0,       # Full range (0=Full, 1=Macro, 2=Normal)
-                "AfSpeed": 0,       # Normal speed (0=Normal, 1=Fast) - stable for LPR
-                "AfMetering": 1,    # Center-weighted metering (best for LPR)
-                "LensPosition": 0.0 # Let autofocus control
+                "AfSpeed": 0,       # Normal speed (0=Normal, 1=Fast)
+                "AfMetering": 1,    # Center-weighted metering
             }
             
             # Try to apply libcamera-specific controls
@@ -850,6 +919,7 @@ class CameraHandler:
                 # Autofocus setup - use numeric mode for proper AF trigger support (if enabled)
                 if DEFAULT_AUTOFOCUS_ENABLED:
                     controls["AfMode"] = DEFAULT_AUTOFOCUS_MODE  # 0=Manual, 1=Auto, 2=Continuous
+                    # Note: AfMode is already set above, this ensures it's correct
                 
             except ImportError:
                 self.logger.debug("libcamera controls not available, using basic controls")
@@ -865,6 +935,62 @@ class CameraHandler:
             
         except Exception as e:
             self.logger.warning(f"Failed to apply initial controls: {e}")
+    
+    def _trigger_and_wait_autofocus(self, timeout: float = 2.0, min_fom: int = None) -> bool:
+        """
+        Trigger autofocus and wait until focus is achieved.
+        
+        This method is useful for ensuring sharp images before important captures,
+        similar to how rpicam-still waits for focus completion.
+        
+        Args:
+            timeout: Maximum time to wait for focus (seconds)
+            min_fom: Minimum FocusFoM to consider as focused (defaults to FOCUS_QUALITY_MIN_THRESHOLD)
+            
+        Returns:
+            bool: True if focus achieved, False if timeout or error
+        """
+        try:
+            if not self.picam2 or not DEFAULT_AUTOFOCUS_ENABLED:
+                return False
+            
+            if min_fom is None:
+                min_fom = FOCUS_QUALITY_MIN_THRESHOLD
+            
+            # Switch to Auto mode if not already
+            self.picam2.set_controls({"AfMode": 1})  # 1=Auto mode
+            time.sleep(0.1)
+            
+            # Trigger autofocus
+            self.picam2.set_controls({"AfTrigger": 0})  # 0=Start trigger
+            
+            # Wait for focus to complete
+            start_time = time.time()
+            focus_achieved = False
+            
+            while time.time() - start_time < timeout:
+                request = self.picam2.capture_request()
+                try:
+                    metadata = request.get_metadata()
+                    focus_fom = metadata.get("FocusFoM", 0)
+                    
+                    if focus_fom >= min_fom:
+                        self.logger.debug(f"Autofocus achieved: FocusFoM={focus_fom} (threshold: {min_fom})")
+                        focus_achieved = True
+                        break
+                finally:
+                    request.release()
+                
+                time.sleep(0.1)
+            
+            if not focus_achieved:
+                self.logger.warning(f"Autofocus timeout after {timeout}s (may still be acceptable)")
+            
+            return focus_achieved
+            
+        except Exception as e:
+            self.logger.warning(f"Autofocus trigger failed: {e}")
+            return False
     
     def start_camera(self) -> bool:
         """
@@ -937,7 +1063,9 @@ class CameraHandler:
         """
         self.opt_logger.log_operation_start("frame_capture_loop")
         
-        enhancement_interval = 2.0  # Apply enhancements every 2 seconds
+        enhancement_interval = 2.0  # Apply enhancements every 2 seconds initially
+        stable_enhancement_interval = 30.0  # When stable, check every 30 seconds
+        current_enhancement_interval = enhancement_interval
         last_enhancement = 0
         last_stats_log = time.time()
         
@@ -988,10 +1116,19 @@ class CameraHandler:
                     
                     # Apply environmental enhancements periodically
                     current_time = time.time()
-                    if current_time - last_enhancement > enhancement_interval:
+                    if current_time - last_enhancement > current_enhancement_interval:
                         try:
                             enhancements = self.enhancement_engine.enhance_for_conditions(metadata)
-                            if enhancements['applied']:
+                            
+                            # Adjust interval based on stability
+                            if enhancements.get('skipped'):
+                                # Conditions are stable and focus is good - use longer interval
+                                current_enhancement_interval = stable_enhancement_interval
+                            else:
+                                # Conditions changed or focus needs adjustment - use shorter interval
+                                current_enhancement_interval = enhancement_interval
+                            
+                            if enhancements.get('applied'):
                                 # Only log if enhancement actually changed
                                 enhancement_key = str(enhancements['applied'])
                                 if not hasattr(self, 'last_logged_states'):
@@ -1003,6 +1140,13 @@ class CameraHandler:
                                         interval=10.0
                                     )
                                     self.last_logged_states['last_enhancement'] = enhancement_key
+                            elif enhancements.get('skipped'):
+                                # Log when skipping (but rate limited)
+                                self.rate_limited.debug_rate_limited(
+                                    "enhancement_skipped",
+                                    f"Skipped enhancement: {enhancements.get('reason', 'unknown')}",
+                                    interval=60.0
+                                )
                         except Exception as e:
                             self.rate_limited.debug_rate_limited(
                                 "enhancement_error",
@@ -1081,7 +1225,8 @@ class CameraHandler:
                      source: CaptureSource = "buffer",
                      stream_type: StreamType = "main", 
                      include_metadata: bool = True,
-                     quality_mode: QualityMode = "normal") -> Optional[Union[Dict[str, Any], np.ndarray]]:
+                     quality_mode: QualityMode = "normal",
+                     trigger_autofocus: bool = False) -> Optional[Union[Dict[str, Any], np.ndarray]]:
         """
         Unified frame capture method supporting multiple sources and stream types.
         
@@ -1091,6 +1236,7 @@ class CameraHandler:
             stream_type: Stream type - "main", "lores", or "both"
             include_metadata: Whether to include metadata in response
             quality_mode: Quality optimization mode
+            trigger_autofocus: If True, trigger autofocus and wait before capture (for better focus quality)
             
         Returns:
             Union[Dict[str, Any], np.ndarray]: Frame data, format depends on parameters
@@ -1099,6 +1245,10 @@ class CameraHandler:
             if not self.initialized:
                 self.logger.warning("Camera not initialized")
                 return None
+            
+            # Trigger autofocus if requested (useful for important captures like detection)
+            if trigger_autofocus or AUTOFOCUS_TRIGGER_BEFORE_CAPTURE:
+                self._trigger_and_wait_autofocus()
             
             if source == "buffer":
                 return self._capture_from_buffer(stream_type, include_metadata)
