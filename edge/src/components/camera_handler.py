@@ -39,7 +39,7 @@ from contextlib import contextmanager
 from collections import deque
 
 from edge.src.core.utils.logging_config import get_logger, get_camera_logger, RateLimitedLogger
-from edge.src.core.config import DEFAULT_AUTOFOCUS_ENABLED, DEFAULT_AUTOFOCUS_MODE, MAIN_RESOLUTION, LORES_RESOLUTION
+from edge.src.core.config import DEFAULT_AUTOFOCUS_ENABLED, DEFAULT_AUTOFOCUS_MODE, MAIN_RESOLUTION, LORES_RESOLUTION, DEFAULT_FRAMERATE
 
 logger = get_logger(__name__)
 opt_logger = get_camera_logger(logger)
@@ -606,7 +606,7 @@ class CameraHandler:
     _metadata_buffer = {}
     _capture_thread = None
     _capture_running = False
-    _capture_interval = 0.033  # 30 FPS
+    _capture_interval = 1.0 / DEFAULT_FRAMERATE  # Calculated from DEFAULT_FRAMERATE (15 FPS default)
 
     def _get_af_mode_name(self, mode: int) -> str:
         """Convert numeric AF mode to descriptive name."""
@@ -759,6 +759,15 @@ class CameraHandler:
                     lores=lores_config
                 )
                 
+                # Set framerate using FrameDurationLimits (in microseconds)
+                # For 15 FPS: 1000000 / 15 = 66666 microseconds per frame
+                # For 30 FPS: 1000000 / 30 = 33333 microseconds per frame
+                frame_duration_us = int(1000000 / DEFAULT_FRAMERATE)
+                if "controls" not in config:
+                    config["controls"] = {}
+                config["controls"]["FrameDurationLimits"] = (frame_duration_us, frame_duration_us)
+                self.logger.info(f"Camera framerate set to {DEFAULT_FRAMERATE} FPS (FrameDurationLimits: {frame_duration_us}μs)")
+                
                 # Create hardware encoders for lores stream (if available)
                 from picamera2.outputs import CircularOutput
                 from picamera2.encoders import H264Encoder
@@ -810,21 +819,21 @@ class CameraHandler:
             if not self.picam2:
                 return
                 
-            # Basic quality controls with enhanced color settings
+            # Basic quality controls with enhanced color settings (LPR optimized for IMX708 Camera Module 3)
             controls = {
-                "Brightness": 0.0,
-                "Contrast": 1.0,
-                "Saturation": 1.0,  # Ensure full color saturation
-                "Sharpness": 1.0,
-                "AwbMode": 0,  # Auto white balance for better color
-                "AeEnable": True,  # Auto exposure
-                "AwbEnable": True,  # Auto white balance
-                "AfMode": 1,  # Continuous autofocus
-                "AfTrigger": 0,  # No trigger needed for continuous
-                "AfRange": 0,  # Full range
-                "AfSpeed": 0,  # Normal speed
-                "AfMetering": 1,  # Center-weighted metering
-                "LensPosition": 0.0  # Let autofocus control
+                "Brightness": 0.0,  # Default brightness
+                "Contrast": 1.0,    # Normal contrast
+                "Saturation": 1.0,  # Full color saturation
+                "Sharpness": 1.0,   # Normal sharpness
+                "AwbMode": 0,       # Auto white balance
+                "AeEnable": True,   # Auto exposure enabled
+                "AwbEnable": True,  # Auto white balance enabled
+                "AfMode": 2,        # Continuous autofocus (LPR optimized for moving vehicles)
+                "AfTrigger": 0,     # No trigger needed for continuous
+                "AfRange": 0,       # Full range (0=Full, 1=Macro, 2=Normal)
+                "AfSpeed": 0,       # Normal speed (0=Normal, 1=Fast) - stable for LPR
+                "AfMetering": 1,    # Center-weighted metering (best for LPR)
+                "LensPosition": 0.0 # Let autofocus control
             }
             
             # Try to apply libcamera-specific controls
