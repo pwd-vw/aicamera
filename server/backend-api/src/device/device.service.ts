@@ -1,7 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
-import { Camera, Detection, Analytics, CameraHealth } from '../entities';
+import {
+  Camera,
+  Detection,
+  Analytics,
+  CameraHealth,
+  SystemEvent,
+  Visualization,
+  AnalyticsEvent,
+} from '../entities';
 
 export interface CameraSummaryRow {
   id: string;
@@ -30,6 +38,12 @@ export class DeviceService {
     private readonly analyticsRepo: Repository<Analytics>,
     @InjectRepository(CameraHealth)
     private readonly cameraHealthRepo: Repository<CameraHealth>,
+    @InjectRepository(SystemEvent)
+    private readonly systemEventRepo: Repository<SystemEvent>,
+    @InjectRepository(Visualization)
+    private readonly visualizationRepo: Repository<Visualization>,
+    @InjectRepository(AnalyticsEvent)
+    private readonly analyticsEventRepo: Repository<AnalyticsEvent>,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -107,5 +121,74 @@ export class DeviceService {
   async createCameraHealth(data: Partial<CameraHealth>): Promise<CameraHealth> {
     const health = this.cameraHealthRepo.create(data);
     return this.cameraHealthRepo.save(health);
+  }
+
+  /** Find camera by external camera_id (Edge), or create one. Used by ws-service on camera_register. */
+  async registerCameraOrGet(payload: {
+    camera_id: string;
+    checkpoint_id: string;
+    timestamp?: string;
+  }): Promise<Camera> {
+    const existing = await this.findCameraByCameraId(payload.camera_id);
+    if (existing) return existing;
+    return this.createCamera({
+      cameraId: payload.camera_id,
+      name: payload.checkpoint_id || payload.camera_id,
+    });
+  }
+
+  async findDetectionById(id: string): Promise<Detection | null> {
+    return this.detectionRepo.findOne({ where: { id } });
+  }
+
+  async findAllAnalytics(limit = 500): Promise<Analytics[]> {
+    return this.analyticsRepo.find({
+      relations: ['camera'],
+      order: { date: 'DESC' },
+      take: limit,
+    });
+  }
+
+  async findAllSystemEvents(limit = 500): Promise<SystemEvent[]> {
+    return this.systemEventRepo.find({
+      relations: ['camera'],
+      order: { createdAt: 'DESC' },
+      take: limit,
+    });
+  }
+
+  async findAllVisualizations(limit = 500): Promise<Visualization[]> {
+    return this.visualizationRepo.find({
+      order: { createdAt: 'DESC' },
+      take: limit,
+    });
+  }
+
+  async findAllAnalyticsEvents(limit = 500): Promise<AnalyticsEvent[]> {
+    return this.analyticsEventRepo.find({
+      relations: ['camera', 'visualization'],
+      order: { createdAt: 'DESC' },
+      take: limit,
+    });
+  }
+
+  /** Update image_path for all detections of a camera in the given timestamp window (±1s). */
+  async updateDetectionsImagePath(
+    cameraId: string,
+    timestampIso: string,
+    imagePath: string,
+  ): Promise<{ affected: number }> {
+    const t = new Date(timestampIso);
+    const start = new Date(t.getTime() - 1000);
+    const end = new Date(t.getTime() + 1000);
+    const result = await this.detectionRepo
+      .createQueryBuilder()
+      .update(Detection)
+      .set({ imagePath })
+      .where('camera_id = :cameraId', { cameraId })
+      .andWhere('timestamp >= :start', { start: start.toISOString() })
+      .andWhere('timestamp <= :end', { end: end.toISOString() })
+      .execute();
+    return { affected: result.affected ?? 0 };
   }
 }

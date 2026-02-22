@@ -3,12 +3,17 @@ import {
   Get,
   Post,
   Put,
+  Patch,
   Delete,
   Body,
   Param,
   Query,
   ParseUUIDPipe,
+  NotFoundException,
+  StreamableFile,
 } from '@nestjs/common';
+import * as fs from 'fs';
+import * as path from 'path';
 import { DeviceService } from './device.service';
 import { Camera, Detection, CameraHealth } from '../entities';
 
@@ -39,6 +44,13 @@ export class DeviceController {
     return camera;
   }
 
+  @Post('cameras/register')
+  async registerCamera(
+    @Body() body: { camera_id: string; checkpoint_id: string; timestamp?: string },
+  ) {
+    return this.deviceService.registerCameraOrGet(body);
+  }
+
   @Post('cameras')
   async createCamera(@Body() body: Partial<Camera>) {
     return this.deviceService.createCamera(body);
@@ -58,11 +70,24 @@ export class DeviceController {
     return { ok: true };
   }
 
+  @Get('detections/:id/image')
+  async getDetectionImage(@Param('id', ParseUUIDPipe) id: string): Promise<StreamableFile> {
+    const detection = await this.deviceService.findDetectionById(id);
+    if (!detection?.imagePath || !fs.existsSync(detection.imagePath)) {
+      throw new NotFoundException('Image not found');
+    }
+    const ext = path.extname(detection.imagePath).toLowerCase();
+    const type =
+      ext === '.png' ? 'image/png' : ext === '.gif' ? 'image/gif' : ext === '.webp' ? 'image/webp' : 'image/jpeg';
+    const stream = fs.createReadStream(detection.imagePath);
+    return new StreamableFile(stream, { type });
+  }
+
   @Get('detections')
   async getDetections(@Query('cameraId') cameraId?: string, @Query('limit') limit?: string) {
     return this.deviceService.findAllDetections(
       cameraId,
-      limit ? parseInt(limit, 10) : 100,
+      limit ? parseInt(limit, 10) : 500,
     );
   }
 
@@ -82,6 +107,17 @@ export class DeviceController {
     return this.deviceService.createDetection(body);
   }
 
+  @Patch('detections/image-path')
+  async updateDetectionsImagePath(
+    @Body() body: { cameraId: string; timestamp: string; imagePath: string },
+  ) {
+    return this.deviceService.updateDetectionsImagePath(
+      body.cameraId,
+      body.timestamp,
+      body.imagePath,
+    );
+  }
+
   @Get('camera-health')
   async getCameraHealth(
     @Query('cameraId') cameraId?: string,
@@ -96,5 +132,33 @@ export class DeviceController {
   @Post('camera-health')
   async createCameraHealth(@Body() body: Partial<CameraHealth>) {
     return this.deviceService.createCameraHealth(body);
+  }
+
+  @Get('analytics')
+  async getAnalytics(@Query('limit') limit?: string) {
+    return this.deviceService.findAllAnalytics(
+      limit ? parseInt(limit, 10) : 500,
+    );
+  }
+
+  @Get('system-events')
+  async getSystemEvents(@Query('limit') limit?: string) {
+    return this.deviceService.findAllSystemEvents(
+      limit ? parseInt(limit, 10) : 500,
+    );
+  }
+
+  @Get('visualizations')
+  async getVisualizations(@Query('limit') limit?: string) {
+    return this.deviceService.findAllVisualizations(
+      limit ? parseInt(limit, 10) : 500,
+    );
+  }
+
+  @Get('analytics-events')
+  async getAnalyticsEvents(@Query('limit') limit?: string) {
+    return this.deviceService.findAllAnalyticsEvents(
+      limit ? parseInt(limit, 10) : 500,
+    );
   }
 }
