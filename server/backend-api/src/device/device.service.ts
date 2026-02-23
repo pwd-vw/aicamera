@@ -75,13 +75,33 @@ export class DeviceService {
     await this.cameraRepo.delete(id);
   }
 
-  async findAllDetections(cameraId?: string, limit = 100): Promise<Detection[]> {
+  async findAllDetections(
+    cameraId?: string,
+    limit = 100,
+    offset = 0,
+    archived?: boolean,
+    search?: string,
+    sortBy = 'timestamp',
+    sortOrder: 'ASC' | 'DESC' = 'DESC',
+  ): Promise<Detection[]> {
     const qb = this.detectionRepo
       .createQueryBuilder('d')
       .leftJoinAndSelect('d.camera', 'c')
-      .orderBy('d.timestamp', 'DESC')
-      .take(limit);
+      .take(limit)
+      .skip(offset);
     if (cameraId) qb.andWhere('d.camera_id = :cameraId', { cameraId });
+    if (typeof archived === 'boolean') {
+      qb.andWhere('d.archived = :archived', { archived });
+    }
+    if (search && search.trim()) {
+      qb.andWhere('(d.license_plate ILIKE :search OR d.id::text ILIKE :search)', {
+        search: `%${search.trim()}%`,
+      });
+    }
+    const orderCol = ['timestamp', 'licensePlate', 'confidence', 'createdAt'].includes(sortBy)
+      ? `d.${sortBy}`
+      : 'd.timestamp';
+    qb.orderBy(orderCol, sortOrder);
     return qb.getMany();
   }
 
@@ -108,13 +128,20 @@ export class DeviceService {
     await this.dataSource.query('SELECT update_daily_analytics()');
   }
 
-  async findAllCameraHealth(cameraId?: string, limit = 200): Promise<CameraHealth[]> {
+  async findAllCameraHealth(
+    cameraId?: string,
+    limit = 200,
+    from?: string,
+    to?: string,
+  ): Promise<CameraHealth[]> {
     const qb = this.cameraHealthRepo
       .createQueryBuilder('h')
       .leftJoinAndSelect('h.camera', 'c')
       .orderBy('h.timestamp', 'DESC')
       .take(limit);
     if (cameraId) qb.andWhere('h.camera_id = :cameraId', { cameraId });
+    if (from) qb.andWhere('h.timestamp >= :from', { from });
+    if (to) qb.andWhere('h.timestamp <= :to', { to });
     return qb.getMany();
   }
 
@@ -139,6 +166,16 @@ export class DeviceService {
 
   async findDetectionById(id: string): Promise<Detection | null> {
     return this.detectionRepo.findOne({ where: { id } });
+  }
+
+  async updateDetection(id: string, data: Partial<Detection>): Promise<Detection> {
+    if (data.archived === true) {
+      (data as Record<string, unknown>).archivedAt = new Date();
+    }
+    await this.detectionRepo.update(id, data as Record<string, unknown>);
+    const updated = await this.detectionRepo.findOne({ where: { id } });
+    if (!updated) throw new Error('Detection not found');
+    return updated;
   }
 
   async findAllAnalytics(limit = 500): Promise<Analytics[]> {
@@ -170,6 +207,38 @@ export class DeviceService {
       order: { createdAt: 'DESC' },
       take: limit,
     });
+  }
+
+  /** For Edge Control dashboard: cameras with their latest camera_health (status, timestamp). */
+  async findCamerasWithLatestHealth(): Promise<
+    Array<{ camera: Camera; latestHealth: { status: string; timestamp: Date } | null }>
+  > {
+    const cameras = await this.cameraRepo.find({ order: { createdAt: 'DESC' } });
+    const result: Array<{ camera: Camera; latestHealth: { status: string; timestamp: Date } | null }> = [];
+    for (const camera of cameras) {
+      const latest = await this.cameraHealthRepo.findOne({
+        where: { cameraId: camera.id },
+        order: { timestamp: 'DESC' },
+        select: ['status', 'timestamp'],
+      });
+      result.push({
+        camera,
+        latestHealth: latest ? { status: latest.status, timestamp: latest.timestamp } : null,
+      });
+    }
+    return result;
+  }
+
+  /** Delete camera_health rows older than the given number of days. */
+  async deleteCameraHealthOlderThan(days: number): Promise<number> {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - days);
+    const result = await this.cameraHealthRepo
+      .createQueryBuilder()
+      .delete()
+      .where('timestamp < :cutoff', { cutoff: cutoff.toISOString() })
+      .execute();
+    return result.affected ?? 0;
   }
 
   /** Update image_path for all detections of a camera in the given timestamp window (±1s). */

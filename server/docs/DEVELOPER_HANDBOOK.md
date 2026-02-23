@@ -50,7 +50,7 @@ flowchart TB
   - `location /ws/` → proxy ไป `http://127.0.0.1:3001/ws/` (Socket.IO)
 - **backend-api (port 3000):** REST API + TypeORM ต่อ PostgreSQL; global prefix `server/api`
 - **ws-service (port 3001):** Socket.IO gateway ที่ path `/ws/` รับข้อมูลจาก Edge แล้วเรียก backend-api (HTTP) และบันทึกภาพที่ `storage/`
-- **mqtt-service:** NestJS microservice ต่อ MQTT broker; subscribe topics จาก Edge; ปัจจุบันบันทึกเฉพาะ log ไฟล์
+- **mqtt-service:** NestJS microservice ต่อ MQTT broker; subscribe topics จาก Edge; บันทึก `camera/+/health` และ `camera/+/status` ลง DB ผ่าน backend-api (cameras + camera_health) สำหรับ Edge Control; topics อื่น log ไฟล์
 
 Config อ้างอิง:
 - Nginx: [../nginx-lprserver.conf](../nginx-lprserver.conf)
@@ -66,7 +66,7 @@ Config อ้างอิง:
 |----------------|----------|
 | `backend-api/` | NestJS REST API (port 3000), TypeORM ต่อ PostgreSQL, serve static frontend ที่ `/server` เมื่อรันตรง |
 | `ws-service/` | NestJS WebSocket service (port 3001), Socket.IO path `/ws/`, รับ events จาก Edge → เรียก backend-api + บันทึกภาพที่ storage |
-| `mqtt-service/` | NestJS MQTT microservice, subscribe topics จาก Edge, ปัจจุบันบันทึก log อย่างเดียว |
+| `mqtt-service/` | NestJS MQTT microservice, subscribe topics จาก Edge; บันทึก health/status ลง DB ผ่าน backend-api; topics อื่น log อย่างเดียว |
 | `frontend-app/` | Vue SPA, build → `dist/`, Nginx serve ที่ `/server/` |
 | `database/` | สคริปต์สร้าง DB, schema, grant (schema.sql, init-aicamera-app.sh, grant-lpruser.sql) |
 | `landing/` | หน้า Landing (index.html) ที่ `/` |
@@ -112,7 +112,7 @@ Config อ้างอิง:
 
 - **Backend API (จาก ws-service):**
   - `BACKEND_API_URL` — **ต้องชี้ไปที่ base ของ API รวม path** เช่น `http://localhost:3000/server/api` เพื่อให้ request ไปที่ `/server/api/cameras/register`, `/server/api/detections` ฯลฯ ถูกต้อง (backend ใช้ `setGlobalPrefix('server/api')`).
-  - ค่า default ในโค้ดคือ `http://localhost:3000` — ถ้าไม่ใส่ path `/server/api` จะได้ 404.
+  - ค่า default ในโค้ดคือ `http://localhost:3000/server/api`; ถ้าไม่ตั้งและ backend รันที่ host อื่น ต้องตั้งให้ตรง.
 
 - **Storage (ws-service):**
   - `STORAGE_ROOT` — path ระดับ server root (default คือ `process.cwd()/..`). ภาพบันทึกที่ `storage/` และ message log ที่ `receive_message.log` ภายใต้ root นี้.
@@ -142,6 +142,9 @@ Config อ้างอิง:
    ```
    หรือคัดลอก `.env.example` เป็น `.env` แล้วแก้รหัสผ่าน
 
+**การตั้งค่า DATABASE_URL สำหรับ backend-api (รันด้วย systemd)**  
+backend-api โหลด `.env` เองจากโฟลเดอร์ที่รัน (WorkingDirectory) ผ่าน `dotenv` — สร้างไฟล์ `.env` ในโฟลเดอร์ `server/backend-api/` (copy จาก `.env.example`) แล้วใส่ `DATABASE_URL=postgresql://lpruser:<รหัสผ่าน>@localhost:5432/aicamera_app`. หน่วย systemd ใน repo มี `EnvironmentFile=-/home/devuser/aicamera/server/backend-api/.env` ด้วย (ถ้าโหลดได้จะ override ค่าจาก .env). ถ้าไม่ตั้งค่านี้ backend จะ fallback เป็น user `postgres` และมักต่อ DB ไม่ได้ → API คืน 502; ดูวิธีแก้ละเอียดที่ §6.1.
+
 ### 4.2 Network (Nginx)
 
 - ใช้ config ตัวอย่าง: [../nginx-lprserver.conf](../nginx-lprserver.conf)
@@ -166,24 +169,156 @@ Config อ้างอิง:
 - รัน MQTT broker แยก (ถ้าต้องการ) แล้วตั้ง `MQTT_URL`, `MQTT_RECEIVE_LOG`
 - รูปแบบ topic และ payload จาก Edge ดูได้ที่ [../mqtt-service/MQTT_CLIENT_GUIDE.md](../mqtt-service/MQTT_CLIENT_GUIDE.md)
 
+### 4.5 Build ให้พร้อมทำงาน
+
+ก่อนรัน service ต้อง build โปรเจกต์ที่ใช้ TypeScript/Node ให้ได้โฟลเดอร์ `dist/` (และ frontend ได้ `dist/` สำหรับ Nginx serve ที่ `/server/`).
+
+**backend-api (จำเป็นสำหรับ API และ Frontend ผ่าน Nginx)**
+
+```bash
+cd /home/devuser/aicamera/server/backend-api
+npm install
+npm run build
+```
+
+- ผลลัพธ์อยู่ที่ `dist/` — systemd ใช้ `ExecStart=/usr/bin/node dist/main.js`
+- ตั้ง `DATABASE_URL` (หรือแยก POSTGRES_*) ใน environment ของ service หรือ `.env` ก่อนรัน
+
+**ws-service (WebSocket)**
+
+```bash
+cd /home/devuser/aicamera/server/ws-service
+npm install
+npm run build
+```
+
+- ผลลัพธ์อยู่ที่ `dist/` — systemd ใช้ `ExecStart=/usr/bin/node dist/main.js`
+- ตั้ง `BACKEND_API_URL=http://localhost:3000/server/api` และ `STORAGE_ROOT` (ถ้าไม่ใช้ default) ใน environment
+
+**mqtt-service (MQTT)**
+
+```bash
+cd /home/devuser/aicamera/server/mqtt-service
+npm install
+npm run build
+```
+
+- ผลลัพธ์อยู่ที่ `dist/` — systemd ใช้ `ExecStart=/usr/bin/node dist/main.js`
+- ตั้ง `MQTT_URL` (และ optional อื่น) ใน environment
+
+**frontend-app (สำหรับ Nginx serve ที่ /server/)**
+
+```bash
+cd /home/devuser/aicamera/server/frontend-app
+npm install
+npm run build
+```
+
+- ผลลัพธ์อยู่ที่ `dist/` — Nginx config ต้องชี้ `location /server/` ไปที่ path นี้ (เช่น `alias .../frontend-app/dist/`)
+- ไม่มี process แยก; Nginx serve ไฟล์ static จาก `dist/` เท่านั้น
+
+**สรุป:** หลังแก้โค้ด backend-api, ws-service หรือ mqtt-service ต้อง `npm run build` ใหม่แล้ว `sudo systemctl restart <service>`; หลังแก้ frontend ต้อง `npm run build` ใน frontend-app แล้ว reload Nginx ไม่จำเป็น (แค่ refresh หน้าเว็บ ถ้าไม่มี cache แรง).
+
+### 4.6 ตรวจสอบฐานข้อมูลด้วย psql (PostgreSQL)
+
+ใช้คำสั่งต่อไปนี้บน Terminal เพื่อตรวจสอบหลังบ้านว่า DB มีอยู่และมีข้อมูลตรงกับที่ Backend อ่าน (database `aicamera_app`, user `lpruser` ตามที่ใช้ใน `DATABASE_URL`).
+
+**เชื่อมต่อเข้า session psql**
+
+```bash
+# เข้า database aicamera_app ด้วย user lpruser (จะถามรหัสผ่าน)
+psql -U lpruser -d aicamera_app
+
+# หรือระบุ host/port ถ้าไม่ใช่ localhost
+psql -U lpruser -h localhost -p 5432 -d aicamera_app
+```
+
+**คำสั่งภายใน psql (หลังเข้าแล้ว)**
+
+| วัตถุประสงค์ | คำสั่ง |
+|--------------|--------|
+| ดูรายการ database ทั้งหมด | `\l` |
+| ดูตารางใน DB ปัจจุบัน | `\dt` |
+| ดูโครงสร้างตาราง (เช่น cameras) | `\d cameras` |
+| ออกจาก psql | `\q` |
+
+**คำสั่ง SQL ตรวจข้อมูลหลัก (รันใน psql หรือส่งจาก shell ด้วย `-c`)**
+
+```bash
+# นับจำนวนแถวในตารางหลัก
+psql -U lpruser -d aicamera_app -c "SELECT (SELECT count(*) FROM cameras) AS cameras, (SELECT count(*) FROM detections) AS detections, (SELECT count(*) FROM camera_health) AS camera_health;"
+
+# ดูกล้องล่าสุด (id, camera_id, name)
+psql -U lpruser -d aicamera_app -c "SELECT id, camera_id, name, status, created_at FROM cameras ORDER BY created_at DESC LIMIT 5;"
+
+# ดู detection ล่าสุด
+psql -U lpruser -d aicamera_app -c "SELECT id, camera_id, timestamp, license_plate, confidence FROM detections ORDER BY timestamp DESC LIMIT 5;"
+
+# ดู camera_health ล่าสุด
+psql -U lpruser -d aicamera_app -c "SELECT id, camera_id, timestamp, status, cpu_usage, memory_usage FROM camera_health ORDER BY timestamp DESC LIMIT 5;"
+```
+
+ถ้าเชื่อมต่อไม่ได้ (เช่น "password authentication failed") ให้ตรวจว่า user `lpruser` มีอยู่และรหัสผ่านตรงกับที่ใส่ใน `DATABASE_URL` ใน `server/backend-api/.env`. ถ้าไม่มี database `aicamera_app` ให้รัน `server/database/init-aicamera-app.sh` ตาม §4.1.
+
 ---
 
-## 5. ลำดับการเริ่มทำงาน
+## 5. เมื่อ Boot server ใหม่ หรือเริ่มระบบ
 
-อ้างอิง [../systemd_service/README.md](../systemd_service/README.md):
+อ้างอิง [../systemd_service/README.md](../systemd_service/README.md). ลำดับที่แนะนำ:
 
-1. **Nginx (port 80)** — เริ่มก่อนหรือพร้อมเครือข่าย
-2. **backend-api, websocket, mqtt** — เริ่มหลัง network พร้อม (systemd enable/start)
-3. **Frontend** — ไม่มี process แยก; ต้อง build ครั้งเดียว (`npm run build` ใน frontend-app) แล้ว Nginx serve จาก `frontend-app/dist` ที่ `/server/`
+### 5.1 ตรวจสอบสถานะหลัง Boot
 
-คำสั่งตัวอย่าง:
+หลังเปิดเครื่อง ตรวจว่า services ที่จำเป็นรันอยู่และ port ถูก listen:
+
 ```bash
-sudo systemctl enable nginx && sudo systemctl start nginx
+# สถานะ service
+sudo systemctl status nginx backend-api websocket mqtt
+
+# ตรวจ port
+ss -tlnp | grep -E ':80|:3000|:3001'
+# คาดหวัง: 80 (nginx), 3000 (backend-api), 3001 (websocket)
+```
+
+- **Nginx (80):** ต้อง active; ถ้าไม่รัน → `sudo systemctl start nginx`
+- **backend-api (3000):** ต้อง active; ถ้าไม่รัน → ตรวจ log `journalctl -u backend-api -n 50` (มักเป็น DATABASE_URL หรือ DB ไม่ขึ้น)
+- **websocket (3001):** ต้อง active; ถ้าไม่รัน → ตรวจ `journalctl -u websocket -n 50`
+- **mqtt (ไม่มี HTTP port):** ต้อง active ถ้าใช้ MQTT; ตรวจ `journalctl -u mqtt -n 50`
+
+### 5.2 Build ที่จำเป็น (เมื่อโค้ดเปลี่ยนหรือครั้งแรก)
+
+| สิ่งที่แก้ | สิ่งที่ต้องทำ |
+|------------|----------------|
+| โค้ด backend-api | `cd server/backend-api && npm run build` แล้ว `sudo systemctl restart backend-api` |
+| โค้ด ws-service | `cd server/ws-service && npm run build` แล้ว `sudo systemctl restart websocket` |
+| โค้ด mqtt-service | `cd server/mqtt-service && npm run build` แล้ว `sudo systemctl restart mqtt` |
+| โค้ด frontend-app | `cd server/frontend-app && npm run build` (Nginx serve จาก dist/ ไม่ต้อง restart service) |
+
+ถ้าเพิ่ง clone หรือยังไม่เคย build ให้รัน `npm install` แล้ว `npm run build` ในแต่ละโฟลเดอร์ตาม §4.5
+
+### 5.3 Start services (เมื่อปิดอยู่หรือหลัง Boot)
+
+```bash
+# เปิด Nginx (จุดเข้าเดียวจากภายนอก)
+sudo systemctl enable nginx
+sudo systemctl start nginx
+
+# ติดตั้ง systemd units (ครั้งเดียว)
 sudo cp /home/devuser/aicamera/server/systemd_service/*.service /etc/systemd/system/
 sudo systemctl daemon-reload
+
+# เปิด backend + ws + mqtt
 sudo systemctl enable backend-api websocket mqtt
 sudo systemctl start backend-api websocket mqtt
 ```
+
+- **Frontend:** ไม่มี process แยก; ต้องมีโฟลเดอร์ `server/frontend-app/dist/` (จาก `npm run build`) แล้ว Nginx จะ serve ที่ `/server/` ตาม config
+
+### 5.4 ลำดับการเริ่มทำงาน (สรุป)
+
+1. **Nginx (port 80)** — เริ่มก่อนหรือพร้อมเครือข่าย
+2. **PostgreSQL** — ต้องรันอยู่ก่อน backend-api (backend ต่อ DB ตอน start)
+3. **backend-api, websocket, mqtt** — เริ่มหลัง network (และ DB) พร้อม
+4. **Frontend** — ไม่มี service; ใช้ไฟล์จาก `frontend-app/dist/` ผ่าน Nginx
 
 ---
 
@@ -191,12 +326,84 @@ sudo systemctl start backend-api websocket mqtt
 
 | อาการ | สาเหตุที่พบบ่อย | วิธีตรวจ/แก้ |
 |--------|------------------|----------------|
+| **502 Bad Gateway** หรือ API status ไม่พร้อม, ทุกตารางใน /server/ แสดง Bad Gateway | (ก) backend-api ต่อ DB ไม่ได้ (password authentication failed) (ข) backend-api รันแล้วแต่ Nginx ไม่ได้ proxy ไป 3000 | (ก) ดู §6.1 — ตั้ง `DATABASE_URL` ใน `.env` แล้ว restart (ข) ดู §6.2 — ตรวจ Nginx config และ curl ทดสอบ backend |
+| **Backend-api รันปกติ (active) แต่ Frontend ยัง Bad Gateway** | Nginx ใช้ config ที่ไม่มีหรือผิด `location /server/api/` หรือ path/alias ผิด | ดู §6.2 — ตรวจ site ที่ enable, ต้องมี `location /server/api/` และ `proxy_pass http://127.0.0.1:3000/server/api/` แล้ว reload nginx |
 | API แสดง Not Found เมื่อเข้าผ่าน Nginx (เช่น lprserver) | Nginx ส่ง path ไม่ครบไป backend | ตรวจ `proxy_pass` สำหรับ `/server/api/` ต้องเป็น `http://127.0.0.1:3000/server/api/` (มี path `/server/api/` ด้วย) |
 | WebSocket ไม่เชื่อมต่อที่ localhost:3000 | ไม่มี proxy `/ws/` เมื่อรัน backend อย่างเดียว | ใช้ Nginx proxy `/ws/` ไป 3001 หรือทดสอบ ws-service ที่ port 3001 โดยตรง |
 | ข้อมูลจาก DB ไม่แสดงใน Dashboard | backend-api ไม่รัน หรือ DATABASE_URL ผิด หรือ Nginx proxy ผิด | ตรวจว่า backend-api รันและ `DATABASE_URL` ถูกต้อง; ตรวจ Nginx ตามข้อแรก |
 | ws-service เรียก backend ไม่ถึง (404) | BACKEND_API_URL ไม่มี path `/server/api` | ตั้ง `BACKEND_API_URL=http://localhost:3000/server/api` (หรือ host จริงที่ backend รัน) |
 | ภาพ detection ไม่โหลด | backend อ่านไฟล์จาก `detection.imagePath` ไม่ได้ | ให้ backend กับ ws-service ใช้ filesystem เดียวกัน (หรือ shared storage) สำหรับ `storage/` |
 | MQTT ได้แค่ log ไม่เห็นใน Dashboard | mqtt-service ยังไม่เขียนลง DB | ปัจจุบันออกแบบให้ log อย่างเดียว; ดูแผนพัฒนาต่อ MQTT → DB ด้านล่าง |
+
+### 6.1 แก้ 502 Bad Gateway / password authentication failed (backend-api)
+
+ถ้า `systemctl status backend-api` แสดงข้อความ **password authentication failed** แปลว่า backend-api ต่อ PostgreSQL ไม่ได้เพราะ user/password หรือ database name ไม่ตรงกับที่ตั้งใน PostgreSQL.
+
+**ขั้นตอนแก้:**
+
+1. **สร้างไฟล์ `.env` ในโฟลเดอร์ backend-api** (ถ้ายังไม่มี):
+   ```bash
+   cd /home/devuser/aicamera/server/backend-api
+   cp .env.example .env
+   ```
+
+2. **แก้ `.env`** — ใส่ค่าเชื่อมต่อ DB จริง (ใช้ user ที่มีสิทธิ์ต่อ DB `aicamera_app` ตามที่ grant ไว้):
+   ```bash
+   # ตัวอย่าง (แทน YOUR_PASSWORD ด้วยรหัสผ่านจริงของ lpruser)
+   DATABASE_URL=postgresql://lpruser:YOUR_PASSWORD@localhost:5432/aicamera_app
+   ```
+   ถ้าใช้ user อื่นหรือ host/port อื่น ให้แก้ให้ตรงกับ PostgreSQL ของเครื่องนี้.
+
+3. **ให้ systemd โหลด `.env`** — หน่วย backend-api ต้องมี `EnvironmentFile=-/home/devuser/aicamera/server/backend-api/.env`. ถ้าใช้ unit จาก repo [../systemd_service/backend-api.service](../systemd_service/backend-api.service) จะมีบรรทัดนี้แล้ว. ถ้าเคย copy ไป `/etc/systemd/system/` ตั้งแต่ก่อน ให้ copy ใหม่แล้ว daemon-reload:
+   ```bash
+   sudo cp /home/devuser/aicamera/server/systemd_service/backend-api.service /etc/systemd/system/
+   sudo systemctl daemon-reload
+   ```
+
+4. **Restart backend-api:**
+   ```bash
+   sudo systemctl restart backend-api
+   ```
+
+5. **ตรวจสอบว่าไม่มี error:**
+   ```bash
+   sudo systemctl status backend-api
+   journalctl -u backend-api -n 30 --no-pager
+   ```
+   ถ้ายังมี "password authentication failed" ให้ตรวจว่า user ใน PostgreSQL กับรหัสผ่านใน `DATABASE_URL` ตรงกัน และมี DB `aicamera_app` (รัน schema ตาม [../database/README-aicamera-app.md](../database/README-aicamera-app.md) ถ้ายังไม่เคยสร้าง).
+
+   **ถ้า log แสดง "password authentication failed for user \"postgres\""** แปลว่าแอปไม่ได้ใช้ `DATABASE_URL` จาก `.env` (จึง fallback เป็น user `postgres`). backend-api โหลด `.env` เองจากโฟลเดอร์ที่รัน (WorkingDirectory) ผ่าน `dotenv` — ให้ตรวจว่าใน `server/backend-api/.env` มีบรรทัด **ไม่ถูก comment** ว่า `DATABASE_URL=postgresql://lpruser:รหัสผ่าน@localhost:5432/aicamera_app` (ไม่มีช่องว่างหน้า/หลัง `=`, ชื่อตัวแปรต้องเป็น `DATABASE_URL`). แก้แล้ว `sudo systemctl restart backend-api`.
+
+### 6.2 Backend-api รันปกติ แต่ Frontend ยัง Bad Gateway
+
+ถ้า `systemctl status backend-api` แสดง **active (running)** แต่หน้าเว็บที่ `/server/`, `/server/developer`, `/server/network`, `/server/edge_control` ยังขึ้น Bad Gateway หรือ API status ไม่พร้อม แสดงว่า Nginx ไม่ได้ส่ง request ไปยัง backend ที่ port 3000 ถูกต้อง (มักเป็นเพราะ **site ที่ Nginx ใช้อยู่ไม่มีหรือผิด `location /server/api/`**).
+
+**ขั้นตอนตรวจและแก้:**
+
+1. **ตรวจว่า backend รับ request บนเครื่อง server ได้จริง:**
+   ```bash
+   curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3000/server/api/
+   ```
+   คาดหวังได้ 200 หรือ 301/302 (ไม่ใช่ 000 หรือ connection refused). ถ้าได้ 000 หรือ connection refused แปลว่า backend ไม่ listen ที่ 3000 — ตรวจ `ss -tlnp | grep 3000` และ log ของ backend-api.
+
+2. **ตรวจว่า Nginx ใช้ config ไหนและมี proxy `/server/api/` หรือไม่:**
+   ```bash
+   ls -la /etc/nginx/sites-enabled/
+   grep -A5 'location /server/api' /etc/nginx/sites-enabled/*
+   ```
+   ต้องมีบล็อก `location /server/api/` และภายในมี `proxy_pass http://127.0.0.1:3000/server/api/;`. ถ้าไม่มีหรือชี้ไป port อื่น แก้ config ที่ใช้ (เช่น [../nginx-lprserver.conf](../nginx-lprserver.conf)) แล้ว copy ไป site ที่ enable:
+   ```bash
+   sudo cp /home/devuser/aicamera/server/nginx-lprserver.conf /etc/nginx/sites-available/lprserver
+   sudo ln -sf /etc/nginx/sites-available/lprserver /etc/nginx/sites-enabled/
+   # ลบ symlink ของ config เก่าที่ไม่ต้องการ (ถ้ามีหลาย site)
+   sudo nginx -t && sudo systemctl reload nginx
+   ```
+
+3. **ตรวจว่า Frontend ถูก serve จากโฟลเดอร์ที่ถูกต้อง:** ต้องมี `location /server/` ชี้ไป `server/frontend-app/dist/` (ใน config ใช้ `alias .../frontend-app/dist/;`). ถ้า path ผิด หน้า `/server/` อาจโหลดได้แต่เรียก `/server/api/` ไม่ถึง — แก้ตาม config ตัวอย่างแล้ว reload nginx.
+
+4. **ทดสอบจาก browser หรือ curl ผ่าน Nginx:** บนเครื่อง server รัน `curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1/server/api/` (หรือใช้ host จริงที่เข้าเว็บ). คาดหวัง 200 หรือ 3xx ไม่ใช่ 502. ถ้ายัง 502 แปลว่า Nginx ยังไม่ส่งไป backend — ดู error log: `sudo tail -20 /var/log/nginx/error.log`.
+
+**สรุป:** ให้ site ที่ Nginx enable มีทั้ง `location /server/` (alias ไป frontend dist) และ `location /server/api/` (proxy ไป `http://127.0.0.1:3000/server/api/`) ตรงกับ [../nginx-lprserver.conf](../nginx-lprserver.conf) แล้ว reload nginx.
 
 ---
 
@@ -231,9 +438,9 @@ flowchart LR
 | ช่องทาง | การรับข้อมูล | การบันทึก DB | การเก็บภาพ/storage | การแสดงผล Frontend |
 |--------|----------------|-------------|---------------------|----------------------|
 | **WebSocket** | สมบูรณ์: events.gateway.ts รับ `camera_register`, `message`, `image`, `health_status` | สมบูรณ์: ผ่าน BackendApiService เรียก backend-api → PostgreSQL | สมบูรณ์: StorageService บันทึกภาพที่ `storage/` และ log ที่ `receive_message.log` | สมบูรณ์: backend-api serve cameras, detections, detections/:id/image; ServerHome.vue ดึงแสดง |
-| **MQTT** | สมบูรณ์: subscribe camera/+/status, health, detections, system/events, system/health | ยังไม่ทำ: บันทึกเฉพาะ log ไฟล์ `mqtt_receive.log` | ไม่มี | ข้อมูลจาก MQTT ไม่เข้า DB จึงไม่แสดงใน Dashboard |
+| **MQTT** | สมบูรณ์: subscribe camera/+/status, health, detections, system/events, system/health | **camera/+/health และ camera/+/status:** mqtt-service เรียก BackendApiService → backend-api → cameras + camera_health; topics อื่นยัง log อย่างเดียว | ไม่มี | camera_health จาก MQTT แสดงใน **Edge Control** (`/server/edge_control`, `/server/edge_control/camera/:id`) ผ่าน API `GET /server/api/cameras/edge-status` |
 
-**สรุป:** Flow ผ่าน WebSocket สมบูรณ์ (Edge → ws-service → backend-api → DB + storage → frontend). Flow ผ่าน MQTT รับและ log ได้ แต่ยังไม่เขียนลง DB จึงไม่แสดงใน UI.
+**สรุป:** Flow ผ่าน WebSocket สมบูรณ์ (Edge → ws-service → backend-api → DB + storage → frontend). Flow ผ่าน MQTT สำหรับ health/status สมบูรณ์ (Edge → mqtt-service → backend-api → DB) และแสดงใน Edge Control; topics อื่นยังรับและ log เท่านั้น.
 
 ### 7.3 คำแนะนำการทดสอบจาก Edge
 
@@ -242,26 +449,26 @@ flowchart LR
   - ส่ง `camera_register`, `message` (รวม `content.type === 'detection_result'`), `image`, `health_status` ตามรูปแบบที่ gateway รองรับ
   - ตรวจจาก UI ว่า camera / detection / health โผล่และภาพจาก `/server/api/detections/:id/image` แสดงได้
 - **MQTT:** ใช้ [../mqtt-service/MQTT_CLIENT_GUIDE.md](../mqtt-service/MQTT_CLIENT_GUIDE.md)
-  - Publish ไป topic `camera/<id>/status`, `camera/<id>/health`, `camera/<id>/detections`, `system/events`, `system/health`
-  - ตรวจว่า server รับได้จากไฟล์ `mqtt_receive.log`
-  - หมายเหตุ: ข้อมูลจาก MQTT ยังไม่แสดงใน Dashboard จนกว่าจะพัฒนาขั้นตอน MQTT → DB
+  - Publish ไป topic `camera/<id>/status`, `camera/<id>/health` → mqtt-service จะลงทะเบียน camera และ POST camera-health ไป backend-api; ตรวจจาก **Edge Control** (`/server/edge_control`) ว่ากล้องและสถานะโผล่ และจาก log `mqtt_receive.log`
+  - Topics อื่น (detections, system/events, system/health) ยังรับและ log อย่างเดียว
 
 **หมายเหตุ:** ภาพจาก detection ต้องให้ backend กับ ws-service ใช้ storage ร่วมกัน (path เดียวกันหรือ shared volume) เพื่อให้ `GET /server/api/detections/:id/image` อ่านไฟล์ได้
 
+**การทดสอบ E2E และ Debug:** ดู [E2E_TEST_AND_DEBUG.md](E2E_TEST_AND_DEBUG.md) — สถานการณ์ทดสอบ Edge → Server → บันทึก → แสดงบน frontend, ขั้นตอน Debug ฝั่ง Server, ขั้นตอนฝั่ง Edge (แจ้ง User), และ template สรุปผล
+
 ---
 
-## 8. แผนพัฒนาต่อ (MQTT → DB)
+## 8. MQTT → DB (สถานะ)
 
-เพื่อให้ข้อมูลจาก MQTT แสดงบน Dashboard เหมือน WebSocket:
+- **ทำแล้ว:** `camera/+/health` และ `camera/+/status` — mqtt-service เรียก BackendApiService (HTTP) ไป backend-api เพื่อลงทะเบียน camera และ POST camera-health; แสดงใน Edge Control (`/server/edge_control`). backend-api มี Cron ลบ `camera_health` อายุเกิน 30 วัน (`CameraHealthCleanupService`, รันทุกวันเที่ยงคืน).
+- **ยังไม่ทำ:** topics อื่น (เช่น `camera/+/detections`, `system/events`, `system/health`) ยังรับและ log อย่างเดียว; ถ้าต้องการให้เขียน DB ให้แมป payload กับ endpoint ที่มีอยู่ (detections, system-events ฯลฯ) แล้วเพิ่ม handler ใน mqtt-service คล้าย health/status.
 
-1. **ออกแบบการเขียน MQTT → DB**
-   - ตัวเลือก (ก): ให้ mqtt-service เรียก **backend-api** ผ่าน HTTP (ใช้ endpoint ที่มีอยู่ เช่น cameras/register, detections, camera-health) แบบเดียวกับ ws-service
-   - ตัวเลือก (ข): ให้ mqtt-service เชื่อมต่อ **PostgreSQL โดยตรง** (TypeORM) และเขียนตาราง cameras, detections, camera_health ฯลฯ ตาม schema เดิม
-   - แมป topic/payload จาก Edge กับรูปแบบที่ backend รองรับ (เช่น `camera/<id>/detections` → สร้าง detection records ผ่าน API หรือ entity)
+---
 
-2. **Implement ใน mqtt-service**
-   - ใน handler ของ `camera/+/detections`, `camera/+/health`, `camera/+/status` ฯลฯ เรียก backend API หรือ repository เพื่อบันทึก; จัดการ camera_id → camera UUID (register ถ้ายังไม่มี) คล้าย ws-service
+## 9. หมายเหตุเอกสาร
 
-3. **ทดสอบและอัปเดตเอกสาร**
-   - ทดสอบ publish จาก Edge ไป MQTT แล้วตรวจว่า record โผล่ใน Dashboard
-   - อัปเดตคู่มือนี้และ MQTT_CLIENT_GUIDE ว่าข้อมูลจาก MQTT ถูกบันทึกและแสดงแล้ว
+- **Backend TypeORM:** การ integrate backend-api กับ PostgreSQL (entities, DeviceModule, REST ครบ) ดำเนินการแล้ว; รายละเอียดตาม schema ใน `server/database/schema.sql` และ README ใน `server/database/`.
+- **Frontend ตาราง + Seed:** ServerHome.vue แสดงทุกตารางพร้อม fallback columns เมื่อว่าง; ข้อมูลตัวอย่างใช้ `server/database/seed-sample-data.sql` (รันหลัง schema).
+- **Detections Archive:** ตาราง `detections` รองรับคอลัมน์ `archived`, `archived_at` (soft delete). ถ้า DB มีอยู่แล้วให้รัน `server/database/migrations/add_detections_archived.sql`; schema ใหม่มีคอลัมน์นี้แล้ว.
+- **E2E และ Debug:** [E2E_TEST_AND_DEBUG.md](E2E_TEST_AND_DEBUG.md).
+- เอกสารเดิม `BACKEND_POSTGRESQL_PROGRESS.md` และ `PLAN_FRONTEND_TABLES_AND_SEED_DATA.md` ยุบรวม/ลบเพื่อลดความซ้ำซ้อน — สรุปอยู่ในคู่มือนี้และ PROJECT_CONTEXT.md

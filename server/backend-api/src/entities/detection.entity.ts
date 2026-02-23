@@ -60,6 +60,12 @@ export class Detection {
   @Column({ type: 'jsonb', default: {} })
   metadata: Record<string, unknown>;
 
+  @Column({ default: false })
+  archived: boolean;
+
+  @Column({ name: 'archived_at', type: 'timestamptz', nullable: true })
+  archivedAt: Date | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

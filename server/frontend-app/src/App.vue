@@ -4,6 +4,7 @@
       <router-link to="/">Server (Detection)</router-link>
       <router-link to="/network">Network</router-link>
       <router-link to="/edge_control">Edge Control</router-link>
+      <router-link to="/developer">For Developer</router-link>
     </nav>
     <main>
       <router-view />

@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { CameraHealthCleanupService } from './camera-health-cleanup.service';
 import { DeviceController } from './device.controller';
 import { DeviceService } from './device.service';
 import {
@@ -25,6 +26,6 @@ import {
     ]),
   ],
   controllers: [DeviceController],
-  providers: [DeviceService],
+  providers: [DeviceService, CameraHealthCleanupService],
 })
 export class DeviceModule {}

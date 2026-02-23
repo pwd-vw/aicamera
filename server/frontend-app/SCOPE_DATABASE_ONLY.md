@@ -19,7 +19,7 @@
 การรับข้อมูลจากลูกข่าย (ข้อความ, ภาพ, events) ให้เป็นหน้าที่ของ **Microservices** เท่านั้น:
 
 - **ws-service** – รับผ่าน WebSocket (Socket.IO) ที่ path `/ws/` แล้วบันทึกข้อมูลลงในฐานข้อมูล และเก็บภาพไว้ที่ /storage เพื่อให้ backend api ดึงไปใช้ต่อในการแสดงผลบน /server/
-- **mqtt-service** – รับผ่าน MQTT broker ข้อมูลสถานะของ Edge แล้วบันทึกลงฐานข้อมูล เพื่อให้ backend api ดึงข้อมูลไปแสดงผลต่อบน /edge_control/
+- **mqtt-service** – รับผ่าน MQTT broker (topics `camera/+/health`, `camera/+/status`) แล้วบันทึกลงฐานข้อมูลผ่าน backend-api เพื่อให้แสดงผลบน /server/edge_control/
 
 จากนั้น Microservices จะบันทึกลง DB หรือส่งต่อให้ Backend API ตามที่ออกแบบ. ฝั่ง /server (frontend-app) แค่แสดงผลหรือจัดการข้อมูลที่มาจาก API/DB.
 

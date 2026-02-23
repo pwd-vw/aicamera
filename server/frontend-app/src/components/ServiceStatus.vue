@@ -15,7 +15,7 @@
         <span class="value">ตรวจที่ server (broker :1883)</span>
       </div>
     </div>
-    <p class="hint">อัปเดตเมื่อโหลดหน้า และเมื่อ WebSocket reconnect</p>
+    <p class="hint">อัปเดตเมื่อโหลดหน้า{{ pollInterval ? ' และทุก ' + (pollInterval / 1000) + ' วินาที' : '' }}; WebSocket แสดงสถานะการเชื่อมต่อ ws-service</p>
   </section>
 </template>
 
@@ -24,21 +24,30 @@ import { io } from 'socket.io-client'
 
 export default {
   name: 'ServiceStatus',
+  props: {
+    pollInterval: { type: Number, default: 0 }
+  },
   data () {
     return {
-      apiStatus: 'checking', // 'checking' | 'ok' | 'error'
-      wsStatus: 'checking',  // 'checking' | 'ok' | 'error'
-      socket: null
+      apiStatus: 'checking',
+      wsStatus: 'checking',
+      socket: null,
+      pollTimer: null
     }
   },
   mounted () {
     this.checkBackendApi()
     this.connectWebSocket()
+    if (this.pollInterval > 0) {
+      this.pollTimer = setInterval(() => {
+        this.checkBackendApi()
+        if (this.socket && !this.socket.connected) this.socket.connect()
+      }, this.pollInterval)
+    }
   },
   beforeUnmount () {
-    if (this.socket) {
-      this.socket.disconnect()
-    }
+    if (this.socket) this.socket.disconnect()
+    if (this.pollTimer) clearInterval(this.pollTimer)
   },
   methods: {
     getApiBase () {

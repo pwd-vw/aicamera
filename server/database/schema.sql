@@ -43,6 +43,8 @@ CREATE TABLE detections (
     vehicle_type VARCHAR(50),
     status detection_status DEFAULT 'pending',
     metadata JSONB DEFAULT '{}',
+    archived BOOLEAN DEFAULT false,
+    archived_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );

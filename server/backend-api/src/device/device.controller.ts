@@ -37,6 +37,11 @@ export class DeviceController {
     return { ok: true };
   }
 
+  @Get('cameras/edge-status')
+  async getCamerasEdgeStatus() {
+    return this.deviceService.findCamerasWithLatestHealth();
+  }
+
   @Get('cameras/:id')
   async getCamera(@Param('id', ParseUUIDPipe) id: string) {
     const camera = await this.deviceService.findCameraById(id);
@@ -84,10 +89,25 @@ export class DeviceController {
   }
 
   @Get('detections')
-  async getDetections(@Query('cameraId') cameraId?: string, @Query('limit') limit?: string) {
+  async getDetections(
+    @Query('cameraId') cameraId?: string,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+    @Query('archived') archived?: string,
+    @Query('search') search?: string,
+    @Query('sortBy') sortBy?: string,
+    @Query('sortOrder') sortOrder?: 'ASC' | 'DESC',
+  ) {
+    const archivedParam =
+      archived === 'true' ? true : archived === 'false' ? false : undefined;
     return this.deviceService.findAllDetections(
       cameraId,
       limit ? parseInt(limit, 10) : 500,
+      offset ? parseInt(offset, 10) : 0,
+      archivedParam,
+      search,
+      sortBy || 'timestamp',
+      sortOrder || 'DESC',
     );
   }
 
@@ -107,6 +127,14 @@ export class DeviceController {
     return this.deviceService.createDetection(body);
   }
 
+  @Patch('detections/:id')
+  async updateDetection(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: { archived?: boolean },
+  ) {
+    return this.deviceService.updateDetection(id, body);
+  }
+
   @Patch('detections/image-path')
   async updateDetectionsImagePath(
     @Body() body: { cameraId: string; timestamp: string; imagePath: string },
@@ -122,10 +150,14 @@ export class DeviceController {
   async getCameraHealth(
     @Query('cameraId') cameraId?: string,
     @Query('limit') limit?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
   ) {
     return this.deviceService.findAllCameraHealth(
       cameraId,
       limit ? parseInt(limit, 10) : 200,
+      from,
+      to,
     );
   }
 

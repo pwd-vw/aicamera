@@ -2,6 +2,10 @@
 
 This directory contains Cursor AI development rules and guidelines for the AI Camera monorepo.
 
+## Context Document (ไม่ใช่ rule file)
+
+- **`.cursor/PROJECT_CONTEXT.md`** — เอกสารสรุปโครงการจากที่คุยและพัฒนาร่วมกัน (Context Engineering): โครงสร้าง Server ใหม่, Data Flow, ไฟล์อ้างอิง, หลักการสำหรับ Cursor ใช้ร่วมกับ rules เมื่อพัฒนาต่อ
+
 ## Files
 
 ### `aicamera-monorepo.mdc` (Active)
@@ -10,9 +14,17 @@ This directory contains Cursor AI development rules and guidelines for the AI Ca
 - **Scope**: Edge component, Server component, documentation, scripts, deployment
 - **Always Apply**: Yes
 
+### `server-new-stack.mdc` (Active)
+- **Status**: ✅ Active
+- **Description**: Server (new stack) context and rules — backend-api, ws-service, mqtt-service, frontend-app, database, nginx
+- **Scope**: ใช้เมื่อทำงานกับไฟล์ภายใต้ `server/**`
+- **Always Apply**: No (globs: `server/**/*`)
+- **อ้างอิง**: `.cursor/PROJECT_CONTEXT.md`, `server/docs/DEVELOPER_HANDBOOK.md`
+
 ## Usage
 
-Cursor will automatically apply the rules from `aicamera-monorepo.mdc` to all development work in this repository.
+- Cursor applies `aicamera-monorepo.mdc` to all development work.
+- When editing files under `server/`, Cursor also applies `server-new-stack.mdc`. Read `.cursor/PROJECT_CONTEXT.md` for full project context and rules summary.
 
 ## Rule Categories
 
@@ -50,4 +62,12 @@ To add new rules:
 ## Rule Priority
 
 1. **aicamera-monorepo.mdc** - Always applied (main rules)
-2. **Future rule files** - Based on `alwaysApply` setting
+2. **server-new-stack.mdc** - Applied when working in `server/` (new stack context and rules)
+3. **Future rule files** - Based on `alwaysApply` or `globs` setting
+
+## Context Engineering
+
+สำหรับพัฒนาส่วน Server (backend-api, ws-service, mqtt-service, frontend-app, database, nginx) ใช้:
+- **บริบทและหลักการ:** `.cursor/PROJECT_CONTEXT.md` — สรุปสิ่งที่พัฒนาร่วมกัน และ rules ที่ Cursor ต้องยึดถือ
+- **รายละเอียดเทคนิค:** `server/docs/DEVELOPER_HANDBOOK.md`
+- **Rule เฉพาะ server:** `server-new-stack.mdc` (ทำงานเมื่อเปิด/แก้ไฟล์ใน `server/`)

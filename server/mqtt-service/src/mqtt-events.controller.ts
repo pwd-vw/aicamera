@@ -14,6 +14,7 @@ export class MqttEventsController {
   handleCameraStatus(@Payload() data: unknown, @Ctx() context: MqttContext) {
     const topic = context.getTopic();
     this.mqttEventsService.logReceived(topic, data);
+    this.mqttEventsService.persistCameraHealthToBackend(topic, data).catch(() => {});
     return { received: true };
   }
 
@@ -21,6 +22,7 @@ export class MqttEventsController {
   handleCameraHealth(@Payload() data: unknown, @Ctx() context: MqttContext) {
     const topic = context.getTopic();
     this.mqttEventsService.logReceived(topic, data);
+    this.mqttEventsService.persistCameraHealthToBackend(topic, data).catch(() => {});
     return { received: true };
   }
 

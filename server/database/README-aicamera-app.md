@@ -44,6 +44,16 @@ sudo -u postgres psql -d aicamera_app -f /home/devuser/aicamera/server/database/
 
 ไฟล์ `seed-sample-data.sql` จะใส่ข้อมูลตัวอย่างในตาราง cameras (ถ้ายังไม่มี), detections, analytics, camera_health, system_events, visualizations, analytics_events โดยอ้างอิง cameras ที่มีอยู่แล้ว
 
+## Migration (ตารางที่มีอยู่แล้ว)
+
+ถ้าสร้าง DB มาก่อนที่ schema จะมีคอลัมน์ `archived` / `archived_at` ในตาราง `detections` ให้รัน:
+
+```bash
+sudo -u postgres psql -d aicamera_app -f /home/devuser/aicamera/server/database/migrations/add_detections_archived.sql
+```
+
+Schema ใหม่ (schema.sql) มีคอลัมน์นี้แล้ว ไม่ต้องรัน migration
+
 ## ไฟล์ในโฟลเดอร์นี้
 
 | ไฟล์ | คำอธิบาย |
@@ -52,6 +62,7 @@ sudo -u postgres psql -d aicamera_app -f /home/devuser/aicamera/server/database/
 | grant-lpruser.sql | GRANT สิทธิ์ให้ lpruser (รันหลัง schema ด้วย postgres) |
 | init-aicamera-app.sh | สคริปต์รวม: สร้าง DB + รัน schema + รัน grant (ต้อง sudo) |
 | seed-sample-data.sql | ข้อมูลตัวอย่างสำหรับทุกตาราง (รันหลัง schema; ใช้สำหรับออกแบบ UI และทดสอบ) |
+| migrations/add_detections_archived.sql | เพิ่มคอลัมน์ archived, archived_at ใน detections (สำหรับ DB ที่มีอยู่แล้ว) |
 
 
 
