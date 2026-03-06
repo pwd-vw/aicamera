@@ -101,7 +101,8 @@ export class DeviceService {
     const orderCol = ['timestamp', 'licensePlate', 'confidence', 'createdAt'].includes(sortBy)
       ? `d.${sortBy}`
       : 'd.timestamp';
-    qb.orderBy(orderCol, sortOrder);
+    const order: 'ASC' | 'DESC' = sortOrder === 'ASC' ? 'ASC' : 'DESC';
+    qb.orderBy(orderCol, order);
     return qb.getMany();
   }
 

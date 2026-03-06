@@ -30,7 +30,32 @@ sio.emit('message', 'Hello from client')
 sio.emit('message', {'content': 'Detection result', 'camera_id': 'cam01'})
 ```
 
-**ผลลัพธ์:** บันทึกในไฟล์ `receive_message.log` ที่โฟลเดอร์ server root
+**ผลลัพธ์ (ทั่วไป):** บันทึกในไฟล์ `receive_message.log` ที่โฟลเดอร์ server root
+
+#### 1.1 ส่งผลตรวจจับ (detection_result) เพื่อบันทึกลงฐานข้อมูล
+
+ถ้าข้อความมีรูปแบบเป็น `type: "detection_result"` จะถูก ws-service ส่งต่อไป backend-api เพื่อบันทึกลงฐานข้อมูล (ตาราง `cameras`, `detections`) ซึ่งหน้า Dashboard ที่ `/server/` จะดึงข้อมูลจาก DB มาแสดง
+
+**ตัวอย่าง (object detection_result):**
+
+```python
+sio.emit('message', {
+    # camera_id ใช้เป็นตัวตั้งต้นสำหรับ register กล้อง (cameras.camera_id)
+    'camera_id': '2',
+    'type': 'detection_result',
+    'aicamera_id': '2',
+    'checkpoint_id': '2',
+    'timestamp': '2026-03-05T08:00:00.000Z',
+    'vehicles_count': 1,
+    'plates_count': 1,
+    # ocr_results อาจเป็น array หรือ JSON string ก็ได้
+    'ocr_results': [{'text': 'TEST123', 'confidence': 0.90}],
+    # optional
+    'vehicle_detections': [],
+    'plate_detections': [],
+    'processing_time_ms': 12
+})
+```
 
 ---
 

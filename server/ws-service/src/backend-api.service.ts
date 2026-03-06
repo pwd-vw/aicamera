@@ -3,6 +3,14 @@ import axios, { AxiosInstance } from 'axios';
 
 const DEFAULT_BACKEND_URL = 'http://localhost:3000/server/api';
 
+function normalizeBackendApiBaseUrl(input: string): string {
+  const trimmed = String(input || '').trim().replace(/\/+$/, '');
+  if (!trimmed) return DEFAULT_BACKEND_URL;
+  // ws-service must call backend-api with global prefix `/server/api`
+  if (/\/server\/api$/i.test(trimmed)) return trimmed;
+  return `${trimmed}/server/api`;
+}
+
 export interface CameraRegisterPayload {
   camera_id: string;
   checkpoint_id: string;
@@ -50,7 +58,9 @@ export class BackendApiService {
   private readonly client: AxiosInstance;
 
   constructor() {
-    const baseURL = process.env.BACKEND_API_URL || DEFAULT_BACKEND_URL;
+    const baseURL = normalizeBackendApiBaseUrl(
+      process.env.BACKEND_API_URL || DEFAULT_BACKEND_URL,
+    );
     this.client = axios.create({
       baseURL,
       timeout: 10000,
@@ -66,28 +76,58 @@ export class BackendApiService {
     return data;
   }
 
+  /** Parse value that may be JSON string (edge often sends ocr_results/vehicle_detections as string). */
+  private parseJsonArray<T = unknown>(val: unknown): T[] {
+    if (Array.isArray(val)) return val as T[];
+    if (typeof val === 'string') {
+      try {
+        const parsed = JSON.parse(val);
+        return Array.isArray(parsed) ? (parsed as T[]) : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  }
+
   async createDetections(
     cameraIdUuid: string,
     content: DetectionResultContent,
   ): Promise<DetectionResponse[]> {
     const timestamp = content.timestamp || content.created_at || new Date().toISOString();
     const results: DetectionResponse[] = [];
-    const ocrResults = content.ocr_results ?? [];
+    const ocrResults = this.parseJsonArray<{ text?: string; confidence?: number }>(content.ocr_results as unknown);
+    const vehicleDetections = this.parseJsonArray(content.vehicle_detections as unknown);
+    const plateDetections = this.parseJsonArray(content.plate_detections as unknown);
     const metadata: Record<string, unknown> = {
       vehicles_count: content.vehicles_count,
       plates_count: content.plates_count,
-      vehicle_detections: content.vehicle_detections ?? [],
-      plate_detections: content.plate_detections ?? [],
+      vehicle_detections: vehicleDetections,
+      plate_detections: plateDetections,
       processing_time_ms: content.processing_time_ms,
     };
     for (const ocr of ocrResults) {
-      const licensePlate = String(ocr.text).slice(0, 20);
-      const confidence = Math.min(1, Math.max(0, Number(ocr.confidence)));
+      const text = ocr && typeof ocr === 'object' && 'text' in ocr ? ocr.text : undefined;
+      const licensePlate = (text != null ? String(text) : '-').slice(0, 20);
+      const rawConf = ocr && typeof ocr === 'object' && 'confidence' in ocr ? ocr.confidence : 0;
+      const confidence = Number(rawConf);
+      const safeConfidence = Number.isFinite(confidence) ? Math.min(1, Math.max(0, confidence)) : 0;
       const { data } = await this.client.post<DetectionResponse>('/detections', {
         cameraId: cameraIdUuid,
         timestamp,
         licensePlate,
-        confidence,
+        confidence: safeConfidence,
+        imagePath: null,
+        metadata,
+      });
+      results.push(data);
+    }
+    if (results.length === 0 && (vehicleDetections.length > 0 || plateDetections.length > 0)) {
+      const { data } = await this.client.post<DetectionResponse>('/detections', {
+        cameraId: cameraIdUuid,
+        timestamp,
+        licensePlate: '-',
+        confidence: 0,
         imagePath: null,
         metadata,
       });

@@ -169,6 +169,13 @@ backend-api โหลด `.env` เองจากโฟลเดอร์ที
 - รัน MQTT broker แยก (ถ้าต้องการ) แล้วตั้ง `MQTT_URL`, `MQTT_RECEIVE_LOG`
 - รูปแบบ topic และ payload จาก Edge ดูได้ที่ [../mqtt-service/MQTT_CLIENT_GUIDE.md](../mqtt-service/MQTT_CLIENT_GUIDE.md)
 
+**ให้ Edge เข้าถึง broker ผ่าน Tailscale (lprserver.tail605477.ts.net)**  
+Broker ต้องฟังทุก interface (`0.0.0.0`) ไม่ใช่แค่ localhost. ใช้ Mosquitto แล้วตรวจดังนี้:
+
+1. **Config:** ใน `/etc/mosquitto/mosquitto.conf` ต้องมี `listener 1883 0.0.0.0`. ไฟล์ใน `conf.d/` (เช่น `aicamera.conf`) อย่า override เป็น `127.0.0.1`.
+2. **Process ที่ยึดพอร์ต:** init script ใช้ `CONFFILE=/etc/mosquitto/mosquitto.conf` (ดู `/etc/init.d/mosquitto`). ถ้า `ss -tlnp | grep 1883` ยังแสดง `127.0.0.1:1883` แปลว่ามี process อื่นยึด 1883 อยู่ (หรือรัน Mosquitto ด้วย config อื่น). หยุด service แล้วรัน `ss -tlnp | grep 1883` ถ้ายังมี process อยู่ให้ใช้ `sudo lsof -i :1883` หา PID แล้วจัดการ process นั้น จากนั้น `sudo systemctl restart mosquitto` แล้วตรวจอีกครั้ง — ควรเห็น `0.0.0.0:1883`.
+3. **Edge:** บนเครื่อง Edge (เช่น aicamera1) ตั้ง `MQTT_BROKER_HOST=lprserver.tail605477.ts.net` ใน `.env.production` (ไม่ใช้ `localhost`) เพื่อให้เชื่อม broker บน server ผ่าน Tailscale.
+
 ### 4.5 Build ให้พร้อมทำงาน
 
 ก่อนรัน service ต้อง build โปรเจกต์ที่ใช้ TypeScript/Node ให้ได้โฟลเดอร์ `dist/` (และ frontend ได้ `dist/` สำหรับ Nginx serve ที่ `/server/`).
@@ -260,6 +267,31 @@ psql -U lpruser -d aicamera_app -c "SELECT id, camera_id, timestamp, status, cpu
 
 ถ้าเชื่อมต่อไม่ได้ (เช่น "password authentication failed") ให้ตรวจว่า user `lpruser` มีอยู่และรหัสผ่านตรงกับที่ใส่ใน `DATABASE_URL` ใน `server/backend-api/.env`. ถ้าไม่มี database `aicamera_app` ให้รัน `server/database/init-aicamera-app.sh` ตาม §4.1.
 
+### 4.7 Schema และ Migration — ข้อกำหนดความสอดคล้อง
+
+**หลักการ:** โครงสร้างตารางใน PostgreSQL ต้องตรงกับ TypeORM entities ใน backend-api (เช่น `server/backend-api/src/entities/*.entity.ts`). ถ้า entity มีคอลัมน์ที่ตารางยังไม่มี API จะ error (เช่น 500, รหัส 42703 column does not exist).
+
+- **DB ใหม่:** ใช้ `schema.sql` ปัจจุบัน (มี `detections.archived`, `detections.archived_at` อยู่แล้ว). รัน `init-aicamera-app.sh` ตาม §4.1 แล้วไม่ต้องรัน migration.
+- **DB ที่มีอยู่แล้ว (สร้างก่อนมีคอลัมน์ archived ใน detections):** ต้องรัน migration ที่เกี่ยวข้อง. รายการ migration ที่ใช้ในปัจจุบัน:
+
+| ไฟล์ migration | เพิ่ม/แก้ไข | เมื่อใดต้องรัน |
+|----------------|-------------|-----------------|
+| `migrations/add_detections_archived.sql` | เพิ่มคอลัมน์ `archived`, `archived_at` ในตาราง `detections` | เมื่อ log backend แสดง **column d.archived does not exist** (รหัส 42703) หรือเมื่อ GET /detections คืน 500 จาก query นี้ |
+
+**คำสั่งรัน migration (ครั้งเดียวต่อ DB):**
+
+```bash
+sudo -u postgres psql -d aicamera_app -f /home/devuser/aicamera/server/database/migrations/add_detections_archived.sql
+```
+
+จากนั้น `sudo systemctl restart backend-api` (หรือ restart process ที่รัน backend-api).
+
+**Checklist สำหรับ developer ที่รับงานต่อ (หรือ clone repo ใหม่):**
+
+1. ถ้า **สร้าง DB ใหม่** → รัน `./server/database/init-aicamera-app.sh` ตาม §4.1 (schema ปัจจุบันครบแล้ว).
+2. ถ้า **ใช้ DB ที่มีอยู่แล้ว** และเกิด 500 จาก GET /detections หรือ log แสดง "column d.archived does not exist" → รัน migration ด้านบน (§4.7, §6.3).
+3. หลังเพิ่มคอลัมน์/ตารางใน `schema.sql` หรือใน entity ใหม่ ต้องมี migration ใน `server/database/migrations/` สำหรับ DB ที่มีอยู่แล้ว และบันทึกในคู่มือนี้ (§4.7) และใน `server/database/README-aicamera-app.md` เพื่อไม่ให้เกิด conflict หรือลืมรัน.
+
 ---
 
 ## 5. เมื่อ Boot server ใหม่ หรือเริ่มระบบ
@@ -333,7 +365,34 @@ sudo systemctl start backend-api websocket mqtt
 | ข้อมูลจาก DB ไม่แสดงใน Dashboard | backend-api ไม่รัน หรือ DATABASE_URL ผิด หรือ Nginx proxy ผิด | ตรวจว่า backend-api รันและ `DATABASE_URL` ถูกต้อง; ตรวจ Nginx ตามข้อแรก |
 | ws-service เรียก backend ไม่ถึง (404) | BACKEND_API_URL ไม่มี path `/server/api` | ตั้ง `BACKEND_API_URL=http://localhost:3000/server/api` (หรือ host จริงที่ backend รัน) |
 | ภาพ detection ไม่โหลด | backend อ่านไฟล์จาก `detection.imagePath` ไม่ได้ | ให้ backend กับ ws-service ใช้ filesystem เดียวกัน (หรือ shared storage) สำหรับ `storage/` |
+| **Detection แสดง Internal Server Error (500)** | (ก) Backend รับ request ไม่ถึงหรือ path ผิด (ข) Query/DB error ใน GET /detections (ค) ตาราง/ view ไม่มีหรือ schema ไม่ตรง | ดู §6.3 — ตรวจ log backend, Nginx proxy `/server/api/`, และ schema ตาราง `detections` |
+| **Error ใน log: column d.archived does not exist (รหัส 42703)** | ตาราง `detections` ถูกสร้างจาก schema เก่าที่ยังไม่มีคอลัมน์ `archived`, `archived_at` | รัน migration ตาม §4.7 และ §6.3: `sudo -u postgres psql -d aicamera_app -f server/database/migrations/add_detections_archived.sql` แล้ว restart backend-api |
 | MQTT ได้แค่ log ไม่เห็นใน Dashboard | mqtt-service ยังไม่เขียนลง DB | ปัจจุบันออกแบบให้ log อย่างเดียว; ดูแผนพัฒนาต่อ MQTT → DB ด้านล่าง |
+
+### 6.3 แก้ Detection แสดง Internal Server Error (500)
+
+เมื่อหน้า `/server/` ในส่วน **Detections** แสดงข้อความโหลดไม่สำเร็จหรือ "Internal Server Error" แปลว่า `GET /server/api/detections` คืนสถานะ 500.
+
+**ขั้นตอนตรวจและแก้:**
+
+1. **ตรวจว่า request ถึง backend และ path ถูก:**  
+   บนเครื่อง server รัน `curl -s -w "\n%{http_code}" "http://127.0.0.1:3000/server/api/detections?limit=10"`. ถ้าได้ 500 แปลว่าปัญหาอยู่ที่ backend (ไม่ใช่ Nginx). ถ้าได้ 502 หรือ connection refused ดู §6.1, §6.2.
+
+2. **ดู log ของ backend-api** เพื่อดู exception จริง:  
+   `journalctl -u backend-api -n 50 --no-pager` หรือ `npm run start` แล้วเรียก API อีกครั้ง แล้วดู stack trace ใน console.
+
+   **สาเหตุที่พบบ่อยและวิธีแก้:**
+
+   | ข้อความใน log (หรือรหัส) | สาเหตุ | วิธีแก้ |
+   |---------------------------|--------|--------|
+   | **column d.archived does not exist** หรือ PostgreSQL error code **42703** (undefined_column) | ตาราง `detections` ยังไม่มีคอลัมน์ `archived`, `archived_at` (DB สร้างจาก schema เก่า หรือยังไม่รัน migration) | รัน migration ครั้งเดียว: `sudo -u postgres psql -d aicamera_app -f /home/devuser/aicamera/server/database/migrations/add_detections_archived.sql` จากนั้น `sudo systemctl restart backend-api` (ดู §4.7) |
+   | ต่อ DB ไม่ได้ (เช่น password authentication failed) | `DATABASE_URL` ผิด หรือ DB ไม่ขึ้น | แก้ตาม §6.1 |
+   | ตาราง `detections` หรือ view ไม่มี | ยังไม่รัน schema หรือรันไม่ครบ | รัน `server/database/init-aicamera-app.sh` หรือรัน schema.sql + grant-lpruser.sql ตาม §4.1; ถ้า DB มีอยู่แล้วแต่ขาดคอลัมน์ให้รัน migrations ตาม §4.7 |
+   | Query parameter (sortBy/sortOrder) ผิดรูปแบบ | TypeORM สร้าง SQL ผิด | โค้ดล่าสุด validate แล้ว; อัปเดต backend-api หรือส่งเฉพาะ `sortBy=timestamp`, `sortOrder=DESC` |
+
+3. **ตรวจ Nginx:** ถ้าเรียกผ่าน host จริง (เช่น `http://lprserver.tail605477.ts.net/server/api/detections`) แล้วได้ 500 ให้เรียกตรงที่ `http://127.0.0.1:3000/server/api/detections` บนเครื่อง server. ถ้าที่ localhost ได้ 200 แปลว่า Nginx ส่ง request ไป backend แล้ว แต่ backend อาจได้ request คนละแบบ (เช่น path ถูกตัด). ตรวจ `proxy_pass` ต้องเป็น `http://127.0.0.1:3000/server/api/` (มี path `/server/api/` ด้วย).
+
+4. **หลังแก้:** รีสตาร์ท backend-api แล้วลองเปิดหน้า Detection อีกครั้ง.
 
 ### 6.1 แก้ 502 Bad Gateway / password authentication failed (backend-api)
 
@@ -465,10 +524,44 @@ flowchart LR
 
 ---
 
-## 9. หมายเหตุเอกสาร
+## 9. ข้อกำหนดเทคนิคและความสอดคล้อง (Technical constraints)
+
+ส่วนนี้บันทึกข้อกำหนดและวิธีการที่ใช้ในปัจจุบัน เพื่อป้องกันการเปลี่ยนไปใช้เทคนิคหรือค่าที่ขัดแย้งโดยไม่ตั้งใจ และให้ developer ที่รับงานต่อ (อาจไม่ได้พัฒนาต่อเนื่อง) ใช้ต่อยอดได้โดยไม่ conflict.
+
+### 9.1 Database และ Schema
+
+| ข้อกำหนด | ค่า/วิธีการที่ใช้ | หมายเหตุ |
+|----------|-------------------|----------|
+| โครงสร้างตาราง | ต้องตรงกับ TypeORM entities ใน `server/backend-api/src/entities/` | ถ้าเพิ่มคอลัมน์ใน entity ต้องมีคอลัมน์ใน DB (รัน schema ใหม่หรือ migration). ถ้าไม่ตรง จะเกิด error เช่น 42703 column does not exist → ดู §4.7, §6.3 |
+| ตาราง detections | มีคอลัมน์ `archived` (BOOLEAN DEFAULT false), `archived_at` (TIMESTAMP WITH TIME ZONE) | ใช้สำหรับ soft delete/archive ใน Frontend. DB ที่สร้างจาก schema เก่าต้องรัน `migrations/add_detections_archived.sql` |
+| Migration | เก็บใน `server/database/migrations/` และบันทึกใน §4.7 และ `server/database/README-aicamera-app.md` | เมื่อเพิ่มคอลัมน์/ตารางใน schema หรือ entity ต้องมี migration สำหรับ DB ที่มีอยู่แล้ว |
+
+### 9.2 API และ Nginx
+
+| ข้อกำหนด | ค่า/วิธีการที่ใช้ | หมายเหตุ |
+|----------|-------------------|----------|
+| Backend API prefix | `server/api` (setGlobalPrefix ใน backend-api main.ts) | Nginx ต้องส่ง path เต็ม: `proxy_pass http://127.0.0.1:3000/server/api/` ไม่ใช่แค่ origin |
+| BACKEND_API_URL (ws-service) | ต้องลงท้ายด้วย `/server/api` | เช่น `http://localhost:3000/server/api` เพื่อให้ request ไปที่ /detections, /cameras/register ฯลฯ ถูก path |
+| Frontend API base | `window.location.origin + '/server/api'` | ไม่ hardcode host; ใช้ origin เดียวกับหน้าเว็บ |
+
+### 9.3 Storage และภาพ Detection
+
+| ข้อกำหนด | ค่า/วิธีการที่ใช้ | หมายเหตุ |
+|----------|-------------------|----------|
+| เก็บภาพ detection | backend-api และ ws-service ต้องใช้ filesystem (หรือ shared volume) เดียวกันสำหรับ `storage/` | เพื่อให้ `GET /server/api/detections/:id/image` อ่านไฟล์จาก `detection.imagePath` ได้ |
+
+### 9.4 บันทึกปัญหาและการแก้ไข (เพื่อไม่ให้เกิดซ้ำ)
+
+| ปัญหา (อาการ / ข้อความใน log) | สาเหตุ | วิธีแก้ (สรุป) | อ้างอิงในคู่มือ |
+|--------------------------------|--------|----------------|------------------|
+| Detection แสดง Internal Server Error (500); log: **column d.archived does not exist** (PostgreSQL 42703) | ตาราง `detections` ยังไม่มีคอลัมน์ `archived`, `archived_at` | รัน `sudo -u postgres psql -d aicamera_app -f .../migrations/add_detections_archived.sql` แล้ว restart backend-api | §4.7, §6.3, ตารางอาการ §6 |
+
+---
+
+## 10. หมายเหตุเอกสาร
 
 - **Backend TypeORM:** การ integrate backend-api กับ PostgreSQL (entities, DeviceModule, REST ครบ) ดำเนินการแล้ว; รายละเอียดตาม schema ใน `server/database/schema.sql` และ README ใน `server/database/`.
 - **Frontend ตาราง + Seed:** ServerHome.vue แสดงทุกตารางพร้อม fallback columns เมื่อว่าง; ข้อมูลตัวอย่างใช้ `server/database/seed-sample-data.sql` (รันหลัง schema).
-- **Detections Archive:** ตาราง `detections` รองรับคอลัมน์ `archived`, `archived_at` (soft delete). ถ้า DB มีอยู่แล้วให้รัน `server/database/migrations/add_detections_archived.sql`; schema ใหม่มีคอลัมน์นี้แล้ว.
+- **Detections Archive:** ตาราง `detections` รองรับคอลัมน์ `archived`, `archived_at` (soft delete). **ถ้า DB มีอยู่แล้วและยังไม่มีคอลัมน์นี้** ให้รัน `server/database/migrations/add_detections_archived.sql` (ดู §4.7, §6.3); schema ใหม่ (schema.sql) มีคอลัมน์นี้แล้ว.
 - **E2E และ Debug:** [E2E_TEST_AND_DEBUG.md](E2E_TEST_AND_DEBUG.md).
 - เอกสารเดิม `BACKEND_POSTGRESQL_PROGRESS.md` และ `PLAN_FRONTEND_TABLES_AND_SEED_DATA.md` ยุบรวม/ลบเพื่อลดความซ้ำซ้อน — สรุปอยู่ในคู่มือนี้และ PROJECT_CONTEXT.md

@@ -46,13 +46,20 @@ sudo -u postgres psql -d aicamera_app -f /home/devuser/aicamera/server/database/
 
 ## Migration (ตารางที่มีอยู่แล้ว)
 
-ถ้าสร้าง DB มาก่อนที่ schema จะมีคอลัมน์ `archived` / `archived_at` ในตาราง `detections` ให้รัน:
+ถ้าสร้าง DB มาก่อนที่ schema จะมีคอลัมน์ `archived` / `archived_at` ในตาราง `detections` หรือเมื่อเกิดอาการดังนี้:
+
+- **GET /server/api/detections คืน 500** และใน log ของ backend-api มีข้อความ **column d.archived does not exist** (PostgreSQL error code 42703)
+
+ให้รัน migration ครั้งเดียว:
 
 ```bash
 sudo -u postgres psql -d aicamera_app -f /home/devuser/aicamera/server/database/migrations/add_detections_archived.sql
 ```
 
-Schema ใหม่ (schema.sql) มีคอลัมน์นี้แล้ว ไม่ต้องรัน migration
+จากนั้นรีสตาร์ท backend-api: `sudo systemctl restart backend-api` (หรือ restart process ที่รัน backend-api)
+
+- Schema ปัจจุบัน (schema.sql) มีคอลัมน์นี้แล้ว — ถ้าสร้าง DB ใหม่ด้วย `init-aicamera-app.sh` ไม่ต้องรัน migration
+- รายละเอียดเพิ่มเติมและ checklist สำหรับ developer ที่รับงานต่อ: ดู [DEVELOPER_HANDBOOK.md](../docs/DEVELOPER_HANDBOOK.md) §4.7 และ §6.3
 
 ## ไฟล์ในโฟลเดอร์นี้
 

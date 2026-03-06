@@ -96,18 +96,25 @@ export class DeviceController {
     @Query('archived') archived?: string,
     @Query('search') search?: string,
     @Query('sortBy') sortBy?: string,
-    @Query('sortOrder') sortOrder?: 'ASC' | 'DESC',
+    @Query('sortOrder') sortOrder?: string,
   ) {
     const archivedParam =
       archived === 'true' ? true : archived === 'false' ? false : undefined;
+    const limitNum = limit ? parseInt(limit, 10) : 500;
+    const offsetNum = offset ? parseInt(offset, 10) : 0;
+    const safeLimit = Number.isFinite(limitNum) && limitNum > 0 ? Math.min(limitNum, 2000) : 500;
+    const safeOffset = Number.isFinite(offsetNum) && offsetNum >= 0 ? offsetNum : 0;
+    const allowedSortBy = ['timestamp', 'licensePlate', 'confidence', 'createdAt'];
+    const safeSortBy = sortBy && allowedSortBy.includes(sortBy) ? sortBy : 'timestamp';
+    const safeSortOrder = sortOrder === 'ASC' || sortOrder === 'DESC' ? sortOrder : 'DESC';
     return this.deviceService.findAllDetections(
       cameraId,
-      limit ? parseInt(limit, 10) : 500,
-      offset ? parseInt(offset, 10) : 0,
+      safeLimit,
+      safeOffset,
       archivedParam,
       search,
-      sortBy || 'timestamp',
-      sortOrder || 'DESC',
+      safeSortBy,
+      safeSortOrder,
     );
   }
 
