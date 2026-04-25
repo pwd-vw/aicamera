@@ -38,8 +38,16 @@
       <div class="skeleton-tile" v-for="n in 3" :key="n" />
     </div>
 
+    <!-- 24h Hourly Chart -->
+    <div class="section-title">Detections — Last 24 Hours</div>
+    <div class="chart-panel panel">
+      <HourlyChart v-if="hourlyData.length" :hourly-data="hourlyData" />
+      <div v-else-if="loading" class="skeleton-chart" />
+      <div v-else class="chart-empty text-muted">No detections in the last 24 hours.</div>
+    </div>
+
     <!-- Recent detections feed -->
-    <div class="section-title">
+    <div class="section-title" style="margin-top:1.5rem">
       Recent Detections
       <span class="live-badge" v-if="socketOk">● LIVE</span>
     </div>
@@ -64,18 +72,20 @@
 </template>
 
 <script>
-import MetricCard from '@/components/shared/MetricCard.vue';
-import StatusDot  from '@/components/shared/StatusDot.vue';
-import api        from '@/api/index.js';
+import MetricCard   from '@/components/shared/MetricCard.vue';
+import StatusDot    from '@/components/shared/StatusDot.vue';
+import HourlyChart  from '@/components/charts/HourlyChart.vue';
+import api          from '@/api/index.js';
 import { useSocket } from '@/composables/useSocket.js';
 
 export default {
   name: 'MainDashboard',
-  components: { MetricCard, StatusDot },
+  components: { MetricCard, StatusDot, HourlyChart },
   data() {
     return {
       cameras: [],
       recentDetections: [],
+      hourlyData: [],
       kpi: { online: 0, today: 0, total: 0, health: 0 },
       clock: '',
       loading: true,
@@ -121,11 +131,26 @@ export default {
       this.kpi.online = this.cameras.filter(c => this.cameraStatus(c) === 'online').length;
     },
     async loadDetections() {
-      const all = await api.getDetections({ limit: 20, sortBy: 'timestamp', sortOrder: 'DESC' });
-      this.recentDetections = all.slice(0, 20);
-      this.kpi.total = all.length;
+      const batch = await api.getDetections({ limit: 500, sortBy: 'timestamp', sortOrder: 'DESC' });
+      this.recentDetections = batch.slice(0, 20);
+      this.kpi.total = batch.length;
       const today = new Date().toDateString();
-      this.kpi.today = all.filter(d => new Date(d.timestamp).toDateString() === today).length;
+      this.kpi.today = batch.filter(d => new Date(d.timestamp).toDateString() === today).length;
+      this.hourlyData = this.buildHourlyData(batch);
+    },
+    buildHourlyData(detections) {
+      const now = new Date();
+      const buckets = Array(24).fill(0);
+      detections.forEach(d => {
+        const diff = now - new Date(d.timestamp);
+        const hoursAgo = Math.floor(diff / 3600000);
+        if (hoursAgo >= 0 && hoursAgo < 24) buckets[23 - hoursAgo]++;
+      });
+      const curHour = now.getHours();
+      return buckets.map((count, i) => {
+        const h = (curHour - 23 + i + 24) % 24;
+        return { label: String(h).padStart(2, '0'), count };
+      });
     },
     async loadHealth() {
       const h = await api.getCameraHealth({ limit: 50 });
@@ -235,6 +260,17 @@ export default {
   font-size: 11px;
 }
 .tile-cpu { color: var(--text-secondary); }
+
+/* Chart */
+.chart-panel { padding: 1rem 1.25rem; }
+.chart-empty { padding: 2rem 0; text-align: center; font-size: 13px; }
+.skeleton-chart {
+  height: 180px;
+  background: linear-gradient(90deg, var(--bg-panel) 25%, var(--bg-surface) 50%, var(--bg-panel) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: var(--radius-md);
+}
 
 /* Feed */
 .detection-feed { padding: 0; overflow: hidden; }
