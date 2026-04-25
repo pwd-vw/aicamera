@@ -1,0 +1,33 @@
+---
+description: Server (new stack) context and rules — backend-api, ws-service, mqtt-service, frontend-app, database, nginx
+globs: server/**/*
+alwaysApply: false
+---
+
+# Server New Stack — Context & Rules
+
+เมื่อแก้ไขหรือเพิ่มฟีเจอร์ภายใต้ `server/` ให้อ้างอิงบริบทและหลักการต่อไปนี้
+
+## Context อ้างอิง
+
+- **สรุปโครงการและหลักการ:** `.cursor/PROJECT_CONTEXT.md`
+- **สถาปัตยกรรม, setup, แก้ปัญหา:** `server/docs/DEVELOPER_HANDBOOK.md`
+- **Payload WebSocket จาก Edge:** `.cursor/plan.md` หรือ `server/ws-service/WEBSOCKET_CLIENT_GUIDE.md`
+- **MQTT:** `server/mqtt-service/MQTT_CLIENT_GUIDE.md`
+
+## Rules บังคับ
+
+1. **ไม่ใส่รหัสผ่านจริง** ในโค้ดหรือเอกสาร; ใช้ env และ placeholder (เช่น `YOUR_PASSWORD`) ในตัวอย่าง
+2. **BACKEND_API_URL** (ws-service) ต้องรวม path: `http://<host>:3000/server/api` ไม่ใช่แค่ origin
+3. **Nginx** `location /server/api/` ต้องใช้ `proxy_pass http://127.0.0.1:3000/server/api/` (path เต็ม)
+4. **Storage ภาพ:** backend-api กับ ws-service ต้องใช้ filesystem เดียวกันสำหรับ `storage/` เพื่อให้ `GET /server/api/detections/:id/image` อ่านไฟล์ได้
+5. **Frontend API base:** ใช้ `window.location.origin + '/server/api'`; ตารางว่างใช้ `fallbackColumns` ใน ServerHome.vue แสดงหัวคอลัมน์
+6. **Database:** สร้าง/รัน schema ด้วย superuser (postgres); grant ให้ lpruser; ใช้ `aicamera_app`; ข้อมูลตัวอย่างรัน `seed-sample-data.sql` หลัง schema
+
+## Data Flow สรุป
+
+- WebSocket: Edge → ws-service → backend-api (HTTP) → PostgreSQL; ภาพ → storage/
+- MQTT: `camera/+/health`, `camera/+/status` → mqtt-service → backend-api → cameras + camera_health; แสดงใน Edge Control (`/server/edge_control`). Topics อื่นยัง log อย่างเดียว
+- Frontend ดึงข้อมูลจาก `/server/api` (cameras, detections, camera-health, cameras/edge-status, analytics, system-events, visualizations, analytics-events)
+
+เมื่อเปลี่ยนสถาปัตยกรรมหรือขั้นตอน setup ให้อัปเดต DEVELOPER_HANDBOOK.md และ PROJECT_CONTEXT.md ตามความเหมาะสม
