@@ -101,3 +101,5 @@ edge/db/
 
 #images
 *.jpg
+CLAUDE.md
+.claude/
