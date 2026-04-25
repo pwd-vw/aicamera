@@ -11,14 +11,22 @@ export interface CameraRegisterPayload {
 
 export interface MqttHealthPayload {
   camera_id?: string;
+  device_id?: string;
   checkpoint_id?: string;
   status?: string;
   timestamp?: string;
+  // Standard field names (original)
   cpu_percent?: number;
   memory_percent?: number;
   disk_free_gb?: number;
   temperature_c?: number;
   uptime_seconds?: number;
+  // Actual field names sent by aicamera2 edge device
+  cpu_usage?: number;
+  cpu_temp?: number;
+  memory_usage?: number;
+  disk_usage?: number;
+  uptime?: number;
   battery_percent?: number;
   network_connected?: boolean;
   location_lat?: number;
@@ -59,31 +67,41 @@ export class BackendApiService {
     payload: MqttHealthPayload,
   ): Promise<{ id: string }> {
     const timestamp = payload.timestamp || new Date().toISOString();
+
+    // Resolve field values — accept both standard and aicamera2 edge field names
+    const cpuUsageVal = payload.cpu_percent ?? payload.cpu_usage;
+    const memUsageVal = payload.memory_percent ?? payload.memory_usage;
+    const tempVal = payload.temperature_c ?? payload.cpu_temp;
+    const uptimeVal = payload.uptime_seconds ?? payload.uptime;
+    const diskUsageVal = payload.disk_usage;
+
     const status =
       payload.status ||
-      (payload.cpu_percent != null && payload.cpu_percent > 90 ? 'degraded' : 'healthy');
+      (cpuUsageVal != null && cpuUsageVal > 90 ? 'degraded' : 'healthy');
+
+    // Strip mapped and administrative fields from metadata
     const metadata: Record<string, unknown> = { ...payload };
-    delete metadata.camera_id;
-    delete metadata.checkpoint_id;
-    delete metadata.timestamp;
-    delete metadata.status;
-    delete metadata.cpu_percent;
-    delete metadata.memory_percent;
-    delete metadata.disk_free_gb;
-    delete metadata.temperature_c;
-    delete metadata.uptime_seconds;
+    for (const k of [
+      'camera_id', 'device_id', 'checkpoint_id', 'timestamp', 'status',
+      'cpu_percent', 'cpu_usage', 'memory_percent', 'memory_usage',
+      'temperature_c', 'cpu_temp', 'uptime_seconds', 'uptime',
+      'disk_usage',
+    ]) {
+      delete metadata[k];
+    }
 
     const body: Record<string, unknown> = {
       cameraId: cameraIdUuid,
-      timestamp: timestamp,
+      timestamp,
       status: String(status).slice(0, 50),
       metadata,
     };
-    if (payload.cpu_percent != null) body['cpuUsage'] = Number(payload.cpu_percent);
-    if (payload.memory_percent != null) body['memoryUsage'] = Number(payload.memory_percent);
+    if (cpuUsageVal != null) body['cpuUsage'] = Number(cpuUsageVal);
+    if (memUsageVal != null) body['memoryUsage'] = Number(memUsageVal);
+    if (tempVal != null) body['temperature'] = Number(tempVal);
+    if (uptimeVal != null) body['uptimeSeconds'] = Number(uptimeVal);
+    if (diskUsageVal != null) body['diskUsage'] = Number(diskUsageVal);
     if (payload.disk_free_gb != null) metadata['disk_free_gb'] = payload.disk_free_gb;
-    if (payload.temperature_c != null) body['temperature'] = Number(payload.temperature_c);
-    if (payload.uptime_seconds != null) body['uptimeSeconds'] = Number(payload.uptime_seconds);
 
     const { data } = await this.client.post<{ id: string }>('/camera-health', body);
     return data;

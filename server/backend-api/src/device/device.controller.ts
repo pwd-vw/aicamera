@@ -134,14 +134,6 @@ export class DeviceController {
     return this.deviceService.createDetection(body);
   }
 
-  @Patch('detections/:id')
-  async updateDetection(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() body: { archived?: boolean },
-  ) {
-    return this.deviceService.updateDetection(id, body);
-  }
-
   @Patch('detections/image-path')
   async updateDetectionsImagePath(
     @Body() body: { cameraId: string; timestamp: string; imagePath: string },
@@ -151,6 +143,14 @@ export class DeviceController {
       body.timestamp,
       body.imagePath,
     );
+  }
+
+  @Patch('detections/:id')
+  async updateDetection(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: { archived?: boolean },
+  ) {
+    return this.deviceService.updateDetection(id, body);
   }
 
   @Get('camera-health')
