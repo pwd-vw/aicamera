@@ -1,46 +1,32 @@
 <template>
-  <div id="app">
-    <nav class="nav">
-      <router-link to="/">Server (Detection)</router-link>
-      <router-link to="/network">Network</router-link>
-      <router-link to="/edge_control">Edge Control</router-link>
-      <router-link to="/developer">For Developer</router-link>
-    </nav>
-    <main>
+  <div class="app-shell">
+    <Sidebar />
+    <main class="main-content">
       <router-view />
     </main>
   </div>
 </template>
 
 <script>
+import Sidebar from '@/components/layout/Sidebar.vue';
 export default {
-  name: 'App'
-}
+  name: 'App',
+  components: { Sidebar },
+};
 </script>
 
 <style>
-#app {
-  font-family: Avenir, Helvetica, Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  color: #2c3e50;
-  margin: 0;
-  padding: 0 1rem 2rem;
-}
-.nav {
+@import '@/assets/design-tokens.css';
+
+.app-shell {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  padding: 0.75rem 0;
-  border-bottom: 1px solid #dee2e6;
-  margin-bottom: 1rem;
+  min-height: 100vh;
+  background: var(--bg-void);
 }
-.nav a {
-  color: #0d6efd;
-  text-decoration: none;
-  font-weight: 500;
+.main-content {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 100vh;
+  padding: 1.5rem 1.75rem;
 }
-.nav a:hover { text-decoration: underline; }
-.nav a.router-link-active { color: #0a58ca; font-weight: 600; }
-main { min-height: 40vh; }
 </style>
